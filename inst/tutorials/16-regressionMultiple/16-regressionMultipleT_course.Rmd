@@ -1,0 +1,908 @@
+---
+title: "Multiple Regression"
+tutorial:
+  id: "16-Multiple-Regression"
+output: 
+  QPATutorialsCourse::qpa_tutorial:
+    progressive: true
+    allow_skip: true
+runtime: shiny_prerendered
+description: >
+  Learn how to estimate and interpret multiple regression models.
+---
+
+## Overview {#main-content}
+
+In Tutorial 15 you estimated simple regression models --- one dependent variable, one independent variable. That is the right place to start, but every model left most of the variation in the outcome unexplained. That is not a bug. It is a reminder that most outcomes in political and social life have many causes, not one.
+
+Multiple regression is the natural next step. It extends the same `lm()` framework to models with more than one independent variable. This lets you do two things that simple regression cannot. First, you can ask whether a relationship holds up once you account for other factors that might be driving it. Second, you can get a much better fit to the data by modeling several causes at once. The mechanics are almost identical to Tutorial 15 --- the interpretation is where new thinking is required.
+
+The data frames **counties** and **qog** each cover close to a complete population for their unit of analysis --- US counties and countries of the world, respectively. Neither is a random sample the way a public opinion survey is. What makes hypothesis tests appropriate is that our questions are not really about these specific counties and countries; they are about the political and social processes that generate outcomes like the ones we observe.
+
+In this tutorial, you will extend your regression toolkit to models with multiple independent variables. Specifically, we will cover:
+
+* How to estimate a multiple regression model using `lm()` by adding independent variables with `+` in the formula
+* How to interpret coefficients in a multiple regression, including the "all else equal" qualifier that changes meaning compared to simple regression
+* How to choose which variables to include and why, including the logic of controlling for competing explanations
+* How to interpret the slope on a nominal variable with three or more categories, using `factor()` and `relevel()`
+* How to assess model fit using the Adjusted $R^2$ and the residual standard error
+* How to decide when to use the Adjusted $R^2$ rather than the Multiple $R^2$
+
+```{r setup, include=FALSE}
+library(learnr)
+library(learnrhash)
+library(tidyverse)
+library(knitr)
+library(poliscidata)
+library(gradethis)
+library(stargazer)
+tutorial_options(exercise.checker = gradethis::grade_learnr)
+knitr::opts_chunk$set(error = TRUE)
+data("counties", package = "QPATutorialsCourse")
+counties$dem2p_percent <- counties$dem2p_vote_share * 100
+counties$wage_growth <- counties$wage_growth * 100
+counties$Black_percent <- counties$prop_black * 100
+counties$white_percent <- counties$prop_white * 100
+counties$hispanic_percent <- counties$prop_hispanic * 100
+counties$college_grad_percent <- counties$prop_college_grad * 100
+data("qog", package = "QPATutorialsCourse")
+qog$democ[qog$fh_ipolity2 < 4] <- 0
+qog$democ[qog$fh_ipolity2 > 6] <- 2
+qog$democ[qog$fh_ipolity2 >= 4 & qog$fh_ipolity2 <= 6] <- 1
+qog$democ_f <- factor(qog$democ, labels = c("Autocracy", "Partial Democracy", "Democracy"))
+model_gov <- lm(iiag_gov ~ wdi_fertility + bti_eo + democ_f, data = qog)
+model_gov_dem <- lm(iiag_gov ~ wdi_fertility + bti_eo + relevel(democ_f, ref = "Democracy"), data = qog)
+model1 <- lm(dem2p_percent ~ mortality_risk_25_45 + wage_growth + college_grad_percent + hispanic_percent + white_percent + Black_percent, data = counties)
+```
+
+## Why Control for Other Variables?
+
+Before running a model, it is worth being clear about why multiple regression exists in the first place. There are three situations where controlling for other variables matters.
+
+[**Spurious relationships.**]{.important-text} Sometimes a variable appears to predict an outcome, but only because a third variable drives both of them. If county-level health outcomes are poor in places where wages are low, and poor health also makes people more likely to vote against the incumbent, then part of what looks like a "wage growth effect" on the vote might really be a "health effect" in disguise. Including a health measure in the model lets us see the wage growth effect after the health effect has been taken into account --- and if the wage growth coefficient shrinks or disappears, we have learned something important about what was really going on.
+
+[**Multiple correlated causes.**]{.important-text} Most outcomes have several causes that are correlated with each other. Counties with higher college-educated populations tend to have higher wage growth and lower mortality risk. If we omit any one of these from the model, the coefficient on the others will be off --- each included variable will pick up some of the effect that really belongs to the omitted one. This is called [**omitted variable bias**]{.important-text}, and it is the main reason you will almost never see a published regression with only one independent variable.
+
+[**Conditional relationships.**]{.important-text} Sometimes the effect of one variable depends on the level of another. We will address this case in Tutorial 17.
+
+The remedy in the first two cases is the same: include the relevant variables in the model. Once you do, each coefficient is estimated holding the other variables constant. That is the meaning of the phrase you will see throughout this tutorial: [**controlling for all other variables in the model**]{.important-text}, or equivalently, [**all else equal**]{.important-text}.
+
+## Does Wage Growth Predict Clinton's Vote, Controlling for Other County Characteristics?
+
+In Tutorial 15, you estimated the simple regression of **dem2p_percent** on **wage_growth** alone and found a positive relationship --- counties with higher wage growth gave more votes to Hillary Clinton, a sensible finding if voters reward the incumbent party for economic gains. But that model had only one independent variable. Counties with higher wage growth also tend to have more college-educated residents, lower mortality rates, and a different demographic mix. Any or all of those factors independently predict the vote. If we want to know the effect of wage growth *specifically* --- not the combined effect of wage growth plus everything correlated with it --- we need to include the others.
+
+::: {.hypothesis}
+In a comparison of counties, those with higher wage growth will cast a higher percent of the two-party vote for Hillary Clinton, after controlling for county-level mortality risk, educational attainment, and racial composition.
+:::
+
+We will use the data frame **counties**. Our dependent variable is again **dem2p_percent**, the percent of the two-party vote cast for Hillary Clinton. The independent variables and the reasons for including each are:
+
+- **wage_growth**: the percent by which wages grew or fell in the county --- our main predictor of interest
+- **mortality_risk_25_45**: the probability of dying between ages 25 and 45, expressed as a percent --- a measure of county health conditions; counties with lower wages also tend to have higher mortality risk, so omitting this would cause wage growth to pick up some of the mortality effect (omitted variable bias)
+- **college_grad_percent**: the percent of county residents with a college degree --- college-educated counties tend to have higher wage growth AND vote more Democratic, so omitting this would also bias the wage growth estimate
+- **hispanic_percent**, **white_percent**, **Black_percent**: the percent of county residents in each demographic group --- these shape the vote directly and are correlated with the economic variables, creating the same omitted variable bias problem if left out
+
+### Estimate the Regression
+
+The `lm()` formula extends naturally to multiple independent variables. Where you previously wrote `outcome ~ predictor`, you now write `outcome ~ predictor1 + predictor2 + predictor3`, listing each independent variable separated by a `+`. Everything else stays the same: the `data =` argument, the assignment to a named object, and the call to `summary()`.
+
+**Run and observe: Regress Clinton's two-party vote percent on wage growth and county characteristics**
+
+```{r exercise-multipleregression-clintonvote, exercise=TRUE, exercise.cap="Run and observe: Regress Clinton's two-party vote percent on wage growth and county characteristics"}
+model1 <- lm(dem2p_percent ~ mortality_risk_25_45 + wage_growth + college_grad_percent + hispanic_percent + white_percent + Black_percent, data = counties)
+summary(model1)
+```
+
+`lm()` and `summary()` are part of base R --- no `library()` call is needed for any regression estimation or summary exercise in this tutorial.
+
+Take a moment to look at the output before moving on. Find the `Coefficients` table and locate each variable by name. Notice that the output structure is identical to what you saw in Tutorial 15 --- there is one row per variable plus a row for the intercept, each with an estimate, standard error, t-statistic, and p-value. The only thing that has changed is the number of rows.
+
+
+### Interpret the Coefficients
+
+The key interpretive rule is the same as in simple regression: the slope is the expected change in the dependent variable for a one-unit increase in the independent variable. The crucial difference in multiple regression is what comes after: [**controlling for all other variables in the model**]{.important-text}. Every coefficient is now a partial effect --- the effect of that one variable with everything else held constant.
+
+That qualifier matters more than it might seem. Without controls, the simple regression of Clinton's two-party vote percent on **wage_growth** alone yields a larger slope. In this model, controlling for mortality risk, education, and racial composition, the slope on **wage_growth** is smaller --- because some of what looked like a "wage growth effect" in the simple model was really a "college education effect" or "racial composition effect" in disguise. The Coefficients table now lets us untangle those contributions. Find the slope on **wage_growth** and see for yourself what controlling for the other variables does to it.
+
+**Practice: Interpret the slope on wage_growth**
+
+Look at the **wage_growth** row in your Coefficients table and note that each coefficient is now a partial slope before answering.
+
+```{r quiz-interpret-wagegrowth, echo=FALSE}
+question("Look at the slope on wage_growth in your output. Which statement correctly gives its value and what it means?",
+  correct = "Right: 0.314 is the expected change in Clinton's percent of the two-party vote for a one-percentage-point increase in wage growth, holding all other variables constant.",
+  answer("The slope is 0.314; for every one-percentage-point increase in wage growth, Clinton's percent of the two-party vote is expected to increase by about 0.31 percentage points, controlling for mortality risk, education, and racial composition",
+         correct = TRUE,
+         message = "The coefficient on wage growth is smaller than it appeared without controls. Some of what looks like a wage growth association is actually driven by correlated county characteristics --- education levels, racial composition, mortality risk --- that also shape the vote."),
+  answer("The slope is 0.456; for every one-percentage-point increase in wage growth, Clinton's percent of the two-party vote is expected to increase by about 0.46 percentage points, controlling for other variables",
+         message = "0.456 is the wage growth slope from Tutorial 15's simple regression of two-party vote percent on wage growth alone. In this model, controlling for the other variables, the slope is smaller: some of what looks like a wage growth effect without controls turns out to be driven by correlated county characteristics."),
+  answer("The slope is 0.314; for every one-percentage-point increase in Clinton's percent of the two-party vote, wage growth is expected to increase by about 0.31 percentage points, controlling for other variables",
+         message = "This reverses the dependent and independent variables. The slope tells us the expected change in dem2p_percent for a one-unit change in wage_growth, not the other way around."),
+  answer("The slope is 0.314; this is the expected percent of the two-party vote for Hillary Clinton in a county with zero wage growth, holding all other variables constant",
+         message = "That would be the intercept's job, not the slope's. The slope gives the expected change in the outcome for a one-unit change in the predictor, not the expected level of the outcome at any particular value."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: the slope gives the expected change in the outcome for a one-unit increase in the predictor, holding all other variables constant. Look at the wage_growth row in the Coefficients table."
+) 
+```
+
+This variable is the probability of dying between ages 25 and 45, expressed as a percent of the population in that age range. Its mean across counties is about 3.1 and its range is roughly 1.1 to 8.4 --- values that span about 7 percentage points. A one-percentage-point change in this variable is actually a large shift, equivalent to moving nearly all the way across its distribution. It often makes more practical sense to discuss a change that is more typical of what we actually observe in the data --- say, half a percentage point.
+
+The calculation is straightforward: to find the expected change in the outcome for a change of $c$ units (rather than the default of one unit), multiply the slope by $c$. For a half-point increase in mortality risk, that would be $\hat{\beta}_{MR} \times 0.5$. Find the slope in your output and apply this logic.
+
+**Practice: Apply a meaningful unit change to mortality risk**
+
+Look at the **mortality_risk_25_45** slope in your output and think about what a half-point change means before answering.
+
+```{r quiz-interpret-mortality, echo=FALSE}
+question("The slope on mortality_risk_25_45 is -3.117. What is the expected change in Clinton's percent of the two-party vote for a 0.5 percentage point increase in mortality risk, controlling for all other variables in the model?",
+  correct = "Right: (-3.117)(0.5) = -1.559.",
+  answer("A decrease of about 1.56 percentage points",
+         correct = TRUE,
+         message = "When the mortality risk in a county rises by half a percentage point --- a fairly typical increment given the variable's distribution --- Clinton's predicted percent of the two-party vote falls by about 1.56 points, controlling for wage growth, education, and racial composition. In counties where more young adults are dying, voters were less likely to support the incumbent party."),
+  answer("A decrease of about 3.12 percentage points",
+         message = "That would be the change for a full one-percentage-point increase. The slope is -3.117 per point, so a half-point change is half that: (-3.117)(0.5) = -1.559."),
+  answer("An increase of about 1.56 percentage points",
+         message = "The slope on mortality_risk_25_45 is negative, so higher mortality risk is associated with lower Clinton two-party vote percent, not higher."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE
+)
+```
+
+### Conduct Hypothesis Tests
+
+The coefficients tell us the direction and size of each effect; hypothesis tests tell us whether those effects are statistically distinguishable from zero in the population. Hypothesis tests work exactly as in simple regression. For each coefficient, we test $H_0: \beta = 0$ (the variable has no effect in the population, holding all other variables constant) against $H_A: \beta \ne 0$. The question for **wage_growth** is whether its positive effect survives the scrutiny of a formal test after controlling for everything else in the model.
+
+**Practice: Test and interpret the wage_growth coefficient**
+
+Find the t-statistic and p-value in the **wage_growth** row of your output before answering.
+
+```{r quiz-hypothesistesting-clintonvote, echo=FALSE}
+question("Find the t-statistic and p-value for wage_growth in your output. Which statements are true? Select all that apply.",
+  correct = "Right. The evidence is consistent: we reject the null hypothesis that wage growth has no relationship with Clinton's percent of the two-party vote, controlling for the other county characteristics.",
+  answer("The p-value is less than .05, so we reject the null hypothesis --- wage growth has a significant positive relationship with Clinton's percent of the two-party vote, controlling for the other county characteristics",
+         correct = TRUE,
+         message = "The data provide strong evidence against a zero relationship between wage growth and Clinton's two-party vote percent, even after accounting for correlated county characteristics. The coefficient (0.314) is smaller than the simple regression slope (0.456) from Tutorial 15, because controlling for education and demographics absorbs some of what previously looked like a wage growth effect."),
+  answer("The absolute value of the t-statistic exceeds 1.96, which leads to the same conclusion as the p-value",
+         correct = TRUE,
+         message = "The t-statistic and p-value always agree for the same two-tailed test, since both are built from the same estimate and standard error."),
+  answer("The significant result proves that wage growth caused counties to shift toward Clinton in 2016",
+         message = "A significant coefficient tells us the relationship is unlikely to be due to chance. It does not establish causation --- counties with higher wage growth may also differ in other unmeasured ways that drive the vote."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements."
+)
+```
+
+### Assess Model Fit
+
+The individual coefficients tell us about each predictor's effect. But how much of the county-to-county variation in Clinton's vote does this six-variable model actually account for --- and how does that compare to the near-zero fit we saw in Tutorial 15 with wage growth alone? The model output is reproduced here so you do not need to scroll back.
+
+```{r model1-output-reference, echo=FALSE, comment=NA}
+summary(model1)
+```
+
+With multiple independent variables, we use the [**Adjusted $R^2$**]{.important-text} rather than the Multiple $R^2$. Here is why: every variable you add to a regression model, even a useless one, will mechanically increase $R^2$ at least a tiny bit, just because the model has more flexibility to fit the data. The Adjusted $R^2$ penalizes for this by subtracting a term that grows with the number of predictors. It is less likely to increase unless an added variable improves fit enough to justify the extra complexity. In practice the two values are often close --- you can see both in the output, right next to each other --- but when comparing models with different numbers of predictors, always use the Adjusted $R^2$.
+
+**Practice: Assess the fit of the model**
+
+Find the Adjusted R-squared and Residual standard error at the bottom of your output before answering.
+
+```{r quiz-modelfit-clintonvote, echo=FALSE}
+question("Look at the Adjusted R-squared and the residual standard error in your output. Which statements are true?",
+  correct = "Right. The model explains a large share of the variation in Clinton's percent of the two-party vote, and the typical prediction error is in the range of about 10 percentage points.",
+  answer("The model explains about 60.6% of the variation in Clinton's percent of the two-party vote across counties, and under roughly normal errors, about two-thirds of counties have a predicted percent of the two-party vote within about 10.1 percentage points of their actual one",
+         correct = TRUE,
+         message = "Compare this to the simple regression of two-party vote percent on wage growth alone in Tutorial 15, which explained only about 1.7% of the variation. Adding the other county characteristics dramatically improves the model's fit."),
+  answer("The model explains about 60.6% of the variation in Clinton's percent of the two-party vote, and our predictions are off by exactly 10.13 percentage points for every county",
+         message = "The residual standard error is not a fixed error for every prediction. It is the standard deviation of the residuals --- under roughly normal errors, it tells us that about two-thirds of predictions are within about 10 points, not all of them."),
+  answer("The adjusted R-squared of 0.606 tells us that wage growth alone explains 60.6% of the variation in Clinton's percent of the two-party vote",
+         message = "This model has six independent variables, not just wage growth. The adjusted R-squared reflects the combined explanatory power of all six variables together."),
+  answer("The multiple R-squared of 0.607 should be preferred over the adjusted R-squared for comparing models with different numbers of predictors",
+         message = "It is the other way around: the adjusted R-squared is the right measure when comparing models that differ in the number of predictors, precisely because it penalizes for adding variables that do not genuinely improve the model."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements."
+)
+```
+
+### A Closer Look at College Attainment
+
+Of all the variables in this model, **college_grad_percent** has the widest range --- from about 3% to 80% across US counties. A variable with that much spread can have an enormous practical impact even if its per-unit slope looks modest. Before looking at the questions below, find its coefficient in your output and think about what that slope, applied across nearly 80 percentage points of variation, implies for the predicted vote.
+
+**Practice: Interpret the slope on college_grad_percent**
+
+Look at the **college_grad_percent** row in your Coefficients table before answering.
+
+```{r quiz-interpret-college, echo=FALSE}
+question("Which statement correctly gives the value and meaning of the slope on college_grad_percent?",
+  correct = "Right: 0.646 is the expected change in Clinton's two-party vote for each one-percentage-point increase in college graduates, holding all other variables constant.",
+  answer("The slope is 0.646; for every one-percentage-point increase in the share of college graduates in a county, Clinton's percent of the two-party vote is expected to increase by about 0.65 percentage points, controlling for all other variables in the model",
+         correct = TRUE,
+         message = "This is the largest coefficient in the model in terms of its likely practical impact: college_grad_percent varies from about 3% to 80% across counties, a 77-point range. Across that full range, the model predicts a difference of roughly 50 percentage points in Clinton's percent of the two-party vote --- even controlling for race, wage growth, and mortality risk."),
+  answer("The slope is 0.646; for every one-percentage-point increase in Clinton's percent of the two-party vote, the share of college graduates in a county is expected to increase by about 0.65 percentage points, controlling for all other variables",
+         message = "This reverses the dependent and independent variables. The slope tells us the expected change in dem2p_percent for a change in college_grad_percent, not the reverse."),
+  answer("The slope is 24.517; for every one-percentage-point increase in the share of college graduates, Clinton's percent of the two-party vote is expected to increase by about 24.5 percentage points, controlling for all other variables",
+         message = "24.517 is the t-statistic, not the coefficient estimate. Look at the Estimate column, not the t value column."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at the Estimate column in the college_grad_percent row. The slope gives the expected change in Clinton's percent of the two-party vote for a one-percentage-point increase in college graduates, controlling for all other variables."
+)
+```
+
+**Practice: Test the hypothesis for college_grad_percent**
+
+Find the t-statistic and p-value in the **college_grad_percent** row of your output before answering.
+
+```{r quiz-test-college, echo=FALSE}
+question("Find the t-statistic and p-value for college_grad_percent in your output. What can you conclude?",
+  correct = "Right: a large t-statistic and a very small p-value lead to rejecting the null hypothesis.",
+  answer("The p-value is far below .05 and the t-statistic is large, so we reject the null hypothesis that college attainment has no relationship with Clinton's percent of the two-party vote, controlling for the other county characteristics",
+         correct = TRUE,
+         message = "The 95% confidence interval for the college_grad_percent slope is entirely positive and relatively tight --- with over 3,100 counties, we have a very precise estimate of this effect. College attainment is one of the strongest predictors in the model."),
+  answer("We fail to reject the null hypothesis because the college_grad_percent coefficient is smaller than 1",
+         message = "The size of the coefficient alone does not determine statistical significance. What matters is the coefficient relative to its standard error --- a small coefficient with a tiny standard error can be highly significant."),
+  answer("We reject the null hypothesis, which proves that higher college attainment caused counties to vote for Clinton",
+         message = "Rejecting the null tells us the relationship is unlikely to be due to chance. It does not establish causation --- counties with more college-educated residents may differ in many other ways that also predict the vote."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at the t value and Pr(>|t|) columns in the college_grad_percent row. Apply the decision rule: if the p-value is below 0.05, we reject the null hypothesis."
+)
+```
+
+
+### What We Learned About Wage Growth and Clinton's Vote
+
+So does wage growth predict Clinton's vote once we account for everything else? Yes --- but the full picture is more nuanced than the simple regression suggested.
+
+This example produced three findings worth carrying forward. First, wage growth has a statistically significant positive relationship with Clinton's percent of the two-party vote --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. Second, that relationship is smaller than simple regression would suggest: controlling for education, racial composition, and mortality risk, the wage growth slope shrank from 0.456 to 0.314, because those correlated factors were doing some of the work that looked like a wage growth effect in the simpler model. Third, college attainment is the strongest predictor in the model, with a substantial effect that spans the full realistic range of county education levels. Together, these findings suggest that Clinton's 2016 performance was shaped as much by the long-run demographic and educational character of counties as by the economic conditions of the preceding years.
+
+## Does Democracy Predict the Quality of Governance?
+
+Let's consider a second example using a different unit of analysis: countries. Does the level of democracy in a country predict how well its government performs overall? The theoretical argument runs through accountability: democratic institutions create electoral incentives for governments to deliver public goods, civil society organizations that monitor performance, and independent courts that constrain abuses of power. All of these channels suggest that more democratic countries should, on average, be better governed --- though we should also consider whether the relationship is linear across the full spectrum from autocracy to full democracy, or whether the gains are concentrated at the top.
+
+::: {.hypothesis}
+In a comparison of countries, those with higher levels of democratic governance will have higher quality of governance than those with lower levels of democratic governance, after controlling for economic equality of opportunity and the fertility rate.
+:::
+
+The data frame **qog** contains country-level data from multiple sources. Our dependent variable is **iiag_gov**, an overall governance quality score from the Ibrahim Index extended to all countries --- it ranges from about 11 to 80, where higher values indicate better governance across dimensions including rule of law, human rights, sustainable economic opportunity, and human development. Our independent variables are:
+
+- **wdi_fertility**: the total fertility rate (average number of children per woman)
+- **bti_eo**: equal opportunity, scored from 1 (least equal) to 10 (most equal)
+- **democ_f**: a three-category factor in which **Autocracy** = lowest democracy level, **Partial Democracy** = middle, and **Democracy** = highest
+
+### Choosing a Reference Category
+
+Before estimating a model with a categorical predictor, it is worth thinking about which category to use as the reference. The choice matters because every factor coefficient measures the difference between one category and the reference --- so the question you can answer directly depends on which category you omit. If Democracy is the reference, you can compare both Autocracy and Partial Democracy to Democracy, but you cannot directly test whether Autocracy and Partial Democracy differ from each other. If Autocracy is the reference, you get both comparisons to the lowest level --- which is usually what we want when asking whether more democracy produces better outcomes. The variable **democ_f** has already been created with three labels. Let's check which category R is treating as the reference.
+
+**Run and observe: Check the levels of democ_f**
+
+```{r exercise-levels-democ, exercise=TRUE, exercise.cap="Run and observe: Check the levels of democ_f"}
+levels(qog$democ_f)
+```
+
+The first level listed is the reference --- the category that will be omitted from the regression output, against which the other categories are compared. Here, **Autocracy** comes first, so it will serve as the reference. That makes sense for this question: we want to ask how much better partial democracies and full democracies are governed compared to the baseline of autocracy.
+
+But you should always check, and you should think about whether the default serves your question. To see why the choice matters, let's first run the model with **Democracy** as the reference instead --- so we can ask how much worse autocracies and partial democracies are compared to the democratic baseline.
+
+To do this, we need to tell `lm()` to use Democracy as the reference category for this model only. Instead of writing just `democ_f` in the formula, we write `relevel(democ_f, ref = "Democracy")` in its place. The `relevel()` function takes two arguments: the factor variable and `ref =` naming the new reference category. The change is temporary --- it applies only to this model and does not permanently alter the variable.
+
+**Run and observe: Estimate the governance model with Democracy as the reference category**
+
+```{r exercise-multipleregression-governance-dem, exercise=TRUE, exercise.cap="Run and observe: Estimate the governance model with Democracy as the reference category"}
+model_gov_dem <- lm(iiag_gov ~ wdi_fertility + bti_eo + relevel(democ_f, ref = "Democracy"), data = qog)
+summary(model_gov_dem)
+```
+
+Look at the two factor coefficients. With **Democracy** as the reference, both **Partial Democracy** (−10.556, p < .001) and **Autocracy** (−11.905, p < .001) appear significantly worse --- and at first glance, they look almost equally bad. Now let's run the model with **Autocracy** as the reference and see if that impression holds.
+
+### Estimate the Regression
+
+Now let's estimate the model with **Autocracy** as the reference --- which is already the default, so we write `democ_f` in the formula without any `relevel()` call. This lets us read off directly how partial democracies and full democracies compare to the autocratic baseline.
+
+**Practice: Estimate the governance model with Autocracy as the reference category**
+
+Fill in the blanks to estimate the model, assigning it to **model_gov**, then display the results. Two hints are available. Click Submit Answer to check your work.
+
+```{r exercise-multipleregression-governance, exercise=TRUE, exercise.cap="Practice: Estimate the governance model with Autocracy as the reference category"}
+model_gov <- lm(___ ~ ___ + ___ + ___, data = ___)
+summary(model_gov)
+```
+
+```{r exercise-multipleregression-governance-hint-1}
+# Hint 1 of 2
+# Look back at the hypothesis. Which variable is the outcome?
+# Which variables do we think drive it? In a regression formula,
+# the outcome goes on the left of ~ and the predictors go on the
+# right, separated by +.
+```
+
+```{r exercise-multipleregression-governance-hint-2}
+# Hint 2 of 2: fill in the blanks
+model_gov <- lm(___ ~ wdi_fertility + ___ + democ_f, data = qog)
+summary(model_gov)
+```
+
+```{r exercise-multipleregression-governance-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+  if (!grepl("lm\\s*\\(", code_no_comments)) {
+    fail("Use lm() to estimate the regression.")
+  }
+  if (!grepl("model_gov\\s*(<-|=)", code_no_comments)) {
+    fail("Assign your model to an object called model_gov.")
+  }
+  if (!grepl("iiag_gov\\s*~", code_no_comments)) {
+    fail("The dependent variable should be iiag_gov --- governance quality is what we are trying to explain.")
+  }
+  if (!grepl("wdi_fertility", code_no_comments)) {
+    fail("Include wdi_fertility as an independent variable.")
+  }
+  if (!grepl("bti_eo", code_no_comments)) {
+    fail("Include bti_eo as an independent variable.")
+  }
+  if (!grepl("democ_f", code_no_comments)) {
+    fail("Include democ_f as an independent variable.")
+  }
+  if (!grepl("data\\s*=\\s*qog", code_no_comments)) {
+    fail("Set data = qog so R knows where to find the variables.")
+  }
+  if (!grepl("summary\\s*\\(", code_no_comments)) {
+    fail("Call summary() on your saved model object to display the results.")
+  }
+  expected <- lm(iiag_gov ~ wdi_fertility + bti_eo + democ_f, data = qog)
+  result_coef <- if (inherits(.result, "summary.lm")) {
+    setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
+  } else {
+    coef(.result)
+  }
+  if (is.null(result_coef)) {
+    fail("Make sure you display the results by calling summary() on your model object.")
+  }
+  if (!isTRUE(all.equal(
+    as.numeric(result_coef[order(names(result_coef))]),
+    as.numeric(coef(expected)[order(names(coef(expected)))]),
+    tolerance = 1e-6))) {
+    fail("Check that your model includes iiag_gov as the outcome and wdi_fertility, bti_eo, and democ_f as predictors, using the qog data.")
+  }
+  pass("Correct! A side-by-side comparison of both models appears in the next section --- look at the factor coefficient rows to see what changes and what stays the same.")
+})
+```
+
+### Interpret the Coefficients
+
+The table below places both models side by side so you can compare them directly. The key question is what changes when we switch the reference category from Democracy to Autocracy --- and what that change reveals about the relationship between regime type and governance quality. You will learn to produce tables like this with the `stargazer()` function later in this tutorial --- for now, use it as a reference for the questions that follow.
+
+```{r governance-comparison, echo=FALSE}
+stargazer(model_gov_dem, model_gov,
+          type = "text",
+          title = "Governance Quality Under Two Reference Categories",
+          column.labels = c("(1) Demo. ref.", "(2) Auto. ref."),
+          dep.var.labels = "Governance Quality",
+          covariate.labels = c("Fertility Rate",
+                               "Equal Opportunity",
+                               "Partial Democracy",
+                               "Autocracy",
+                               "Partial Democracy",
+                               "Democracy"),
+          no.space = TRUE,
+          omit.stat = c("f", "ser"))
+```
+
+Look carefully at both columns. You can verify directly from the table which rows are identical across the two models and which differ. Look at the factor coefficients and the constants before answering.
+
+**Practice: Interpret the factor coefficients**
+
+Look at the factor coefficient rows in both columns of the table above before answering.
+
+```{r quiz-interpret-democ-governance, echo=FALSE}
+question("Look at both columns in the table above. Which statements are true? Select all that apply.",
+  correct = "Right: three statements correctly describe what the table shows.",
+  answer("In column (2) (Autocracy as reference), full democracies score about 11.9 governance points higher than autocracies on average, controlling for fertility and equal opportunity",
+         correct = TRUE,
+         message = "Column (2) shows the Democracy vs. Autocracy coefficient as 11.905 (p < .001). This is the comparison we wanted: how much better governed are full democracies relative to the autocratic baseline?"),
+  answer("In column (2) (Autocracy as reference), the Partial Democracy coefficient is about 1.35 points and is not statistically significant --- partial democracies are not reliably better governed than autocracies once we control for fertility and equal opportunity",
+         correct = TRUE,
+         message = "This finding was invisible in column (1). When Democracy was the reference, both other categories looked nearly equally worse. Column (2) reveals that partial democracies and autocracies are statistically indistinguishable on governance quality."),
+  answer("The constant in column (2), 34.254, gives the predicted governance score for autocracies when fertility rate and equal opportunity are both zero",
+         correct = TRUE,
+         message = "Correct. In column (2) the reference category is Autocracy, so the constant gives the predicted value for autocracies at X = 0. Compare to column (1): there the reference is Democracy, so the constant (46.160) gives the predicted value for full democracies at X = 0 --- a different quantity entirely."),
+  answer("The constant in column (1), 46.160, gives the predicted average governance quality score for full democracies",
+         message = "The constant gives the predicted value of the outcome when all other variables are zero --- not the average for the reference category across the real data. Since full democracy is the reference in column (1), the constant is the predicted governance score for full democracies only when fertility rate = 0 and equal opportunity = 0, values no country actually has."),
+  answer("The choice of reference category changes the coefficients on wdi_fertility and bti_eo",
+         message = "Look at the Fertility Rate and Equal Opportunity rows in both columns --- the values are identical. The reference category choice only affects the intercept and the factor coefficient rows, not the interval variable estimates."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements."
+)
+```
+
+### What the Reference Category Reveals
+
+The non-significant partial democracy finding is substantively important. It suggests that the governance advantage of democracy is not a smooth gradient --- partial democracies, which have some competitive elections but lack full civil liberties and rule of law, are not reliably better governed than autocracies once we account for economic equality and fertility. Full democracies are. This finding was completely invisible when Democracy was the reference category.
+
+### Conduct Hypothesis Tests
+
+The table comparison showed us the estimates. Now let's check whether those estimates hold up to formal scrutiny --- particularly the democracy coefficient, which represents the core theoretical claim. The summary output for the Autocracy-reference model is reproduced here so you can find t-statistics and p-values without scrolling back.
+
+```{r model-gov-output-reference, echo=FALSE, comment=NA}
+summary(model_gov)
+```
+
+Look at both factor coefficient rows in this output before answering.
+
+**Practice: Test and interpret the Democracy coefficient**
+
+Find the t-statistic and p-value for the Democracy coefficient in your output before answering.
+
+```{r quiz-hypothesistesting-governance, echo=FALSE}
+question("Find the t-statistic and p-value for the Democracy vs. Autocracy coefficient in your model output. Which statements are true? Select all that apply.",
+  correct = "Right: the p-value provides strong evidence against a zero democracy effect.",
+  answer("The p-value is below .05, so we reject the null hypothesis --- full democracies have significantly higher governance quality than autocracies, controlling for fertility and equal opportunity",
+         correct = TRUE,
+         message = "The data provide strong evidence against a zero difference in governance quality between full democracies and autocracies."),
+  answer("Because the Partial Democracy p-value is above .05, neither the Partial Democracy nor the Democracy coefficient is statistically significant",
+         message = "These are two separate coefficients with separate tests. The Democracy coefficient is significant; the Partial Democracy coefficient is not. Look at them separately."),
+  answer("The significant result proves that democracy causes better governance",
+         message = "A significant coefficient is evidence of a relationship in the population. It does not establish causation --- more democratic countries may also differ in other ways (historical, geographic, economic) that contribute to governance quality."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at the p-value for the Democracy coefficient. Is it above or below .05?"
+)
+```
+
+### Assess Model Fit
+
+The coefficients and tests tell us whether the relationships are statistically distinguishable from zero. How much of the variation in governance quality across countries does this three-variable model actually capture?
+
+**Practice: Assess the fit of the governance model**
+
+Find the Adjusted R-squared and Residual standard error at the bottom of your output before answering.
+
+```{r quiz-modelfit-governance, echo=FALSE}
+question("Look at the Adjusted R-squared and the residual standard error. Which statements are true? Select all that apply.",
+  correct = "Right. The model explains a substantial share of the variation in governance quality, and the typical prediction error is modest given the scale of the outcome.",
+  answer("The model explains about 69.3% of the variation in governance quality across countries, and under roughly normal errors, about two-thirds of countries fall within about 7.5 governance points of their predicted value",
+         correct = TRUE,
+         message = "That is strong explanatory power for a three-variable model. Note, however, that only 50 countries have complete data on all variables --- the large missingness means we should be cautious about how broadly these results generalize."),
+  answer("The adjusted R-squared of 0.693 is preferred over the multiple R-squared of 0.718 for evaluating this model",
+         correct = TRUE,
+         message = "With four predictors (two interval variables plus two factor dummies), the adjusted R-squared penalizes for the additional complexity and is the appropriate measure."),
+  answer("An adjusted R-squared of 0.693 and a residual standard error of 7.49 cannot both be correct for the same model, since R-squared must always equal the squared residual standard error",
+         message = "These two statistics are measuring completely different things and there is no mathematical relationship between them. R-squared is a proportion of variance explained (bounded between 0 and 1); the residual standard error is a standard deviation measured in the units of the outcome. They are independent summaries of model fit."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements."
+)
+```
+
+### What We Learned About Democracy and Governance Quality
+
+So does democracy predict governance quality? The answer depends on what kind of democracy --- and that distinction only becomes visible once you choose the right reference category.
+
+The most important finding from this example is not the significant full democracy effect --- it is the non-significant partial democracy finding. When Autocracy is the reference category, we can directly ask whether partial democracies are better governed than autocracies, and the data cannot distinguish them once we control for fertility and equal opportunity. The governance advantage of democracy is concentrated in full democratic regimes. Partial democracies --- those with competitive elections but weak civil liberties and rule of law --- do not appear to deliver meaningfully better governance than their autocratic counterparts. This has real implications: it suggests that elections alone are not enough, and that the full institutional package of democracy matters for producing good governance.
+
+## Does Democracy Predict the Rule of Law?
+
+Governance quality is a composite measure that aggregates many dimensions --- rule of law, human rights, sustainable economic opportunity, human development. Composite scores are useful summaries, but they can obscure as much as they reveal. A country might score well overall while performing unevenly across specific dimensions. It is worth asking whether democracy's relationship to governance quality holds when we look at one of its most contested components in isolation.
+
+Rule of law --- whether legal systems apply equally to all, whether courts are independent, whether due process is respected --- sits at the core of what democratic institutions are supposed to protect. Free elections remove governments that undermine legal accountability; independent judiciaries constrain arbitrary executive power; civil society monitors compliance. The theoretical case for democracy's effect on rule of law is at least as strong as its case for overall governance quality. But the empirical relationship may look different. Does the pattern we found in Example 2 hold when we zoom in on rule of law specifically?
+
+::: {.hypothesis}
+In a comparison of countries, those with higher levels of democratic governance will have stronger rule of law than those with lower levels of democratic governance, after controlling for the fertility rate.
+:::
+
+The data frame **qog** contains **fh_rol**, the Freedom House Rule of Law score. It ranges from 0 to 16, where higher values indicate stronger rule of law. The independent variables are **wdi_fertility** and **democ_f**. Use **democ_f** with its default reference category --- Autocracy, the first level, as you confirmed earlier in this tutorial.
+
+### Estimate the Regression
+
+**Practice: Regress rule of law on fertility rate and democracy level**
+
+Write the code from scratch to estimate the model, assigning it to **my.model**, then display the results. Three hints are available. Click Submit Answer to check your work.
+
+```{r exercise-multipleregression-fhrol, exercise=TRUE, exercise.cap="Practice: Regress rule of law on fertility rate and democracy level"}
+
+```
+
+```{r exercise-multipleregression-fhrol-hint-1}
+# Hint 1 of 3
+# Look back at the hypothesis. Which variable is the outcome
+# you are trying to explain? Which variables do we think
+# predict it? The outcome goes on the left of ~; predictors
+# go on the right separated by +.
+```
+
+```{r exercise-multipleregression-fhrol-hint-2}
+# Hint 2 of 3
+# The structure is the same as Examples 1 and 2: lm() with
+# a formula and a data argument, assigned to a named object,
+# then passed to summary(). Use the same data frame as
+# Example 2. democ_f is already in the environment.
+```
+
+```{r exercise-multipleregression-fhrol-hint-3}
+# Hint 3 of 3: fill in the blanks
+my.model <- lm(___ ~ ___ + ___, data = qog)
+summary(my.model)
+```
+
+```{r exercise-multipleregression-fhrol-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+  if (!grepl("lm\\s*\\(", code_no_comments)) {
+    fail("Use lm() to estimate the regression.")
+  }
+  if (!grepl("my\\.model\\s*(<-|=)", code_no_comments)) {
+    fail("Assign your model to an object called my.model.")
+  }
+  if (!grepl("fh_rol\\s*~", code_no_comments)) {
+    fail("The dependent variable should be fh_rol --- rule of law is what we are trying to explain.")
+  }
+  if (!grepl("wdi_fertility", code_no_comments)) {
+    fail("Include wdi_fertility as an independent variable.")
+  }
+  if (!grepl("democ_f", code_no_comments)) {
+    fail("Include democ_f as an independent variable.")
+  }
+  if (!grepl("data\\s*=\\s*qog", code_no_comments)) {
+    fail("Set data = qog so R knows where to find the variables.")
+  }
+  if (!grepl("summary\\s*\\(", code_no_comments)) {
+    fail("Call summary() on your saved model object to display the results.")
+  }
+  expected <- lm(fh_rol ~ wdi_fertility + democ_f, data = qog)
+  result_coef <- if (inherits(.result, "summary.lm")) {
+    setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
+  } else {
+    coef(.result)
+  }
+  if (is.null(result_coef)) {
+    fail("Make sure you display the results by calling summary() on your model object.")
+  }
+  if (!isTRUE(all.equal(
+    as.numeric(result_coef[order(names(result_coef))]),
+    as.numeric(coef(expected)[order(names(coef(expected)))]),
+    tolerance = 1e-6))) {
+    fail("Check that your model includes fh_rol as the outcome and wdi_fertility and democ_f as predictors, using the qog data.")
+  }
+  pass("Correct! Look carefully at both the sign and significance of each coefficient --- including the partial democracy one.")
+})
+```
+
+### Interpret the Coefficients
+
+With your model estimated, the Coefficients table now tells us how fertility rate and each democracy category relate to rule of law, controlling for the other variables. Pay particular attention to the partial democracy coefficient --- is the pattern the same as in Example 2, or different?
+
+**Practice: Interpret the coefficients**
+
+Look at each row of the Coefficients table in your output, paying particular attention to the Partial Democracy row before answering.
+
+```{r quiz-interpret-fhrol, echo=FALSE}
+question("Which statements correctly describe what the output tells us? Select all that apply.",
+  correct = "Right: all three correctly describe what the output tells us.",
+  answer("For each additional child per woman in the fertility rate, a country's rule of law score is expected to fall by about 0.90 points, controlling for democracy level",
+         correct = TRUE,
+         message = "The slope on wdi_fertility is -0.902 (p < .001) --- countries with higher fertility rates tend to have weaker rule of law even after accounting for regime type."),
+  answer("Full democracies score about 7.38 rule of law points higher than autocracies, on average, controlling for fertility rate",
+         correct = TRUE,
+         message = "The coefficient for Democracy vs. Autocracy is 7.378 (p < .001) --- a large and statistically significant advantage across 185 countries."),
+  answer("Partial democracies score about 2.05 rule of law points higher than autocracies, controlling for fertility rate --- and this difference is statistically significant",
+         correct = TRUE,
+         message = "Unlike in the governance model from Example 2, partial democracies do significantly outperform autocracies on rule of law (p = .008). The full democracy advantage is still much larger (7.38 vs. 2.05), but the partial democracy finding is statistically significant here."),
+  answer("For every one-point increase in the rule of law score, we expect the fertility rate to decrease by 0.902, controlling for democracy level",
+         message = "This reverses the dependent and independent variables. The slope tells us the expected change in fh_rol for a one-unit increase in wdi_fertility, not the other way around."),
+  answer("For every one-unit increase in democracy level, a country's rule of law score is expected to increase by about 7.38 points, controlling for fertility rate",
+         message = "Democracy level is not a continuous variable in this model --- it is a three-category factor. The coefficient 7.38 is not a per-unit slope; it is the difference in average rule of law between full democracies and autocracies (the reference category). A one-unit increase in democracy level is not a meaningful quantity here."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements."
+)
+```
+
+### Conduct Hypothesis Tests
+
+The coefficients give us the estimates. Now let's check whether each predictor's relationship with rule of law is statistically distinguishable from zero --- and pay particular attention to the partial democracy result.
+
+**Practice: Test the hypothesis for each predictor**
+
+Find the p-values for **wdi_fertility**, Partial Democracy, and Democracy in your output before answering.
+
+```{r quiz-hypothesistesting-fhrol, echo=FALSE}
+question("Look at the p-values for wdi_fertility, Partial Democracy, and Democracy in your output. Which statements are true? Select all that apply.",
+  correct = "Right: and notice the contrast with Example 2 on the partial democracy finding.",
+  answer("All three predictors are statistically significant at the .05 level",
+         correct = TRUE,
+         message = "Partial Democracy (p = .008) is significant here, unlike in Example 2 where it was far from significant (p = .654). Rule of law and overall governance quality are related but not identical outcomes, and democracy's relationship to each turns out to be different."),
+  answer("Because Partial Democracy is not significant in Example 2, it cannot be significant in this model either",
+         message = "The outcome variable is different. Whether partial democracy outperforms autocracy depends on which dimension of governance you are measuring. The same regime-type differences can produce different results for different outcomes."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at the p-value column for each predictor. Which are below .05?"
+)
+```
+
+### Assess Model Fit
+
+With the coefficients interpreted and tested, how well does this two-predictor model capture the variation in rule of law across countries?
+
+**Practice: Assess the fit of the rule of law model**
+
+Find the Adjusted R-squared and Residual standard error at the bottom of your output before answering.
+
+```{r quiz-modelfit-fhrol, echo=FALSE}
+question("Look at the Adjusted R-squared and the residual standard error in your output. Which statements are true? Select all that apply.",
+  correct = "Right. Strong fit across a large sample --- the model explains most of the variation in rule of law and predictions are fairly precise.",
+  answer("The adjusted R-squared tells us the model explains about 64% of the variation in rule of law across the 185 countries with complete data",
+         correct = TRUE,
+         message = "That is strong explanatory power for a two-predictor model. The much larger sample here (185 vs. 50 in Example 2) gives us more confidence that these findings generalize."),
+  answer("The residual standard error tells us that under roughly normal errors, about two-thirds of countries have a predicted rule of law score within about 2.87 points of their actual score",
+         correct = TRUE,
+         message = "Given that the rule of law score runs from 0 to 16, a typical prediction error of about 2.87 points reflects a reasonably precise model."),
+  answer("Because the rule of law score only runs from 0 to 16, a residual standard error of 2.87 means this model's predictions are nearly perfect",
+         message = "A residual standard error of 2.87 on a 16-point scale is reasonably precise, but 'nearly perfect' overstates it. Under roughly normal errors, about one-third of countries will have a prediction error larger than 2.87 points --- and with a 16-point range, that is meaningful uncertainty."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements."
+)
+```
+
+### What We Learned About Democracy and Rule of Law
+
+So does democracy predict rule of law? Yes --- and with a pattern that differs meaningfully from what we found for governance quality in Example 2.
+
+Take a moment before reading this summary to think about what you found. Did partial democracy behave the same way as in Example 2?
+
+Rule of law produces a different story from governance quality. Here, partial democracies significantly outperform autocracies --- a finding that was absent in Example 2. The full democracy advantage remains larger (about 7 points on a 16-point scale vs. 2 for partial democracy), but the gradient from autocracy through partial democracy to full democracy is statistically significant and measurable for rule of law, even after controlling for the fertility rate. Comparing Examples 2 and 3 illustrates something important about how we interpret regression results: the substantive conclusion about partial democracy depends on which outcome we measure. A researcher who studied governance quality alone would conclude that elections without full institutional development don't help; a researcher who studied rule of law would find they do, a little. Both are right, because they are answering different questions.
+
+## Presenting a Regression Table
+
+The models you have estimated in this tutorial are the kind you would present in a paper or thesis. The `summary()` output you have been reading throughout is the right tool for checking your own work --- but it is not designed for a reader who was not in the room when you ran the code. Variable names come straight from the formula, there is no title, and the layout does not match what journals or thesis committees expect to see. The `stargazer()` function in the [stargazer]{.package-name} package solves all of these problems. This section introduces the basics; Tutorial 18 will build on them substantially.
+
+### A Basic Table
+
+The governance model from Example 2 is available here as **model_gov**. Let's see what stargazer produces with no customization.
+
+**Run and observe: Produce a basic regression table with stargazer**
+
+```{r exercise-stargazer-basic16, exercise=TRUE, exercise.cap="Run and observe: Produce a basic regression table with stargazer"}
+library(stargazer)
+stargazer(model_gov,
+          type = "text")
+```
+
+Once a package is loaded with `library()`, all of its functions are available for the rest of your R session --- you do not need to load it again each time you use a function from it. Since [stargazer]{.package-name} was loaded in the exercise above, you can assume it is already loaded for all subsequent exercises in this tutorial.
+
+The output is already closer to a publication-ready table: coefficients with standard errors in parentheses, significance stars, and fit statistics at the bottom. But the variable names are still raw formula names. Notice the order in which predictors appear --- top to bottom, exactly as they appear in the model formula. Note also that the Constant (intercept) appears at the bottom. You will need to know both of these things when you add labels.
+
+### The Key Arguments
+
+Here is what you need to produce a labeled, titled table:
+
+**`type`** controls the output format. Use `type = "text"` in these exercises. In your Quarto documents, use `type = "html"` with the chunk option `#| results: asis`.
+
+**`title`** adds a caption above the table.
+
+**`dep.var.labels`** labels the dependent variable column.
+
+**`covariate.labels`** provides one label per predictor row, in the exact order the predictors appear in the basic table output. For factor variables, `levels()` tells you which category is the reference (omitted) and in what order the remaining categories appear. You already checked the levels of **democ_f** earlier in this tutorial: Autocracy is the reference category, followed by Partial Democracy then Democracy. That means **model_gov** needs four labels: one for wdi_fertility, one for bti_eo, one for Partial Democracy, and one for Democracy --- in that order.
+
+::: {.caution}
+**Getting the label order wrong puts the wrong label on the wrong coefficient.** Always run the basic table first, note the predictor order, and check `levels()` for any factor variables before writing your labels. Compare the customized table to `summary()` to verify every label landed on the right row.
+:::
+
+**`single.row = TRUE`** puts each coefficient and its standard error on one line, making the table more compact and easier to read at a glance.
+
+For a complete list of arguments and customization options, run `?stargazer` in your R console.
+
+### A Customized Table
+
+The prescribed title and dependent variable label are:
+- `title = "Predictors of Governance Quality"`
+- `dep.var.labels = "Governance Quality Score"`
+
+The covariate labels for this model are: **Fertility Rate**, **Equal Opportunity**, **Partial Democracy**, and **Democracy**. Determine the correct order to supply them from the basic table output above.
+
+**Practice: Produce a labeled, titled stargazer table for the governance model**
+
+Fill in the blanks to complete the table with the prescribed title, dependent variable label, and covariate labels. Two hints are available. Click Submit Answer to check your work.
+
+```{r exercise-stargazer-governance, exercise=TRUE, exercise.cap="Practice: Produce a labeled, titled stargazer table for the governance model"}
+stargazer(model_gov,
+          type = "text",
+          title = "___",
+          dep.var.labels = "___",
+          single.row = TRUE,
+          covariate.labels = c("Fertility Rate",
+                               "___",
+                               "___",
+                               "___"))
+```
+
+```{r exercise-stargazer-governance-hint-1}
+# Hint 1 of 2
+# The three remaining labels should cover: Equal Opportunity,
+# Partial Democracy, and Democracy --- in the order they appear
+# in the basic table output. Check the basic table above and
+# confirm the order before filling in the blanks.
+```
+
+```{r exercise-stargazer-governance-hint-2}
+# Hint 2 of 2
+# The title and dep.var.labels are prescribed above.
+# covariate.labels needs four entries in formula order:
+# Fertility Rate is already filled in as the first.
+```
+
+```{r exercise-stargazer-governance-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("stargazer\\s*\\(", code_no_comments)) {
+    fail("Use stargazer() to produce the table.")
+  }
+  if (!grepl("Predictors of Governance Quality", code_no_comments, fixed = TRUE)) {
+    fail("Use the prescribed title: \"Predictors of Governance Quality\"")
+  }
+  if (!grepl("Governance Quality Score", code_no_comments, fixed = TRUE)) {
+    fail("Use the prescribed dep.var.labels: \"Governance Quality Score\"")
+  }
+  if (!grepl("single\\.row\\s*=\\s*TRUE", code_no_comments)) {
+    fail("Keep single.row = TRUE to display each coefficient and standard error on one line.")
+  }
+
+  labels <- c("Fertility Rate", "Equal Opportunity", "Partial Democracy", "Democracy")
+  for (lbl in labels) {
+    if (!grepl(lbl, code_no_comments, fixed = TRUE)) {
+      fail(paste0("The label \"", lbl, "\" is missing. Use the four prescribed labels in formula order."))
+    }
+  }
+
+  positions <- sapply(labels, function(lbl) regexpr(lbl, code_no_comments, fixed = TRUE)[1])
+  if (!all(diff(positions) > 0)) {
+    fail("The labels are not in the correct order. They should appear as: Fertility Rate, Equal Opportunity, Partial Democracy, Democracy --- matching the predictor order in the basic table output.")
+  }
+
+  pass("Well done! Compare your customized table to the summary() output to confirm every label landed on the right row. This is the format a reader would see in a paper or report.")
+})
+```
+
+### A Professional Table in Your Toolkit
+
+You have now produced a regression table in the format that appears in published political science research. Where `summary()` gives you raw R output designed for your own inspection, a stargazer table gives your reader clean labels, standard errors in parentheses below each coefficient, and significance stars that make the key results visible at a glance. Tutorial 18 will build on this foundation --- more models, more customization, and the plots that bring regression results to life for audiences who will never read a table of numbers.
+
+## Check Your Understanding
+
+You have now done the full workflow of a quantitative political scientist: formulated a hypothesis, estimated a model that controls for competing explanations, interpreted each coefficient with the "all else equal" qualifier, tested it for significance, and presented the results in a professional regression table. The three examples also showed something more substantive --- that what you conclude about a relationship depends on what you control for, which outcome you measure, and which comparison your reference category makes possible. That is the real payoff of multiple regression: not just more predictors, but more honest answers to more specific questions.
+
+The exercises below ask you to bring together everything from Examples 1 through 3. Work through them without looking back --- the goal is to see how much of this you can do on your own.
+
+**Apply: Build a model from scratch using new variables**
+
+The **qog** dataset also contains **ti_cpi**, the Transparency International Corruption Perceptions Index, where higher values indicate lower perceived corruption (0 = highly corrupt, 100 = very clean). Countries with greater political rights and civil liberties should face stronger accountability for corruption. Estimate a regression predicting **ti_cpi** as a function of **wdi_fertility** and **democ_f**. Assign your model to a named object and display the results. Two hints are available. Click Submit Answer to check your work.
+
+```{r exercise-cyu-corruption, exercise=TRUE, exercise.cap="Apply: Regress corruption perception on fertility rate and democracy level"}
+
+```
+
+```{r exercise-cyu-corruption-hint-1}
+# Hint 1 of 2
+# Which variable is the outcome here? Which variables do you
+# think predict it? Think about the hypothesis and look at
+# the variable descriptions above.
+```
+
+```{r exercise-cyu-corruption-hint-2}
+# Hint 2 of 2
+# The structure is the same as Examples 2 and 3:
+# lm() with a formula and data = qog, assigned to a named
+# object, then passed to summary().
+```
+
+```{r exercise-cyu-corruption-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+  if (!grepl("lm\\s*\\(", code_no_comments)) {
+    fail("Use lm() to estimate the regression.")
+  }
+  if (!grepl("[A-Za-z.][A-Za-z0-9.]*\\s*(<-|=)\\s*lm\\s*\\(", code_no_comments)) {
+    fail("Assign your model to a named object using <- before calling summary().")
+  }
+  if (!grepl("ti_cpi\\s*~", code_no_comments)) {
+    fail("The dependent variable should be ti_cpi.")
+  }
+  if (!grepl("wdi_fertility", code_no_comments)) {
+    fail("Include wdi_fertility as an independent variable.")
+  }
+  if (!grepl("democ_f", code_no_comments)) {
+    fail("Include democ_f as an independent variable.")
+  }
+  if (!grepl("data\\s*=\\s*qog", code_no_comments)) {
+    fail("Set data = qog so R knows where to find the variables.")
+  }
+  if (!grepl("summary\\s*\\(", code_no_comments)) {
+    fail("Call summary() on your saved model object to display the results.")
+  }
+  expected <- lm(ti_cpi ~ wdi_fertility + democ_f, data = qog)
+  result_coef <- if (inherits(.result, "summary.lm")) {
+    setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
+  } else {
+    coef(.result)
+  }
+  if (is.null(result_coef)) {
+    fail("Make sure you display the results by calling summary() on your model object.")
+  }
+  if (!isTRUE(all.equal(
+    as.numeric(result_coef[order(names(result_coef))]),
+    as.numeric(coef(expected)[order(names(coef(expected)))]),
+    tolerance = 1e-6))) {
+    fail("Check that your model includes ti_cpi as the outcome and wdi_fertility and democ_f as predictors.")
+  }
+  pass("Correct! Look at which predictors are significant. Does the pattern match what you found for rule of law? What might explain any differences?")
+})
+```
+
+**Apply: Connect the findings across examples**
+
+Think back across all three examples and what changed when additional controls were added before answering.
+
+```{r quiz-cyu-connect, echo=FALSE}
+question("Across Examples 1, 2, and 3, which statement best captures what multiple regression adds compared to simple regression?",
+  correct = "Right: controlling for other variables can change the size and significance of individual coefficients.",
+  answer("Multiple regression lets us estimate the effect of each predictor while holding the others constant, which can change both the size and significance of individual coefficients compared to simple regression",
+         correct = TRUE,
+         message = "In Example 1, wage growth's slope shrank from 0.456 to 0.314 once we controlled for other county characteristics. In Example 2, partial democracy went from appearing significantly worse than full democracy to being indistinguishable from autocracy once we controlled for fertility and equal opportunity. The controls do not just improve fit --- they change what we think is going on."),
+  answer("Multiple regression always produces larger R-squared values than simple regression, which proves the added variables matter",
+         message = "R-squared does mechanically increase when you add variables, which is exactly why we use the Adjusted R-squared to compare models. An increase in R-squared alone does not prove the added variables matter --- they need significant coefficients too."),
+  answer("Multiple regression lets us include more variables, which always makes the results more trustworthy",
+         message = "Adding more variables can actually make results less trustworthy if those variables are highly correlated with each other (multicollinearity) or if they are themselves caused by the outcome. More variables are not always better --- the right variables are what matter."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: think about how the wage growth slope changed from Tutorial 15 to Example 1, and how the partial democracy finding changed between Examples 2 and 3."
+)
+```
+
+Multiple regression extends simple regression to models with more than one independent variable. The formula syntax extends naturally: list each independent variable after the `~`, separated by `+`. The `summary()` output is identical in structure to simple regression, just with more rows in the coefficient table.
+
+The key additions this tutorial introduces:
+
+1. [**All else equal.**]{.important-text} In multiple regression, every coefficient is a partial effect --- the expected change in $Y$ for a one-unit change in that predictor, holding all other predictors constant. This qualifier changes interpretation fundamentally. A significant coefficient in a multiple regression means the variable predicts the outcome *even after accounting for* the other variables in the model.
+
+2. [**Omitted variable bias.**]{.important-text} If a variable is correlated with both your predictor of interest and your outcome, leaving it out will bias that coefficient. Including relevant controls is how we get estimates that more accurately reflect the relationship we actually care about.
+
+3. [**Nominal variables with three or more categories.**]{.important-text} A variable with $k$ categories contributes $k - 1$ coefficients to the output, each comparing one non-reference category to the reference. Use `factor()` to create a labeled factor and `relevel()` to choose the reference category deliberately. The choice of reference category does not change the model's fit or the coefficients on interval predictors --- it only changes which comparisons the factor coefficients describe.
+
+4. [**Adjusted $R^2$.**]{.important-text} When comparing models with different numbers of predictors, use the Adjusted $R^2$ rather than the Multiple $R^2$. The Adjusted $R^2$ penalizes for adding predictors and will not increase unless a new variable genuinely improves the model. As in simple regression, whenever the absolute value of a t-statistic exceeds 1.96 (a useful approximation for the large samples in these examples; in practice, use the p-value R reports), the p-value will be below 0.05 --- the two pieces of evidence always agree. To compute confidence intervals for individual coefficients, use `confint(model_object)` --- they exclude zero whenever the corresponding p-value is below 0.05.
+
+If you take one thing from this tutorial beyond the mechanics, let it be this: multiple regression changes what you are allowed to say. Once you add controls, a coefficient no longer just describes a pattern in the raw data --- it describes what happens to the outcome when that variable changes while everything else is held constant. That is a much more careful, more defensible claim. The difference between a simple and a multiple regression is not just statistical; it is the difference between noticing that two things move together and having evidence that one of them matters on its own. That is worth the extra rows in the coefficients table.
+
+## Submit Your Work
+
+When you have completed all exercises in this tutorial, generate your submission code using the button below. Copy the full code that appears and paste it into the Canvas submission box for this tutorial.
+
+```{r encode-logic-16, context="server"}
+learnrhash::encoder_logic()
+```
+
+```{r encode-ui-16, echo=FALSE}
+learnrhash::encoder_ui(
+  ui_before = shiny::div(
+    shiny::p("Click the button below to generate your submission code.
+              Copy the full code and paste it into Canvas.")
+  )
+)
+```
+
+```{r tutorial-success-banner-16, results="asis", echo=FALSE}
+cat('
+<p class="tutorial-complete"
+   role="status"
+   aria-label="Excellent work! You have completed this tutorial and can now estimate and interpret multiple regression models, present results in a professional table, and draw substantive conclusions from what the estimates tell you.">
+  <span aria-hidden="true">📊</span>
+  Excellent work! You can now estimate and interpret multiple regression models with interval and nominal independent variables --- and present your results in a professional table.
+</p>
+')
+```

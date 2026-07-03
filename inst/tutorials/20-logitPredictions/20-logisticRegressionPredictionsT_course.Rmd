@@ -1,0 +1,1456 @@
+---
+title: "Logistic Regression: Visualizing Predicted Probabilities"
+tutorial:
+  id: "20-Logistic-Regression-Predictions"
+output: 
+  QPATutorialsCourse::qpa_tutorial:
+    progressive: true
+    allow_skip: true
+runtime: shiny_prerendered
+description: >
+  Learn how to visualize predicted probabilities from logistic regression models using prediction plots.
+---
+
+## Overview {#main-content}
+
+In Tutorial 19 you learned to estimate a logistic regression model --- the tool appropriate for binary outcomes. Much about estimation and hypothesis testing carried over directly from linear regression, introduced in Tutorials 15 and 16: the same five-step procedure, the same formula syntax, the same use of `summary()` to read off coefficients and significance. But interpretation is a different matter.
+
+In linear regression, the slope tells you the size of an effect directly and completely: a one-unit increase in an explanatory variable is associated with a fixed change in the outcome, the same regardless of where that variable starts or what the other predictors equal. In logistic regression, neither of those things is true. Because the model is estimated in log-odds and because explanatory variables have a nonlinear effect on the probability of the outcome, the estimated coefficients do not tell you how large an effect is --- only whether it is positive or negative and whether it is statistically distinguishable from zero. The size of the effect has to be computed, and it depends on the values of all the predictors, not just the one you care about.
+
+This is what makes the kind of visualization introduced in Tutorial 18 --- plots of predicted values across the full range of an explanatory variable --- not just useful but necessary for logistic regression. This tutorial applies those tools to the two models from Tutorial 19, extends them to let you control the values used for the other predictors in the background, and shows why those choices matter more here than they did for linear regression.
+
+In this tutorial, you will learn how to visualize predicted probabilities from logistic regression models. Specifically, we will cover:
+
+* How to use `plot_model()` from the [sjPlot]{.package-name} package to produce prediction plots that show the S-shaped relationship between a predictor and the probability of the outcome
+* How to use the `condition` argument to specify what values other predictors are held at when producing a prediction plot, and why that choice matters more in logistic regression than in linear regression
+* How to produce prediction plots for factor predictors, showing predicted probabilities for each category with confidence intervals
+* How to produce two-variable prediction plots that show how the effect of one predictor varies across levels of another
+* How to interpret prediction plots using the five-component framework introduced in Tutorial 18
+
+```{r setup, include=FALSE}
+library(learnr)
+library(learnrhash)
+library(tidyverse)
+library(knitr)
+library(poliscidata)
+library(gradethis)
+library(stargazer)
+library(sjPlot)
+library(pscl)
+tutorial_options(exercise.checker = gradethis::grade_learnr)
+knitr::opts_chunk$set(error = TRUE)
+data("counties", package = "QPATutorialsCourse")
+counties$dem2p_percent <- counties$dem2p_vote_share * 100
+counties$wage_growth <- counties$wage_growth * 100
+counties$rural_cat <- cut(counties$rural_urban,
+                          breaks = c(0, 3, 6, 9),
+                          labels = c("Urban", "Suburban", "Rural"))
+model_trump <- glm(TrumpMajority ~ wage_growth + prop_college_grad +
+                     prop_white + mortality_risk_25_45 + rural_cat,
+                   family = "binomial", data = counties)
+data("statesPolicy", package = "QPATutorialsCourse")
+statesPolicy$gov_f <- factor(statesPolicy$party_governor2024)
+statesPolicy$gov_f <- relevel(statesPolicy$gov_f, ref = "Democrat")
+model_ghg <- glm(policy_ghgcap2024 ~ ideology_conservative2024 +
+                   gov_f + econ_poverty2022,
+                 family = "binomial", data = statesPolicy)
+set.seed(19)
+n <- 200
+bipartisan           <- round(runif(n, 0, 0.6), 2)
+majority_margin      <- round(runif(n, 2, 30), 1)
+committee_chair_same <- rbinom(n, 1, 0.5)
+log_odds <- -1.8 + 4.0 * bipartisan + 0.07 * majority_margin +
+              1.2 * committee_chair_same
+prob   <- 1 / (1 + exp(-log_odds))
+passed <- rbinom(n, 1, prob)
+bills_df <- data.frame(
+  bipartisan            = bipartisan,
+  majority_margin       = majority_margin,
+  committee_chair_same  = factor(committee_chair_same,
+                                 labels = c("Different Party", "Same Party")),
+  passed                = passed
+)
+model_bills <- glm(passed ~ bipartisan + majority_margin + committee_chair_same,
+                   family = "binomial", data = bills_df)
+```
+
+## From Coefficients to Probabilities: Why Visualization Matters More Here
+
+In logistic regression, holding other variables constant is not enough to pin down an effect. The change in the predicted probability when a predictor shifts by one unit depends on which specific values you are holding those other variables at --- and on where those values place you on the S-curve.
+
+The open carry example from Tutorial 19 makes this concrete. Moving from 15% to 20% Republican share in a state legislature --- a five-point increase --- raises the predicted probability of an open carry law by about 2 percentage points. Moving from 25% to 30% --- the same five-point increase --- raises it by about 62 percentage points. Moving from 35% to 40% --- again the same shift --- produces almost nothing, because the probability is already near certainty. The coefficient on Republican share cannot tell you any of those three numbers. It can only tell you the direction is positive and the relationship is statistically significant. The size of the effect depends entirely on where on the S-curve the comparison falls.
+
+This is why prediction plots are particularly valuable for logistic regression in a way they are not for linear regression. To communicate what a coefficient means in substantive terms, you choose specific values for all the other explanatory variables, compute the predicted probability as the variable of interest moves across its range, and show the resulting curve. And because the shape of that curve --- how steep it is, where its steep middle falls, how quickly it flattens --- depends on what you hold constant in the background, those choices are not arbitrary technical details. They determine what the plot is actually showing. A prediction plot always represents the relationship between one explanatory variable and the outcome in a specific context, and naming that context is part of interpreting the result.
+
+### The Five-Component Framework
+
+Knowing why prediction plots are particularly valuable here is half the work. Reading them well requires a systematic approach, and choosing what to put in them requires judgment. Tutorial 18 introduced a five-component framework that applies to every prediction plot regardless of what model produced it; we use it throughout this tutorial.
+
+1. **The pattern** --- the direction and shape of the relationship: does the predicted outcome rise, fall, or curve as the explanatory variable increases?
+2. **The held values** --- what the other explanatory variables were set to when the predictions were computed, and what that means for how the result generalizes
+3. **Specific predicted values** --- what the model predicts at substantively meaningful values of the variable on the x-axis
+4. **The uncertainty** --- how wide the confidence band is and whether it is consistent or varies across the range
+5. **The hypothesis connection** --- whether the pattern is consistent with the hypothesis that motivated the model, and what the plot adds to the significance test
+
+### The Three Tools: predict(), plot_model(), and condition
+
+Tutorial 19 introduced two tools for working with predicted probabilities. `predict()` with `type = "response"` answers a single what-if question: what is the predicted probability for a case with this exact combination of predictor values? `plot_model()` with `type = "pred"` sweeps across the full range of one predictor and shows how the predicted probability changes --- it is `predict()` applied at every point along a variable's range, turned into a plot.
+
+Both tools have to hold the other explanatory variables at some specific values while the variable of interest varies. For `predict()`, you supply those values explicitly in `newdata` --- you saw in Tutorial 19 that every explanatory variable must appear in the data frame, with a specific value you chose. For `plot_model()`, if you do not specify otherwise, the other predictors are held at their means (for interval variables) or their reference category (for factor variables).
+
+The `condition` argument to `plot_model()` lets you override those defaults and specify exactly what context the plot represents. It works the same way `newdata` did with `predict()` in Tutorial 19: you bundle one or more named values together, where each name matches an explanatory variable in the model and each value is what you want it held at. The bundling tool here is `list()` rather than `data.frame()` --- `condition = list(prop_white = 0.85)` holds the proportion white at 0.85 rather than its mean while the x-axis variable varies across its range. You can set multiple variables at once: `condition = list(prop_white = 0.85, rural_cat = "Rural")`.
+
+In an additive linear regression model (one without interactions involving the focal predictor), changing the held values shifts the predicted line up or down without changing its slope --- so the choice of held values affects the level of the prediction but not its shape. This is why Tutorial 18 did not need `condition`: any reasonable set of held values told essentially the same story. In logistic regression, the held values determine which part of the S-curve the plot is showing, which can change both the level and the steepness of the relationship. Choosing those values thoughtfully is therefore part of the analysis, not a technical detail.
+
+When using `condition`, the most useful held values are ones that are **substantively meaningful** --- corresponding to real, recognizable cases rather than arbitrary numbers --- and that **reveal contrast** --- placed in a different region of the S-curve so the resulting plots actually look different and tell different stories. A `condition` value that produces nearly the same curve as the default held values is not doing useful analytical work. Ask what context your research question is actually about, and set `condition` to reflect that context rather than accepting whatever the software chooses by default.
+
+## What Predicted Trump Majorities in 2016? Visualizing the Results
+
+The 2016 election produced one of the sharpest educational divides in modern presidential voting history. Counties with lower college graduation rates shifted dramatically toward Trump relative to 2012, while highly educated counties moved toward Clinton. Scholars debate whether this reflects economic anxiety, cultural change, or the declining salience of traditional class politics --- but the empirical pattern is among the most robust findings about that election. The model from Tutorial 19 captures this: after controlling for wage growth, mortality risk, racial composition, and rurality, college graduation rates are among the strongest predictors of whether a county gave Trump a majority. Visualizing that relationship does not sidestep the retrospective voting hypothesis --- it is the model showing us which dimension of community-level change most powerfully predicted partisan alignment in 2016.
+
+The model output below recalls the coefficients for reference. Check the direction and significance of each predictor before producing any plots --- the plots should confirm what the table already tells you about direction, and add what the table cannot tell you about magnitude.
+
+```{r model-trump-recall, echo=TRUE, comment=NA}
+summary(model_trump)
+```
+
+The workflow here parallels Tutorial 18: we anchor our interpretation with specific predicted probabilities before producing plots, so that when the S-curve appears you already know what two of its points mean. The plots then show you everything in between.
+
+### Recall Specific Predicted Values
+
+In Tutorial 19 you obtained predicted probabilities for two county profiles that isolated the effect of mortality risk: an urban, highly educated, moderately diverse county with low mortality risk (Profile 1), and the same county with higher mortality risk (Profile 2). Reproducing those predictions here anchors the mortality risk relationship before you see the full curve --- the gap between them will tell you something about where these profiles fall on the S-curve.
+
+**Practice: Recall the predicted probabilities from Tutorial 19**
+
+Write both predict() calls from scratch. Profile 1 is an Urban county with **wage_growth** = 4.3, **prop_college_grad** = 0.35, **prop_white** = 0.65, and **mortality_risk_25_45** = 2.5. Profile 2 is the same county with **mortality_risk_25_45** = 5.0. Four hints are available. Click Submit Answer to check your work.
+
+```{r exercise-recall-trump, exercise=TRUE, exercise.cap="Practice: Recall predicted probabilities for two Trump majority profiles"}
+# Profile 1: Urban county, low mortality risk
+
+# Profile 2: Same county, higher mortality risk
+
+```
+
+```{r exercise-recall-trump-hint-1}
+# Hint 1 of 4
+# You need to ask the model what probability it assigns to a
+# specific county. Think about what function produces a predicted
+# probability from a fitted logistic regression model, what
+# information you need to supply about the county, and why you
+# need to specify the type of prediction you want.
+```
+
+```{r exercise-recall-trump-hint-2}
+# Hint 2 of 4
+# predict() takes the fitted model as its first argument.
+# The newdata argument takes a data.frame() with one row
+# containing a value for every explanatory variable in the model.
+# The type argument controls what scale the prediction is on ---
+# use "response" to get a probability.
+# For rural_cat, a factor variable, use factor() with the level
+# name and levels = levels(counties$rural_cat).
+```
+
+```{r exercise-recall-trump-hint-3}
+# Hint 3 of 4: Profile 1 skeleton --- fill in the blanks
+predict(model_trump,
+        newdata = data.frame(
+          wage_growth          = ___,
+          prop_college_grad    = ___,
+          prop_white           = ___,
+          mortality_risk_25_45 = ___,
+          rural_cat            = factor(___, levels = levels(counties$rural_cat))),
+        type = ___)
+```
+
+```{r exercise-recall-trump-hint-4}
+# Hint 4 of 4
+# Profile 2 uses exactly the same predict() structure as Profile 1.
+# The only difference is the value of mortality_risk_25_45, which
+# is 5.0. Everything else --- the function, the arguments, the
+# other values, and the factor() construction for rural_cat ---
+# is identical to Profile 1.
+```
+
+```{r exercise-recall-trump-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("predict\\s*\\(", code_no_comments))
+    fail("Use predict() to obtain the predicted probabilities.")
+  if (!grepl("type\\s*=\\s*['\"]response['\"]", code_no_comments))
+    fail("Set type = \"response\" to obtain predictions on the probability scale.")
+  if (!grepl("mortality_risk_25_45\\s*=\\s*2\\.5", code_no_comments))
+    fail("Set mortality_risk_25_45 = 2.5 for Profile 1.")
+  if (!grepl("mortality_risk_25_45\\s*=\\s*5\\.?0?", code_no_comments))
+    fail("Set mortality_risk_25_45 = 5.0 for Profile 2.")
+  if (!grepl("prop_college_grad\\s*=\\s*0\\.35", code_no_comments))
+    fail("Set prop_college_grad = 0.35 for both profiles.")
+  if (!grepl("prop_white\\s*=\\s*0\\.65", code_no_comments))
+    fail("Set prop_white = 0.65 for both profiles.")
+
+  pass("Right. Profile 1 gives about 18% probability of a Trump majority --- an urban, highly educated, moderately diverse county is unlikely to be Trump territory. Profile 2 gives about 40% --- raising mortality risk by 2.5 units more than doubles the probability, a 22-point jump that places these profiles in a region of meaningful slope on the S-curve. You can see both values as points on the full mortality risk curve that follows.")
+})
+```
+
+You now have two specific points on the mortality risk curve. Before moving to the full plot, think about what the gap between them implies about where these profiles fall on the S-curve.
+
+**Practice: What do these two values tell you about the S-curve?**
+
+Look at both predicted probabilities in your output before answering.
+
+```{r quiz-recall-trump, echo=FALSE}
+question("Look at the two predicted probabilities in your output. What do they tell you about where these profiles fall on the S-curve?",
+  correct = "Right. A 22-point jump means we are in a region of meaningful slope, not near the flat extremes.",
+  answer("We are somewhere in the middle of the S-curve, where the mortality risk relationship is changing meaningfully --- the same 2.5-unit increase starting from a very different baseline would produce a different change in predicted probability",
+         correct = TRUE,
+         message = "A 22-percentage-point change for a 2.5-unit increase tells you the comparison falls in a region of genuine slope. The prediction plot will show the full curve, including where it flattens at the extremes. Two points tell you about the relationship between them; the plot shows you the whole picture."),
+  answer("We are near the flat bottom of the S-curve, because both probabilities are below 50%",
+         message = "Profile 2 is actually close to 40% --- not near the bottom. More importantly, a 22-point jump is not consistent with a flat region. The flat regions of an S-curve are where large changes in the predictor produce almost no change in probability."),
+  answer("The two values fully describe the mortality risk relationship --- a plot would not add anything",
+         message = "Two points describe the relationship between those two specific values, but not the full shape of the curve: how it flattens at the extremes, where the steepest section falls, or how the curve shifts when other predictors change. The plot shows all of that."),
+  answer("We are near the flat top of the S-curve, because the probabilities are relatively high",
+         message = "Profile 1 is at 18% --- not near the top. The flat top of an S-curve is where probabilities are already near 1 and barely move. A 22-point jump from 18% to 40% is a region of genuine slope."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: think about what a 22-point change means for how steep the curve is at these values."
+)
+```
+
+### Visualize the Educational Divide
+
+The hypothesis about retrospective voting focused on wage growth and mortality risk, but the coefficients table showed that college graduation rates have a strong negative relationship with Trump support --- one of the most discussed structural features of the 2016 result. Counties where fewer adults hold college degrees were far more likely to give Trump a majority, even after controlling for economic distress, racial composition, and rurality. Here we visualize that relationship across its full range.
+
+`plot_model()` is from the [sjPlot]{.package-name} package, loaded above. Its key arguments are: `type = "pred"` for a prediction plot, `terms =` for the variable on the x-axis, `axis.title =` for the axis labels (x first, then y), and `condition =` to specify held values for other variables. Add the caption with `+ labs(caption = "...")`.
+
+**Practice: Visualize the effect of college graduation rates on the probability of a Trump majority**
+
+The prescribed labels and caption are below. Fill in the argument names and values. The `condition` argument is not used here --- `plot_model()` will hold all other predictors at their means and Urban reference category by default.
+
+- `title`: `"Predicted Probability of a Trump Majority by County College Graduation Rate"`
+- x-axis: `"Proportion of Adults with a College Degree"`
+- y-axis: `"Predicted Probability of Trump Majority"`
+- caption: `"Predictions are for Urban counties with average wage growth, mortality risk, and proportion white (0.862)."`
+
+Three hints are available. Click Submit Answer to check your work.
+
+```{r exercise-predplot-college, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for prop_college_grad"}
+library(sjPlot)
+___(model_trump,
+    ___ = "pred",
+    ___ = "prop_college_grad",
+    title = "Predicted Probability of a Trump Majority by County College Graduation Rate",
+    ___ = c("Proportion of Adults with a College Degree",
+             "Predicted Probability of Trump Majority")) +
+  ___(caption = "Predictions are for Urban counties with average wage growth, mortality risk, and proportion white (0.862).")
+```
+
+```{r exercise-predplot-college-hint-1}
+# Hint 1 of 3
+# The task is to show how the probability of a Trump majority changes
+# as college graduation rates vary across their full range, holding
+# the other predictors constant at the values stated in the caption.
+# Think about what kind of output you want (a line across a range),
+# which variable should vary on the x-axis, and what type of plot
+# produces that output. The prescribed title, labels, and caption
+# are all given in the prose above.
+```
+
+```{r exercise-predplot-college-hint-2}
+# Hint 2 of 3
+# You need plot_model() from sjPlot, already loaded above.
+# The argument that controls what kind of plot you get takes
+# the value "pred" for a prediction plot.
+# The argument that names the x-axis variable is terms =.
+# The argument that labels both axes is axis.title = and
+# takes the x-axis label first, then the y-axis label.
+# Add the caption as a ggplot layer with + labs(caption = "...").
+```
+
+```{r exercise-predplot-college-hint-3}
+# Hint 3 of 3
+# Your completed call should have this structure:
+# plot_model() with library(sjPlot) loaded first, the Trump model
+# as the first argument, type set to prediction, terms naming the
+# college graduation variable on the x-axis, axis.title with the
+# prescribed x-axis label first and y-axis label second, and a
+# labs() layer adding the prescribed caption. The title is already
+# provided in the starter code.
+```
+
+```{r exercise-predplot-college-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("plot_model\\s*\\(", code_no_comments))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_no_comments))
+    fail("Set type = \"pred\" to produce a prediction plot.")
+  if (!grepl("prop_college_grad", code_no_comments))
+    fail("Set terms = \"prop_college_grad\".")
+  if (!grepl("axis\\.title\\s*=", code_no_comments))
+    fail("Include the axis.title = argument with the prescribed labels.")
+  if (!grepl("Proportion of Adults with a College Degree", code_no_comments, fixed = TRUE))
+    fail("Use the prescribed x-axis label: \"Proportion of Adults with a College Degree\".")
+  if (!grepl("labs\\s*\\(", code_no_comments))
+    fail("Add a labs(caption = \"...\") layer stating the held values.")
+  if (!grepl("Predictions are for Urban counties", code_no_comments, fixed = TRUE))
+    fail("Use the prescribed caption.")
+
+  pass("Well done. Examine the shape of the curve, the caption, and the confidence band before answering the next questions.")
+})
+```
+
+Once a package is loaded with `library()`, all of its functions are available for the rest of your R session --- you do not need to load it again each time. Since [sjPlot]{.package-name} was loaded above, you can assume it is available for all subsequent exercises in this tutorial.
+
+**Practice: Component 1 --- The pattern**
+
+Look at the direction and shape of the line before answering.
+
+```{r quiz-college-pattern, echo=FALSE}
+question("Look at the prediction plot above. Which statement best describes the overall pattern?",
+  correct = "Right. A strong negative S-curve: highly educated counties are much less likely to be Trump territory.",
+  answer("As the proportion of college graduates increases, the predicted probability of a Trump majority falls steeply --- the relationship is negative and takes the curved shape of an S-curve rather than a straight line",
+         correct = TRUE,
+         message = "The curve drops from near certainty at low graduation rates to well below 50% at high graduation rates, tracing the characteristic shape of a logistic regression prediction. In a linear regression model, this line would be straight; in a logistic model, it accelerates through the steep middle and flattens at the extremes."),
+  answer("As the proportion of college graduates increases, the predicted probability of a Trump majority rises",
+         message = "The line slopes downward from left to right --- a negative relationship. More educated counties were less likely to give Trump a majority."),
+  answer("The line is essentially flat, indicating that college graduation rates have no relationship with Trump support after controlling for other variables",
+         message = "The line has a clearly negative slope, dropping substantially from low to high graduation rates. College graduation rates are among the strongest predictors in this model."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: trace the line from left to right. Does the y-axis value rise, fall, or stay flat as the proportion of college graduates increases?"
+)
+```
+
+The caption at the bottom of the plot tells you exactly what the other predictors were set to. Before answering, read it and think about why those choices matter more here than they did in Tutorial 18.
+
+**Practice: Component 2 --- The held values**
+
+The caption tells you what was held constant. This choice matters more in logistic regression than it does in linear regression.
+
+```{r quiz-college-held, echo=FALSE}
+question("The caption states that predictions hold other predictors at their means and assume Urban counties. What does this mean for interpreting the curve?",
+  correct = "Right. The held values place these predictions in the context of an average, Urban county --- and changing them would shift the curve's position.",
+  answer("The curve describes the college graduation relationship in the context of an average Urban county --- a different racial composition or rurality category would shift the curve up or down and potentially change its steepness, because in logistic regression the held values determine which part of the S-curve the plot is showing",
+         correct = TRUE,
+         message = "This is the key difference from linear regression. In an additive linear model without interactions involving the focal predictor, changing the held values shifts the line up or down without changing its slope. In a logistic model, different held values place you in a different region of the S-curve --- potentially changing both the level and the steepness of the relationship you see. The condition argument, introduced in the next exercise, lets you explore this directly."),
+  answer("The curve applies to all counties equally --- the held values are just a technical detail that does not affect interpretation",
+         message = "The held values are not a technical detail here. They determine which part of the S-curve the plot is showing. A county with very different racial composition or in a different rurality category would be positioned differently on the S-curve, potentially producing a steeper or flatter curve at a different level."),
+  answer("Because Urban is the reference category, the curve only applies to cities and should not be used to draw conclusions about rural counties",
+         message = "The caption tells you the baseline for these predictions. The two-variable plot later in this example will show the college graduation relationship separately for each rurality category. The Urban baseline here does not mean the finding is limited to urban areas."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: think about what an interaction term would be needed to make the slope itself differ by rurality category, and what the held values tell you about which version of the relationship you are seeing."
+)
+```
+
+Direction and shape are not enough --- the size of the effect is what makes a result substantively meaningful. Read two specific values from the plot before answering.
+
+**Practice: Component 3 --- Specific predicted values**
+
+Read two values from the plot before answering --- one near the low end of the observed graduation rate range and one near the high end.
+
+```{r quiz-college-values, echo=FALSE}
+question("Using the prediction plot, approximately what is the predicted probability of a Trump majority at prop_college_grad = 0.10 and at prop_college_grad = 0.45 for an Urban county at average other values?",
+  correct = "Right. About 98% at low graduation rates, about 42% at high --- a 56-point drop across a realistic range.",
+  answer("About 98% at prop_college_grad = 0.10 and about 42% at prop_college_grad = 0.45 --- a 56-percentage-point difference",
+         correct = TRUE,
+         message = "A 56-point drop is a large substantive effect, visible in the steep descent of the S-curve through the middle of the graduation rate range. This is what the college graduation coefficient in the table could not tell you directly: not just that the relationship is negative and significant, but that moving from a low-graduation county to a high-graduation county predicts the probability of a Trump majority nearly in half, passing through the steep middle of the curve."),
+  answer("About 50% at both values --- the curve is symmetric around 0.5",
+         message = "Read the y-axis value at prop_college_grad = 0.10 and at 0.45 separately. The curve is not symmetric around 0.5 at these values."),
+  answer("About 80% at prop_college_grad = 0.10 and about 80% at prop_college_grad = 0.45 --- the curve is nearly flat",
+         message = "The curve is not flat. It drops substantially from low to high graduation rates. Trace from x = 0.10 up to the line and read the y-axis; repeat at x = 0.45."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: find prop_college_grad = 0.10 on the horizontal axis, trace up to the line, and read the y-axis value. Repeat at prop_college_grad = 0.45."
+)
+```
+
+Every prediction comes with uncertainty. The confidence band makes that uncertainty visible in a way the p-value cannot. Look at its width and where it varies before answering.
+
+**Practice: Component 4 --- The uncertainty**
+
+Look at the width of the confidence band and whether it is consistent across the range before answering.
+
+```{r quiz-college-band, echo=FALSE}
+question("Look at the shaded confidence band in the plot. Which statement best describes what it tells you?",
+  correct = "Right. The band is narrower in the middle of the range where most counties are, and wider at the extremes.",
+  answer("The band is narrower in the middle of the graduation rate range, where most counties are concentrated, and widens at both extremes --- reflecting the general principle that predictions are more precise where data are dense",
+         correct = TRUE,
+         message = "With data from over 3,000 counties, the band is fairly narrow throughout, but the tightening in the middle reflects where most counties fall: between 0.10 and 0.35. The widening at very low or very high graduation rates (fewer counties) is expected and does not undermine the directional conclusion."),
+  answer("The band is so wide throughout that no conclusions can be drawn",
+         message = "With over 3,000 counties, the band is actually relatively narrow. The relationship is estimated with reasonable precision across most of the observed range."),
+  answer("The band is perfectly uniform, indicating equal precision at all graduation rate levels",
+         message = "Prediction bands are almost never perfectly uniform. With more counties concentrated in the middle of the graduation rate range, predictions there are more precise than at the extremes."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at the band width at the far left, the middle, and the far right of the plot."
+)
+```
+
+The plot is not just an illustration of the coefficient --- it adds information the table cannot provide. Think about what that new information is before answering.
+
+**Practice: Component 5 --- The hypothesis connection**
+
+Think about what the plot adds to what the coefficients table already told you.
+
+```{r quiz-college-hypothesis, echo=FALSE}
+question("The coefficients table showed that prop_college_grad is a significant negative predictor. What does the prediction plot add to that conclusion?",
+  correct = "Right. The plot translates the significant negative coefficient into a concrete, visible magnitude.",
+  answer("The plot shows the substantive size of the educational divide --- a 56-point gap in predicted probability between low- and high-graduation counties at average other values --- something the coefficient alone could not communicate",
+         correct = TRUE,
+         message = "A significant negative coefficient tells you the direction is reliable. The prediction plot tells you the magnitude across a realistic range: the difference between a county at the 25th percentile of graduation rates (about 0.14) and one at the 75th percentile (about 0.25) is roughly 30 percentage points of predicted probability. That is the educational divide made visible."),
+  answer("The plot adds nothing beyond the p-value --- a significant coefficient and a downward-sloping line convey the same information",
+         message = "The p-value tells you the relationship is unlikely to be chance. The plot tells you its magnitude and shape across the observed range --- how large the gap is between high- and low-graduation counties, and where on the range the steepest change occurs. That is substantively different information."),
+  answer("The plot proves that education causes counties to vote against Trump",
+         message = "A prediction plot shows an association between college graduation rates and the predicted probability of a Trump majority. It does not establish causation. Many factors correlated with education may be driving the relationship."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: think about what a p-value tells you and what it cannot tell you about the size or practical meaning of an effect."
+)
+```
+
+Now consider what the plot looks like for counties with a lower proportion of white residents --- say 0.70, compared to the mean of 0.862. Counties at 0.70 are more racially diverse than average; they represent about 14% of counties. The `condition` argument lets us ask: is the educational divide in Trump support different in more diverse counties than in majority-white counties? This is the kind of contextual question that the default plot cannot answer.
+
+**Practice: The same plot, conditioned on prop_white = 0.70**
+
+Fill in the blanks. The `condition` argument and the prescribed labels are the only changes from the exercise above. Two hints are available. Click Submit Answer to check your work.
+
+```{r exercise-predplot-college-condition, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for prop_college_grad conditioned on prop_white = 0.70"}
+plot_model(model_trump,
+           type       = "pred",
+           terms      = "prop_college_grad",
+           condition  = list(prop_white = ___),
+           title      = "Predicted Probability of a Trump Majority by College Graduation Rate",
+           axis.title = c("Proportion of Adults with a College Degree",
+                          "Predicted Probability of Trump Majority")) +
+  labs(caption = "___")
+```
+
+```{r exercise-predplot-college-condition-hint-1}
+# Hint 1 of 2
+# The task is the same as the previous plot, but you need to tell
+# the function to hold prop_white at 0.70 rather than its mean.
+# Think about which argument controls the values of explanatory
+# variables that are not on the x-axis, and what structure that
+# argument uses to pair a variable name with a specific value.
+```
+
+```{r exercise-predplot-college-condition-hint-2}
+# Hint 2 of 2
+# The condition argument takes a named list where each name is
+# an explanatory variable and each value is what you want it
+# held at: condition = list(variable_name = value).
+# Fill in the argument name and the value for prop_white.
+# Update the caption to reflect that prop_white = 0.70.
+```
+
+```{r exercise-predplot-college-condition-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("plot_model\\s*\\(", code_no_comments))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("condition\\s*=", code_no_comments))
+    fail("Include the condition = argument to specify the held value for prop_white.")
+  if (!grepl("prop_white\\s*=\\s*0\\.70", code_no_comments))
+    fail("Set prop_white = 0.70 inside condition = list(...).")
+  if (!grepl("prop_college_grad", code_no_comments))
+    fail("Keep terms = \"prop_college_grad\".")
+  if (!grepl("labs\\s*\\(", code_no_comments))
+    fail("Add a labs(caption = \"...\") layer with an updated caption reflecting prop_white = 0.70.")
+  if (!grepl("prop_white\\s*=\\s*0\\.70", code_no_comments))
+    fail("Update your caption to state that prop_white is held at 0.70 --- the default caption from the previous exercise is not correct here.")
+
+  pass("Correct. Compare this plot to the default one carefully before answering the next question.")
+})
+```
+
+You now have two plots showing the same relationship in two different demographic contexts. The question is not just whether they look different, but why --- and what that difference tells you about how to read logistic regression prediction plots.
+
+**Practice: Compare the two college graduation plots**
+
+Look at both plots --- the default (prop_white = 0.862) and the conditioned (prop_white = 0.70) --- before answering.
+
+```{r quiz-college-condition, echo=FALSE}
+question("Compare the two college graduation plots. Which statement best describes what changed and why?",
+  correct = "Right. The curve shifted downward because lower prop_white places these counties in a different region of the S-curve.",
+  answer("The curve shifted downward substantially --- at any given graduation rate, the predicted probability of a Trump majority is lower for counties with prop_white = 0.70 than for counties at the mean of 0.862 --- because lower racial homogeneity is itself associated with lower Trump support in this model, shifting the entire curve to a lower level",
+         correct = TRUE,
+         message = "At prop_college_grad = 0.10, the default curve gives about 98% and the conditioned curve gives about 90% --- an 8-point drop. At prop_college_grad = 0.35, the default gives about 70% and the conditioned gives about 32% --- a 38-point drop. The gap is larger in the steep middle than at the extremes, because conditioning on lower prop_white moves us into a steeper region of the S-curve there. This is the condition argument in action: the same educational divide looks different depending on the racial composition context."),
+  answer("The curves are essentially identical --- changing prop_white has no effect on the college graduation relationship",
+         message = "The curves are not identical. Compare the predicted probabilities at the same graduation rate values across the two plots --- they differ substantially, especially in the middle of the range."),
+  answer("The curve shifted upward --- more diverse counties are more likely to give Trump a majority at any graduation rate level",
+         message = "The curve shifted downward, not upward. Counties with lower prop_white have lower predicted probabilities of a Trump majority throughout, consistent with the positive prop_white coefficient in the model."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: compare the y-axis values at the same x-axis position in each plot. Did the curve move up or down, and does the gap change across the graduation rate range?"
+)
+```
+
+### Visualize the Effect of Mortality Risk in Context
+
+Tutorial 19 found that mortality risk is a significant positive predictor of Trump support (p = .001) --- higher working-age mortality is associated with a higher probability of a Trump majority, consistent with the retrospective voting hypothesis. But the default prediction plot at mean county characteristics barely moves: because the average county has high prop_white (0.862), most counties are already near the flat top of the S-curve, where additional mortality risk adds little to an already-high probability. To see the mortality risk relationship in full, we need to ask what it looks like in counties where the demographic baseline does not already place the probability near certainty.
+
+Conditioning on prop_white = 0.60 --- a more racially diverse Urban county --- moves us into the steep middle of the S-curve, where mortality risk has room to matter. Counties at this level of racial diversity are uncommon (about 8.5% of all counties), but they are the counties where the mortality risk signal is most visible and most consequential for predicting partisan alignment.
+
+**Run and observe: Mortality risk at mean values vs. conditioned on prop_white = 0.60**
+
+The code below produces both plots side by side so you can see the difference directly.
+
+```{r exercise-mortality-condition, exercise=TRUE, exercise.cap="Run and observe: Compare mortality risk plots at different held values of prop_white"}
+# Default: prop_white held at its mean (0.862)
+plot_model(model_trump,
+           type       = "pred",
+           terms      = "mortality_risk_25_45",
+           title      = "Mortality Risk at Mean prop_white (0.862)",
+           axis.title = c("Mortality Risk (Ages 25-45)",
+                          "Predicted Probability of Trump Majority")) +
+  labs(caption = "Predictions are for Urban counties with average wage growth, college graduation rate, and prop_white (0.862).")
+
+# Conditioned: prop_white held at 0.60
+plot_model(model_trump,
+           type       = "pred",
+           terms      = "mortality_risk_25_45",
+           condition  = list(prop_white = 0.60),
+           title      = "Mortality Risk Conditioned on prop_white = 0.60",
+           axis.title = c("Mortality Risk (Ages 25-45)",
+                          "Predicted Probability of Trump Majority")) +
+  labs(caption = "Predictions are for Urban counties with average wage growth and college graduation rate, and prop_white = 0.60.")
+```
+
+The two plots show the same predictor --- mortality risk --- at two different held values of prop_white. The difference between them is the argument for why held values matter in logistic regression, visible directly.
+
+**Practice: What does the comparison show?**
+
+Look at both plots before answering.
+
+```{r quiz-mortality-condition, echo=FALSE}
+question("Compare the two mortality risk plots. Which statement best describes what the comparison reveals?",
+  correct = "Right. The same predictor tells very different stories depending on what is held constant.",
+  answer("At mean prop_white, mortality risk is compressed near the top of the S-curve and barely moves --- but conditioned on prop_white = 0.60, the same predictor produces a curve that rises from about 32% to about 84% across the observed range, revealing a large positive relationship that the default plot conceals",
+         correct = TRUE,
+         message = "This is the core lesson about condition in logistic regression. The mortality risk coefficient is the same in both plots --- the model has not changed. What changed is where on the S-curve the plot is showing the relationship. At mean prop_white, most counties are already near the probability ceiling, so mortality risk has little room to push the probability higher. At prop_white = 0.60, counties start in the steep middle, where mortality risk produces a large, visible effect. Reading the caption is not a formality --- it tells you which story the plot is telling."),
+  answer("The two plots show the same curve at different vertical positions --- the shape is identical and only the level changes",
+         message = "The shape is not identical. At mean prop_white, the curve is nearly flat because it is compressed near the top of the S-curve. At prop_white = 0.60, the curve has a clear positive slope through the steep middle. Both the level and the steepness change when the held value changes --- this is the key difference from additive linear regression, where changing held values shifts the line without changing its slope."),
+  answer("The conditioned plot shows that mortality risk has no effect on Trump support in diverse counties",
+         message = "The conditioned plot shows the opposite: a large positive effect of mortality risk in more diverse counties, rising from about 32% to about 84%. The effect is actually more visible there than in the default plot."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: compare the range of the y-axis values in each plot. Which curve spans a larger range of predicted probabilities, and what does that tell you about where on the S-curve each plot is positioned?"
+)
+```
+
+### Visualize the Effect of Rurality
+
+**rural_cat** is a three-category factor. When `terms` is a factor variable, `plot_model()` produces a dot for each category with a confidence interval rather than a continuous curve --- there is no meaningful range to sweep across for a categorical variable, only discrete levels to compare. The dots show the predicted probability for each rurality category at the held values stated in the caption.
+
+**Practice: Produce a prediction plot for rurality**
+
+Prescribed values:
+- `title = "Predicted Probability of a Trump Majority by County Rurality"`
+- x-axis: `"Rurality Category"`, y-axis: `"Predicted Probability of Trump Majority"`
+- caption: `"Predictions are for counties with average wage growth, college graduation rate, mortality risk, and proportion white."`
+
+Three hints are available. Click Submit Answer to check your work.
+
+```{r exercise-predplot-rural, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for rural_cat"}
+___(model_trump,
+    ___ = "pred",
+    ___ = "rural_cat",
+    title = "Predicted Probability of a Trump Majority by County Rurality",
+    ___ = c("Rurality Category",
+             "Predicted Probability of Trump Majority")) +
+  ___(caption = "Predictions are for counties with average wage growth, college graduation rate, mortality risk, and proportion white.")
+```
+
+```{r exercise-predplot-rural-hint-1}
+# Hint 1 of 3
+# The task is to compare the predicted probability of a Trump
+# majority across the three rurality categories, holding the
+# other explanatory variables at their means. Think about what
+# kind of plot shows discrete predictions for each category of
+# a factor variable, and which argument tells the plot which
+# variable to use for the categories on the x-axis.
+```
+
+```{r exercise-predplot-rural-hint-2}
+# Hint 2 of 3
+# The function and argument names are the same as in the college
+# graduation plot you just produced: plot_model(), type =, terms =,
+# axis.title =, and + labs(caption = "..."). The only difference
+# is that when terms = names a factor variable, plot_model()
+# automatically produces dots with confidence intervals rather
+# than a continuous line --- no other change is needed.
+```
+
+```{r exercise-predplot-rural-hint-3}
+# Hint 3 of 3
+# Your completed call uses plot_model() with model_trump as the
+# first argument, type = "pred", and terms = "rural_cat" ---
+# both of which are already in the starter code. The blanks
+# are the function name itself, axis.title = with the two
+# prescribed labels in order, and + labs(caption = "...") with
+# the prescribed caption. The title is already provided.
+```
+
+```{r exercise-predplot-rural-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("plot_model\\s*\\(", code_no_comments))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_no_comments))
+    fail("Set type = \"pred\".")
+  if (!grepl("rural_cat", code_no_comments))
+    fail("Set terms = \"rural_cat\".")
+  if (!grepl("Rurality Category", code_no_comments, fixed = TRUE))
+    fail("Use \"Rurality Category\" as the x-axis label.")
+  if (!grepl("labs\\s*\\(", code_no_comments))
+    fail("Add a labs(caption = \"...\") layer.")
+  if (!grepl("Predictions are for counties with average", code_no_comments, fixed = TRUE))
+    fail("Use the prescribed caption.")
+
+  pass("Well done. Look at the three dots and their confidence intervals before answering the next question.")
+})
+```
+
+The rurality plot will look very different from the education plot. Before answering, check the y-axis scale and connect what you see to the rurality p-values from Tutorial 19.
+
+**Practice: Interpret the rurality plot**
+
+Look at which dots stand apart and whether their confidence intervals overlap before answering.
+
+```{r quiz-rural-interpret, echo=FALSE}
+question("Look at the rurality prediction plot. Which statement best describes the key finding?",
+  correct = "Right. All three categories have high predicted probabilities with overlapping intervals --- consistent with the non-significant rurality coefficients.",
+  answer("All three rurality categories have predicted probabilities above 90% at average values of the other predictors, with confidence intervals that overlap substantially --- consistent with the non-significant rural_cat coefficients in Tutorial 19 after controlling for education, racial composition, and economic conditions",
+         correct = TRUE,
+         message = "The dots are at about 93% for Urban, 92% for Suburban, and 94% for Rural at average other values. These are all high --- and close together --- because the mean county has high prop_white (0.862) and low college graduation rates, which place the baseline probability near the top of the S-curve regardless of rurality. This is a substantively important null result: once we account for the educational and racial composition of counties, rurality itself does not significantly predict Trump support."),
+  answer("Rural counties are predicted to have dramatically higher Trump support than Urban counties, confirming that the rural-urban divide drove the 2016 election",
+         message = "The dots are actually very close together at average other values. The rural-urban narrative is complicated by the model: once education, racial composition, wage growth, and mortality risk are held constant, rurality itself is not a significant predictor. The rural-urban divide in 2016 is largely mediated by compositional differences."),
+  answer("The wide confidence intervals mean the model is unreliable for predicting Trump support",
+         message = "The confidence intervals are not wide relative to the scale --- all three are clustered near 90-95%. Overlapping confidence intervals tell you about statistical significance, not about model reliability. The model predicts Trump majorities well; it just cannot distinguish the three rurality categories from each other after controlling for composition."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at the y-axis values for each dot and whether the confidence intervals overlap. Connect what you see to the p-values for the rurality coefficients from Tutorial 19."
+)
+```
+
+### Visualize College Graduation Rates and Rurality Together
+
+A two-variable prediction plot puts **prop_college_grad** on the x-axis and produces separate lines for each level of **rural_cat**. Because the model has no interaction between these variables, the lines will not cross --- on the log-odds scale, the same educational coefficient applies in Urban, Suburban, and Rural counties, with each category shifted by its rurality coefficient. On the probability scale, the apparent gaps between lines may narrow near the extremes due to S-curve compression, but the lines do not cross and the model makes no claim that the educational divide differs by rurality.
+
+**Practice: Produce a two-variable prediction plot**
+
+Prescribed values:
+- `title = "Predicted Probability of a Trump Majority by Education and Rurality"`
+- x-axis: `"Proportion of Adults with a College Degree"`, y-axis: `"Predicted Probability of Trump Majority"`
+- caption: `"Predictions are for counties with average wage growth, mortality risk, and proportion white."`
+
+Three hints are available. Click Submit Answer to check your work.
+
+```{r exercise-predplot-twovar-trump, exercise=TRUE, exercise.cap="Practice: Produce a two-variable prediction plot for prop_college_grad and rural_cat"}
+___(model_trump,
+    ___ = "pred",
+    ___ = c("prop_college_grad", "rural_cat"),
+    title = "Predicted Probability of a Trump Majority by Education and Rurality",
+    ___ = c("Proportion of Adults with a College Degree",
+             "Predicted Probability of Trump Majority")) +
+  ___(caption = "Predictions are for counties with average wage growth, mortality risk, and proportion white.")
+```
+
+```{r exercise-predplot-twovar-trump-hint-1}
+# Hint 1 of 3
+# The task is to show how the education relationship varies across
+# rurality categories simultaneously --- combining the continuous
+# plot you made for college graduation rates with the factor
+# categories from the rurality plot into a single visualization.
+# Think about which variable sweeps along the x-axis and which
+# produces separate colored lines for each of its levels.
+```
+
+```{r exercise-predplot-twovar-trump-hint-2}
+# Hint 2 of 3
+# The function and argument names are the same as in the
+# single-variable plots: plot_model(), type =, terms =,
+# axis.title =, and labs(). The only structural change is that
+# terms = now takes a character vector: c("x_variable", "group_variable").
+# The first element goes on the x-axis; the second produces lines.
+```
+
+```{r exercise-predplot-twovar-trump-hint-3}
+# Hint 3 of 3
+# Your completed call uses plot_model() with model_trump,
+# type = "pred", and terms = c("prop_college_grad", "rural_cat")
+# --- all already in the starter code. The blanks are the
+# function name itself, axis.title = with the two prescribed
+# labels in order (x-axis first), and + labs(caption = "...")
+# with the prescribed caption. The title is already provided.
+```
+
+```{r exercise-predplot-twovar-trump-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("plot_model\\s*\\(", code_no_comments))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_no_comments))
+    fail("Set type = \"pred\".")
+  if (!grepl("prop_college_grad", code_no_comments))
+    fail("Include prop_college_grad as the first term (x-axis).")
+  if (!grepl("rural_cat", code_no_comments))
+    fail("Include rural_cat as the second term (separate lines).")
+  if (regexpr("prop_college_grad", code_no_comments) > regexpr("rural_cat", code_no_comments))
+    fail("prop_college_grad should come first in terms (x-axis), and rural_cat second (separate colored lines). Check the order inside c(...).")
+  if (!grepl("axis\\.title\\s*=", code_no_comments))
+    fail("Include the axis.title = argument.")
+  if (!grepl("labs\\s*\\(", code_no_comments))
+    fail("Add a labs(caption = \"...\") layer.")
+
+  pass("Well done. Look at whether the lines are parallel and how far apart they are before answering the next question.")
+})
+```
+
+The visual structure of the two-variable plot carries a specific message about the model. Before answering, identify the geometric feature that distinguishes an additive model from an interactive one.
+
+**Practice: Interpret the two-variable plot**
+
+The lines do not cross. Before answering, think about what that tells you about the model.
+
+```{r quiz-twovar-trump, echo=FALSE}
+question("The three lines in the two-variable plot do not cross. What does this tell you about the relationship between education, rurality, and Trump support?",
+  correct = "Right. Non-crossing lines in an additive logistic model mean the same log-odds coefficient applies in every group.",
+  answer("On the log-odds scale, the educational coefficient is the same in Urban, Suburban, and Rural counties --- there is no interaction between prop_college_grad and rural_cat in this model. On the probability scale, apparent gaps may narrow near the extremes due to S-curve compression, but the lines do not cross.",
+         correct = TRUE,
+         message = "Non-crossing lines are the visual signature of an additive logistic model. Each rurality category shifts the predicted curve up or down by its coefficient on the log-odds scale, but the educational coefficient is mathematically the same in every category. If we wanted to test whether the educational divide differs by rurality on the log-odds scale, we would need to add an interaction term between prop_college_grad and rural_cat."),
+  answer("The lines not crossing means education has no effect on Trump support in any rurality category",
+         message = "Non-crossing lines mean the log-odds effect is the same across rurality categories, not that there is no effect. All three lines slope downward steeply --- education has a large negative effect in every category."),
+  answer("The vertical gaps between lines are constant at all education levels, which means the rurality coefficients are large and significant",
+         message = "The gaps between lines are determined by the rurality coefficients, but they may appear to narrow near the extremes of the probability scale due to S-curve compression. Whether those gaps are statistically significant is a separate question from whether the lines cross. The small, non-significant rurality coefficients from Tutorial 19 explain why the three lines are so close together."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: do the lines cross? What does that tell you about the model structure, and what additional term would make them cross?"
+)
+```
+
+### What We Learned About Education, Mortality Risk, and Trump Support
+
+The prediction plots complete the picture from Tutorial 19. The educational divide emerges as the central visual finding: the predicted probability of a Trump majority drops from near certainty in low-graduation counties to below 50% in high-graduation counties, tracing a clear S-curve that the coefficient table could only summarize as "negative and significant." The condition exercise reveals that this divide operates differently in different demographic contexts --- in more diverse counties (prop_white = 0.70), the curve shifts down substantially and passes through the steep middle at lower graduation rates, so the educational signal is visible at a lower baseline. The mortality risk exercise demonstrates the core lesson about held values: the same predictor looks nearly flat at mean county characteristics (because most counties are already near the top of the S-curve) and dramatically steep in more diverse counties --- the same model, the same coefficient, two very different pictures depending on context. The rurality dots cluster near 90-95% with overlapping intervals, confirming the Tutorial 19 finding that rurality is not a significant predictor after controlling for composition. The non-crossing lines in the two-variable plot make the additive structure visible: the log-odds educational coefficient is the same in Urban, Suburban, and Rural counties, so the curves do not cross.
+
+Here is what a complete interpretation of the college graduation prediction plot looks like written as prose: *As the proportion of adults with college degrees increases, the predicted probability of a Trump majority falls steeply, tracing an S-curve from near certainty at low graduation rates to well below 50% at high graduation rates. Predictions hold other predictors at their means and assume Urban counties; conditioning on a more racially diverse county would shift the entire curve downward, placing the comparison in a steeper region of the S-curve. At a graduation rate of 10%, the model predicts about 98% probability of a Trump majority; at 45%, about 42% --- a 56-point drop across a realistic range of values. The confidence band is moderately narrow throughout and widens slightly at the extremes, where fewer counties are observed. This pattern is strongly consistent with the diploma divide documented in the 2016 election literature: after controlling for economic distress, racial composition, and geography, educational composition remains the strongest predictor of partisan alignment at the county level.*
+
+
+## Does State Ideology Predict Greenhouse Gas Cap Adoption? Visualizing the Results
+
+This example is where the opening section's argument pays off most concretely. The coefficients table told you the direction and significance of each predictor. The prediction plots will show you what those coefficients actually mean for the probability of emissions cap adoption across the range of state ideology --- and how dramatically that picture changes depending on a state's economic context.
+
+The model output below recalls the coefficients for reference. Pay particular attention to the ideology coefficient and its significance before producing any plots.
+
+```{r model-ghg-recall, echo=TRUE, comment=NA}
+summary(model_ghg)
+```
+
+### Recall Specific Predicted Values
+
+In Tutorial 19 you obtained predicted probabilities for two state profiles that isolated the effect of ideology: a state with low conservative identification and a Democratic governor (Profile 1), and the same state with moderately higher conservative identification (Profile 2). Reproducing those predictions here anchors the ideology relationship before you see the full curve --- the gap between them will place the comparison on the S-curve and set up the full plot that follows.
+
+**Practice: Recall the predicted probabilities from Tutorial 19**
+
+Write both predict() calls from scratch. Profile 1 is a Democrat-governed state with **ideology_conservative2024** = 20 and **econ_poverty2022** = 12.5. Profile 2 is the same state with **ideology_conservative2024** = 32. Four hints are available. Click Submit Answer to check your work.
+
+```{r exercise-recall-ghg, exercise=TRUE, exercise.cap="Practice: Recall predicted probabilities for two greenhouse gas cap adoption profiles"}
+# Profile 1: Low conservative identification, Democrat governor
+
+# Profile 2: Same state, higher conservative identification
+
+```
+
+```{r exercise-recall-ghg-hint-1}
+# Hint 1 of 4
+# You need to ask the model what probability it assigns to a
+# specific state. Think about what function produces a predicted
+# probability from a fitted logistic regression model, what
+# information you need to supply about the state, and why you
+# need to specify the type of prediction you want.
+```
+
+```{r exercise-recall-ghg-hint-2}
+# Hint 2 of 4
+# predict() takes the fitted model as its first argument.
+# The newdata argument takes a data.frame() with one row
+# containing a value for every explanatory variable in the model.
+# The type argument controls what scale the prediction is on ---
+# use "response" to get a probability.
+# For gov_f, a factor variable, use factor() with the level
+# name and levels = levels(statesPolicy$gov_f).
+```
+
+```{r exercise-recall-ghg-hint-3}
+# Hint 3 of 4: Profile 1 skeleton --- fill in the blanks
+predict(model_ghg,
+        newdata = data.frame(
+          ideology_conservative2024 = ___,
+          gov_f                     = factor(___, levels = levels(statesPolicy$gov_f)),
+          econ_poverty2022          = ___),
+        type = ___)
+```
+
+```{r exercise-recall-ghg-hint-4}
+# Hint 4 of 4
+# Profile 2 uses exactly the same predict() structure as Profile 1.
+# The only difference is the value of ideology_conservative2024,
+# which is 32. Everything else --- the function, the arguments,
+# the other values, and the factor() construction for gov_f ---
+# is identical to Profile 1.
+```
+
+```{r exercise-recall-ghg-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("predict\\s*\\(", code_no_comments))
+    fail("Use predict() to obtain the predicted probabilities.")
+  if (!grepl("type\\s*=\\s*['\"]response['\"]", code_no_comments))
+    fail("Set type = \"response\" to obtain predictions on the probability scale.")
+  if (!grepl("ideology_conservative2024\\s*=\\s*20", code_no_comments))
+    fail("Set ideology_conservative2024 = 20 for Profile 1.")
+  if (!grepl("ideology_conservative2024\\s*=\\s*32", code_no_comments))
+    fail("Set ideology_conservative2024 = 32 for Profile 2.")
+  if (!grepl("econ_poverty2022\\s*=\\s*12\\.5", code_no_comments))
+    fail("Set econ_poverty2022 = 12.5 for both profiles.")
+  if (!grepl("Democrat", code_no_comments))
+    fail("Set gov_f to Democrat for both profiles using factor(\"Democrat\", levels = levels(statesPolicy$gov_f)).")
+
+  pass("Right. Profile 1 gives about 94% probability of adoption --- a liberal, Democrat-governed state at average poverty is very likely to have an emissions cap. Profile 2 gives about 31% --- a 63-point drop for a 12-point shift in ideology, placing this comparison in the steep middle of the S-curve. You can see both values as points on the full ideology curve that follows.")
+})
+```
+
+You now have two points anchoring the ideology relationship. Before moving to the full curve, think about what the gap between them implies about where these values fall on the S-curve.
+
+**Practice: What do these two values tell you about the S-curve?**
+
+Look at both predicted probabilities in your output before answering.
+
+```{r quiz-recall-ghg, echo=FALSE}
+question("Look at the two predicted probabilities in your output. What do they tell you about where these profiles fall on the S-curve?",
+  correct = "Right. A 63-point drop in the steep middle of the curve.",
+  answer("We are in the steep middle of the S-curve, where the ideology relationship is most sensitive to change --- the same 12-point shift starting from a much lower or much higher baseline would produce considerably less movement in predicted probability",
+         correct = TRUE,
+         message = "A 63-percentage-point drop for a 12-point shift is dramatic --- it tells you this comparison passes through the steepest section of the S-curve. The prediction plot will show the full curve, including the flat regions at the extremes where large ideology shifts produce almost no change."),
+  answer("We are near the flat top of the S-curve because Profile 1 is close to 100%",
+         message = "Profile 1 is near the top, but a 63-point drop to Profile 2 means we passed through the steep middle between them. The comparison spans both a high-probability region and the steep descending section."),
+  answer("The two values fully describe the ideology relationship --- a plot would add nothing beyond what these two numbers show",
+         message = "Two points describe the relationship between those specific values but not the full curve: where it flattens at the extremes, exactly where the steepest section falls, or how the curve shifts for different poverty levels. The plot shows all of that."),
+  answer("The large drop means we must be near the flat bottom of the S-curve",
+         message = "A 63-point drop is the opposite of a flat region. Flat regions of the S-curve are where even large predictor changes produce almost no probability change. We are in the steep middle."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: think about what a 63-point change implies about the steepness of the curve at these values."
+)
+```
+
+### Visualize the Effect of Conservative Identification
+
+States with more conservative public opinion are far less likely to have adopted emissions caps, even after controlling for governor party and poverty rate. This relationship --- large, significant, and central to the hypothesis --- is the one to visualize first. The prediction plot shows the full S-curve across the observed range of conservative identification (14% to 50%), making visible what the coefficient of −0.314 in log-odds units could not communicate on its own.
+
+**Practice: Produce a prediction plot for conservative identification**
+
+The prescribed labels and caption are below. Write the complete code from scratch. Three hints are available. Click Submit Answer to check your work.
+
+- `title`: `"Predicted Probability of Greenhouse Gas Cap Adoption by State Ideology"`
+- x-axis: `"Conservative Identification (%)"`
+- y-axis: `"Predicted Probability of GHG Cap Adoption"`
+- caption: `"Predictions are for Democrat-governed states with average poverty rate (12.4%)."`
+
+Write the complete code from scratch. Three hints are available. Click Submit Answer to check your work.
+
+```{r exercise-predplot-ideology, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for ideology_conservative2024"}
+
+```
+
+```{r exercise-predplot-ideology-hint-1}
+# Hint 1 of 3
+# The task is to show how the probability of emissions cap adoption
+# changes as state ideology varies across its full range. This is
+# the same kind of plot you produced for college graduation rates
+# in Example 1 --- a continuous relationship across a range ---
+# but now for a different model and a different x-axis variable.
+# Think about what the caption should say about what is held constant.
+```
+
+```{r exercise-predplot-ideology-hint-2}
+# Hint 2 of 3
+# You need plot_model() with the GHG model as the first argument.
+# The argument that controls what type of plot you get takes
+# "pred" for a prediction plot. The argument that names the
+# x-axis variable is terms =. The argument that labels both axes
+# is axis.title = (x-axis label first, then y-axis). Add the
+# caption with + labs(caption = "..."). No condition argument
+# is needed --- the defaults match the caption.
+```
+
+```{r exercise-predplot-ideology-hint-3}
+# Hint 3 of 3
+# Your completed call should be: plot_model() with model_ghg,
+# type = "pred", terms = "ideology_conservative2024", the
+# prescribed title, axis.title = with the two prescribed labels,
+# and + labs(caption = "...") with the prescribed caption.
+# The title and labels are all given in the prose above.
+```
+
+```{r exercise-predplot-ideology-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("plot_model\\s*\\(", code_no_comments))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_no_comments))
+    fail("Set type = \"pred\" to produce a prediction plot.")
+  if (!grepl("ideology_conservative2024", code_no_comments))
+    fail("Set terms = \"ideology_conservative2024\".")
+  if (!grepl("axis\\.title\\s*=", code_no_comments))
+    fail("Include the axis.title = argument with the prescribed labels.")
+  if (!grepl("Conservative Identification", code_no_comments, fixed = TRUE))
+    fail("Use the prescribed x-axis label: \"Conservative Identification (%)\".")
+  if (!grepl("labs\\s*\\(", code_no_comments))
+    fail("Add a labs(caption = \"...\") layer stating the held values.")
+  if (!grepl("Democrat-governed", code_no_comments, fixed = TRUE))
+    fail("Use the prescribed caption specifying Democrat-governed states and the average poverty rate.")
+
+  pass("Well done. Look carefully at the shape of the curve --- especially where it is steepest and where it flattens --- before answering the next question.")
+})
+```
+
+This is the most important plot in the tutorial --- the one that shows what the ideology coefficient actually means. Work through all five components before answering: trace the shape of the curve, read the caption, identify two specific values, assess the band, and connect the pattern to the hypothesis.
+
+**Practice: Apply the five-component framework**
+
+Look at the shape of the curve, the caption, the specific predicted values at key points, the confidence band, and the connection to the hypothesis before answering. Select all that apply.
+
+```{r quiz-ideology-framework, echo=FALSE}
+question("Which of the following statements correctly apply the five-component framework to this plot? Select all that apply.",
+  correct = "Right: the pattern, held values, specific values, uncertainty, and hypothesis connection are all addressed.",
+  answer("The curve drops steeply from near certainty at low conservative identification to near zero at high conservative identification, tracing a clear S-shape --- the pattern is strongly negative and nonlinear",
+         correct = TRUE,
+         message = "The S-curve drops from about 99% at ideology = 15 to less than 1% at ideology = 50, passing through the steep middle between roughly ideology = 20 and ideology = 35. This is the nonlinear pattern that makes logistic regression prediction plots more informative than the coefficient alone."),
+  answer("The predictions hold governor party at Democrat and poverty rate at its mean (12.4%) --- conditioning on a Republican governor or a higher poverty rate would shift the curve downward, and the steep portion would occur at lower ideology values",
+         correct = TRUE,
+         message = "The held values are not a technicality --- they define which version of the ideology relationship the plot is showing. A state with a Republican governor and high poverty is already at a lower baseline probability, so the same shift in ideology produces a different-looking curve. The condition exercise coming next demonstrates this directly."),
+  answer("At conservative identification = 20%, the model predicts about 94% probability of adoption; at 35%, about 16% --- a 78-point drop across a 15-point ideology shift that falls in the steep middle of the curve",
+         correct = TRUE,
+         message = "These two specific values anchor the pattern in concrete numbers. The gap between them (78 points) is striking --- it makes visible what the coefficient of −0.314 in log-odds units could not. Moving from a liberal state to an average-ideology state in this model is associated with an enormous decline in the predicted probability of emissions cap adoption."),
+  answer("The confidence band is widest in the steep middle of the curve, where the model has the most uncertainty about exactly how fast the probability drops",
+         correct = TRUE,
+         message = "Prediction uncertainty in logistic regression is typically largest in the steep middle of the S-curve, where the predicted probabilities are changing most rapidly and small changes in the underlying parameters produce large changes in the predicted value. The narrowing at the extremes reflects the compression of the probability scale near 0 and 1."),
+  answer("Because the coefficient is −0.314 and significant, we can conclude that a one-unit increase in conservative identification decreases the probability of adoption by 0.314 percentage points",
+         message = "This is the most common misinterpretation of a logistic regression coefficient. The coefficient is in log-odds units --- it does not translate directly to a probability change. The size of the probability change depends entirely on where you are on the S-curve, as the plot makes clear: the same one-unit shift produces a very large probability change in the steep middle and almost no change near the extremes."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements. Check the pattern, held values, specific predicted values, uncertainty band, and hypothesis connection against the plot."
+)
+```
+
+Poverty rate may shape the feasibility of emissions cap adoption independently of ideology. Wealthier states --- those with lower poverty rates --- may be better positioned to absorb the economic costs of climate regulation, making adoption more likely regardless of ideological leaning. Conditioning on a low-poverty state (poverty = 8%, near the minimum observed) vs. a high-poverty state (poverty = 18%, near the maximum) lets us see whether the ideology relationship looks different in these two economic contexts.
+
+**Practice: The same plot, conditioned on poverty = 8%**
+
+Fill in the blanks. The `condition` argument and the updated caption are the only structural changes. Two hints are available. Click Submit Answer to check your work.
+
+```{r exercise-predplot-ideology-poverty, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for ideology conditioned on econ_poverty2022 = 8"}
+plot_model(model_ghg,
+           type      = "pred",
+           terms     = "ideology_conservative2024",
+           ___       = list(econ_poverty2022 = ___),
+           title     = "Predicted Probability of GHG Cap Adoption by State Ideology",
+           axis.title = c("Conservative Identification (%)",
+                          "Predicted Probability of GHG Cap Adoption")) +
+  labs(caption = "___")
+```
+
+```{r exercise-predplot-ideology-poverty-hint-1}
+# Hint 1 of 2
+# The task is the same as the previous ideology plot, but you need
+# to hold the poverty rate at 8 rather than its mean. Think about
+# which argument controls the values of explanatory variables that
+# are not on the x-axis, what structure that argument uses, and
+# what the name of the poverty variable is in the model formula.
+# Remember to update the caption to reflect the new held value.
+```
+
+```{r exercise-predplot-ideology-poverty-hint-2}
+# Hint 2 of 2
+# The condition argument takes a named list where each name is
+# an explanatory variable and each value is what you want it
+# held at: condition = list(variable_name = value).
+# Fill in the argument name and the value for econ_poverty2022.
+# Prescribed caption:
+# "Predictions are for Democrat-governed states with poverty rate = 8%."
+```
+
+```{r exercise-predplot-ideology-poverty-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("plot_model\\s*\\(", code_no_comments))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("condition\\s*=", code_no_comments))
+    fail("Include the condition = argument to specify the held value for econ_poverty2022.")
+  if (!grepl("econ_poverty2022\\s*=\\s*8", code_no_comments))
+    fail("Set econ_poverty2022 = 8 inside condition = list(...).")
+  if (!grepl("ideology_conservative2024", code_no_comments))
+    fail("Keep terms = \"ideology_conservative2024\".")
+  if (!grepl("labs\\s*\\(", code_no_comments))
+    fail("Add a labs(caption = \"...\") layer with an updated caption reflecting poverty = 8%.")
+  if (!grepl("poverty rate = 8%", code_no_comments, fixed = TRUE))
+    fail("Update your caption to state that the poverty rate is held at 8% --- the default caption is not correct here.")
+
+  pass("Correct. Compare this plot to the default one carefully before answering the next question.")
+})
+```
+
+You have now seen the ideology relationship in two economic contexts. The question is not just whether the curves differ but how --- and what that difference reveals about how ideology and poverty jointly shape the predicted probability of climate policy adoption.
+
+**Practice: Compare the two ideology plots**
+
+Look at both plots --- the default (mean poverty = 12.4%) and the conditioned (poverty = 8%) --- before answering.
+
+```{r quiz-ideology-poverty, echo=FALSE}
+question("Compare the two ideology plots. Which statement best describes what changed and why?",
+  correct = "Right. Lower poverty shifts the curve upward, keeping high-probability adoption visible further into the ideology range.",
+  answer("The curve shifted upward substantially at lower poverty --- at any given ideology level, a low-poverty state is more likely to have adopted an emissions cap than a state at average poverty, because wealthier states can more easily absorb the economic costs of climate regulation regardless of their ideological character",
+         correct = TRUE,
+         message = "At ideology = 35 (the mean), the default curve gives about 16% while the poverty = 8% curve gives about 67% --- a 51-point difference. At ideology = 25, the gap is about 21 points (79% vs. 98%). The shift is largest in the steep middle, where conditioning on lower poverty moves us higher on the S-curve. This is the condition argument in action: poverty and ideology together shape the predicted probability, and holding poverty constant at an unusually low value reveals a version of the ideology relationship that the default plot, averaging across all poverty levels, cannot show."),
+  answer("The curves are essentially identical --- poverty rate has no effect on the ideology relationship",
+         message = "The curves differ substantially, especially in the middle of the ideology range. Compare the predicted probability at ideology = 35 in each plot --- the difference is about 51 percentage points."),
+  answer("The curve shifted downward --- wealthier states are less likely to adopt emissions caps because they have more to lose economically",
+         message = "The curve shifted upward, not downward. Lower poverty (wealthier states) is associated with a higher predicted probability of adoption at any ideology level, consistent with the negative poverty coefficient in the model."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: compare the y-axis values at ideology = 35 in the two plots. Did the curve shift up or down, and does the size of the shift vary across the ideology range?"
+)
+```
+
+### Visualize the Effect of Governor Party
+
+**gov_f** is a two-category factor with Democrat as the reference. `plot_model()` produces a dot with a confidence interval for each level. Both dots will appear at low predicted probabilities because the plot holds ideology at its mean (35.78%) --- the average state is quite conservative, which suppresses the baseline probability for both parties. The dots' positions tell you the governor party effect in a typical state; the confidence intervals tell you how precisely the model can distinguish the two parties.
+
+**Practice: Produce a prediction plot for governor party**
+
+Prescribed values:
+- `title = "Predicted Probability of GHG Cap Adoption by Governor Party"`
+- x-axis: `"Governor Party"`, y-axis: `"Predicted Probability of GHG Cap Adoption"`
+- caption: `"Predictions are for states with average conservative identification (35.8%) and poverty rate (12.4%)."`
+
+Write the complete code from scratch. Three hints are available. Click Submit Answer to check your work.
+
+```{r exercise-predplot-govparty, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for gov_f"}
+
+```
+
+```{r exercise-predplot-govparty-hint-1}
+# Hint 1 of 3
+# The task is to compare the predicted probability of emissions cap
+# adoption between Democrat-governed and Republican-governed states,
+# holding ideology and poverty at their mean values. You produced
+# a very similar plot for the rurality variable in Example 1 ---
+# the structure is the same, just with a different model and a
+# different factor variable on the x-axis.
+```
+
+```{r exercise-predplot-govparty-hint-2}
+# Hint 2 of 3
+# You need plot_model() with the GHG model as the first argument,
+# type = "pred", and terms = naming the governor party variable.
+# When terms names a two-level factor, plot_model() produces dots
+# with confidence intervals. Add axis.title = with the prescribed
+# labels (x first, y second) and + labs(caption = "...").
+# No condition argument is needed.
+```
+
+```{r exercise-predplot-govparty-hint-3}
+# Hint 3 of 3
+# Your completed call should be: plot_model() with model_ghg,
+# type = "pred", terms = "gov_f", the prescribed title,
+# axis.title = with "Governor Party" first and the y-axis label
+# second, and + labs(caption = "...") with the prescribed caption.
+# All labels and the caption are given in the prose above.
+```
+
+```{r exercise-predplot-govparty-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("plot_model\\s*\\(", code_no_comments))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_no_comments))
+    fail("Set type = \"pred\".")
+  if (!grepl("gov_f", code_no_comments))
+    fail("Set terms = \"gov_f\".")
+  if (!grepl("Governor Party", code_no_comments, fixed = TRUE))
+    fail("Use \"Governor Party\" as the x-axis label.")
+  if (!grepl("labs\\s*\\(", code_no_comments))
+    fail("Add a labs(caption = \"...\") layer.")
+  if (!grepl("average conservative identification", code_no_comments, fixed = TRUE))
+    fail("Use the prescribed caption specifying average conservative identification and poverty rate.")
+
+  pass("Well done. Look at the two dots and their confidence intervals carefully before answering the next question.")
+})
+```
+
+The governor party plot will look surprising if you do not read the caption first. Before answering, check where the dots are on the y-axis and connect that position to the held values stated in the caption.
+
+**Practice: Interpret the governor party plot**
+
+Look at both dots and their confidence intervals before answering.
+
+```{r quiz-govparty-interpret, echo=FALSE}
+question("Look at the governor party prediction plot. Which statement best describes the key finding?",
+  correct = "Right. Both dots are low and their confidence intervals overlap --- consistent with the non-significant governor party coefficient.",
+  answer("Both dots are at low predicted probabilities because the mean ideology (35.8%) places the average state near the bottom of the S-curve --- the Democrat dot is slightly higher than the Republican dot, consistent with the negative Republican coefficient, but the confidence intervals overlap substantially, consistent with the non-significant p-value from Tutorial 19",
+         correct = TRUE,
+         message = "Democrat-governed states at mean ideology and poverty have a predicted probability of about 14%; Republican-governed states about 4%. Both are low because ideology = 35.78 places these states in a conservative context where cap adoption is unlikely regardless of who governs. The overlapping confidence intervals --- large relative to the gap between the dots --- make the non-significance visible: the model cannot reliably distinguish the two parties' effects after controlling for ideology and poverty."),
+  answer("The Democrat dot is so much higher than the Republican dot that governor party is clearly the most important predictor in the model",
+         message = "The Democrat dot is higher, but by a small absolute amount (about 10 percentage points) with overlapping confidence intervals. Governor party is not the most important predictor --- ideology has a much stronger and more precisely estimated effect. The small gap here partly reflects the fact that mean ideology (35.8%) is conservative, suppressing both probabilities."),
+  answer("The wide confidence intervals mean the model cannot predict emissions cap adoption at all",
+         message = "Wide confidence intervals for the factor plot at mean ideology reflect two things: the small number of states (50) and the fact that mean ideology places states in a region of moderate uncertainty. The ideology S-curve, with its dramatic drop, shows that the model predicts very well at low and high ideology values."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at the y-axis positions of both dots, the overlap of their confidence intervals, and connect what you see to the p-value for the gov_f coefficient from Tutorial 19."
+)
+```
+
+### Visualize Conservative Identification and Governor Party Together
+
+A two-variable prediction plot puts **ideology_conservative2024** on the x-axis and produces separate S-curves for Democrat- and Republican-governed states. Because the model has no interaction between ideology and governor party, the curves will not cross --- on the log-odds scale, the ideology coefficient is identical in both types of states, with the Republican curve shifted downward by the governor party coefficient. On the probability scale, the apparent gap between curves may narrow near the extremes due to S-curve compression. The visual gap between the two curves shows the governor party effect across the full ideology range.
+
+**Practice: Produce a two-variable prediction plot**
+
+Prescribed values:
+- `title = "Predicted Probability of GHG Cap Adoption by Ideology and Governor Party"`
+- x-axis: `"Conservative Identification (%)"`, y-axis: `"Predicted Probability of GHG Cap Adoption"`
+- caption: `"Predictions are for states with average poverty rate (12.4%)."`
+
+Write the complete code from scratch. Three hints are available. Click Submit Answer to check your work.
+
+```{r exercise-predplot-twovar-ghg, exercise=TRUE, exercise.cap="Practice: Produce a two-variable prediction plot for ideology_conservative2024 and gov_f"}
+
+```
+
+```{r exercise-predplot-twovar-ghg-hint-1}
+# Hint 1 of 3
+# The task is to show the ideology relationship separately for
+# Democrat-governed and Republican-governed states on the same
+# plot. Think about which variable should vary continuously along
+# the x-axis and which should produce separate S-curves for each
+# of its levels. Because there is no interaction, predict what
+# the relationship between the two curves will look like.
+```
+
+```{r exercise-predplot-twovar-ghg-hint-2}
+# Hint 2 of 3
+# The structure is the same as the two-variable plot you produced
+# in Example 1 for education and rurality: plot_model() with the
+# model, type = "pred", terms = a character vector with the x-axis
+# variable first and the grouping variable second, axis.title =
+# with the prescribed labels, and + labs(caption = "...").
+# The only changes are the model and the variable names.
+```
+
+```{r exercise-predplot-twovar-ghg-hint-3}
+# Hint 3 of 3
+# Your completed call should be: plot_model() with model_ghg,
+# type = "pred", terms = c("ideology_conservative2024", "gov_f"),
+# the prescribed title, axis.title = with the two prescribed
+# labels (x-axis first), and + labs(caption = "...") with the
+# prescribed caption. All labels are given in the prose above.
+```
+
+```{r exercise-predplot-twovar-ghg-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("plot_model\\s*\\(", code_no_comments))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_no_comments))
+    fail("Set type = \"pred\".")
+  if (!grepl("ideology_conservative2024", code_no_comments))
+    fail("Include ideology_conservative2024 as the first term (x-axis).")
+  if (!grepl("gov_f", code_no_comments))
+    fail("Include gov_f as the second term (separate curves).")
+  if (regexpr("ideology_conservative2024", code_no_comments) > regexpr("gov_f", code_no_comments))
+    fail("ideology_conservative2024 should come first in terms (x-axis), and gov_f second (separate curves). Check the order inside c(...).")
+  if (!grepl("axis\\.title\\s*=", code_no_comments))
+    fail("Include the axis.title = argument.")
+  if (!grepl("labs\\s*\\(", code_no_comments))
+    fail("Add a labs(caption = \"...\") layer.")
+  if (!grepl("average poverty rate", code_no_comments, fixed = TRUE))
+    fail("Use the prescribed caption specifying the average poverty rate.")
+
+  pass("Well done. Look at whether the two S-curves are parallel, how far apart they are, and where the gap is largest before answering the next question.")
+})
+```
+
+The two-variable plot shows the same additive structure as the governor party factor plot, but now across the full ideology range. Before answering, observe whether the curves cross and what the gap between them represents.
+
+**Practice: Interpret the two-variable plot**
+
+Look carefully at the two S-curves before answering.
+
+```{r quiz-twovar-ghg, echo=FALSE}
+question("Look at the two-variable prediction plot. Which statement best describes what it shows?",
+  correct = "Right. Non-crossing S-curves in an additive model, with the Republican line consistently below the Democrat line.",
+  answer("The two S-curves do not cross --- on the log-odds scale, the ideology coefficient is the same in Democrat- and Republican-governed states --- and the Republican curve runs consistently below the Democrat curve, with the gap between them representing the governor party coefficient. On the probability scale, the gap may be smaller near the extremes due to S-curve compression.",
+         correct = TRUE,
+         message = "Non-crossing curves are the visual signature of an additive logistic model on the probability scale. At ideology = 25, Democrat-governed states have about 79% predicted probability while Republican-governed states have about 50% --- a 29-point gap. At ideology = 35, the gap narrows to about 11 points (16% vs. 5%). The narrowing gap near the extremes is not because the model treats them differently --- it is S-curve compression. On the log-odds scale, the ideology coefficient is identical in both types of states, and governor party shifts the baseline."),
+  answer("The two curves cross somewhere in the middle, indicating that Republican governors are actually better for climate policy at high ideology levels",
+         message = "The curves do not cross --- the Democrat curve is above the Republican curve throughout. Both approach zero at high ideology, but the Democrat curve remains higher at every point."),
+  answer("Non-crossing curves would indicate a stronger ideology effect in one party than the other --- but because the model has no interaction, we cannot test this",
+         message = "This is partially right: crossing curves would indicate an interaction, and we have not modeled one. But we CAN test for an interaction by adding an interaction term, and if the non-crossing structure is wrong, that test would reveal it. The non-crossing curves are the model's claim about the data, not a limitation of the visualization."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: do the curves cross? What does that tell you about the model structure? Where is the gap between the curves largest, and why does it narrow near the extremes?"
+)
+```
+
+### What We Learned About Ideology, Poverty, and Climate Policy
+
+The prediction plots translate Tutorial 19's coefficients into a complete picture of how state ideology, governor party, and economic conditions jointly shape the predicted probability of emissions cap adoption. The ideology S-curve is the central finding: a coefficient of −0.314 in log-odds units becomes a 78-point drop in predicted probability across the steep middle of the ideology range --- from near certainty in liberal states to near zero in conservative ones. The poverty condition exercise reveals that this relationship operates differently in different economic contexts: a low-poverty state (poverty = 8%) at ideology = 35 has a predicted probability of about 67% --- four times higher than the same state at mean poverty. The governor party factor plot shows both parties clustered at low probability at mean ideology, with overlapping confidence intervals that make the non-significant p-value visible. The non-crossing S-curves in the two-variable plot confirm the additive structure: the log-odds ideology coefficient is the same in Democrat- and Republican-governed states, with governor party shifting the baseline but not the log-odds slope.
+
+Here is what a complete interpretation of the ideology prediction plot looks like written as prose: *The predicted probability of greenhouse gas cap adoption drops steeply as conservative identification increases, tracing a clear S-curve from near certainty at the low end of the ideology range to near zero at the high end. Predictions hold governor party at Democrat and poverty rate at its mean (12.4%); conditioning on a high-poverty state would shift the entire curve downward substantially, because economic constraints independently suppress the probability of adoption. At conservative identification = 20%, the model predicts about 94% probability of adoption; at 35%, about 16% --- a 78-point drop across a 15-point ideology shift that falls in the steep middle of the curve. The confidence band is widest in this steep middle region, where the model has the most uncertainty about exactly how fast the probability falls. This is strongly consistent with the hypothesis that state ideology is the primary driver of climate policy adoption, and the prediction plot makes visible what the significant coefficient of −0.314 could only hint at: the effect is not small, it is enormous in the region that matters most.*
+
+
+## Check Your Understanding
+
+Tutorial 19 introduced the bill passage model using **bills_df** and **model_bills**, which are available here. The model predicts whether a bill passed as a function of **bipartisan** (proportion of cross-party cosponsors), **majority_margin** (majority party seat margin in percentage points), and **committee_chair_same** (a two-category factor: Different Party as reference, Same Party). All three predictors were statistically significant.
+
+The exercises below ask you to apply the visualization skills from this tutorial to that model. The first exercise combines two things you have practiced separately --- the two-variable plot and the `condition` argument --- for the first time. The remaining exercises ask you to interpret plots you did not produce, which is the skill that matters most when you encounter prediction plots in published research or other students' work.
+
+### Produce a Conditioned Two-Variable Prediction Plot
+
+A thin majority margin means the majority party has little room to absorb defections. Conditioning on a large majority margin (25 percentage points) rather than the mean (16.3) lets us see what the bipartisan support relationship looks like when passage is more structurally secure --- and compare that to the relationship in a narrow-margin context.
+
+**Apply: Produce a conditioned two-variable prediction plot**
+
+Write the complete code from scratch. Produce a two-variable prediction plot showing **bipartisan** on the x-axis and separate lines for **committee_chair_same**, conditioned on **majority_margin** = 25. Prescribed labels:
+
+- `title = "Predicted Probability of Bill Passage by Bipartisan Support and Committee Chair"`
+- x-axis: `"Proportion of Cross-Party Cosponsors"`, y-axis: `"Predicted Probability of Passage"`
+- caption: `"Predictions are for bills with majority margin = 25 percentage points."`
+
+Three hints are available. Click Submit Answer to check your work.
+
+```{r exercise-cyu-twovar-conditioned, exercise=TRUE, exercise.cap="Apply: Produce a conditioned two-variable prediction plot for model_bills"}
+
+```
+
+```{r exercise-cyu-twovar-conditioned-hint-1}
+# Hint 1 of 3
+# The task combines two things you have done separately:
+# a two-variable plot (from the rurality and governor party
+# examples) and a condition argument (from the college graduation
+# and poverty examples). Think about how to combine them ---
+# what goes in terms =, what goes in condition =, and what
+# the caption should say about the held value.
+```
+
+```{r exercise-cyu-twovar-conditioned-hint-2}
+# Hint 2 of 3
+# You need plot_model() with model_bills. The terms = argument
+# takes a character vector with two variable names: the x-axis
+# variable first, the grouping variable second. The condition =
+# argument takes a named list specifying which variable to hold
+# at a non-default value and what value to use. Both arguments
+# appear in the same plot_model() call. Look at the two-variable
+# and condition exercises earlier in this tutorial if you need
+# a reminder of the syntax for either one.
+```
+
+```{r exercise-cyu-twovar-conditioned-hint-3}
+# Hint 3 of 3
+# Your completed call should be: plot_model() with model_bills,
+# type = "pred", terms = c("bipartisan", "committee_chair_same"),
+# condition = list(majority_margin = 25), the prescribed title,
+# axis.title = with the two prescribed labels (x-axis first),
+# and + labs(caption = "...") with the prescribed caption.
+```
+
+```{r exercise-cyu-twovar-conditioned-check}
+grade_this({
+  code             <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#.*", "", code)
+
+  if (!grepl("plot_model\\s*\\(", code_no_comments))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_no_comments))
+    fail("Set type = \"pred\" for a prediction plot.")
+  if (!grepl("bipartisan", code_no_comments))
+    fail("Include bipartisan as the first term (x-axis).")
+  if (!grepl("committee_chair_same", code_no_comments))
+    fail("Include committee_chair_same as the second term (separate lines).")
+  if (regexpr("bipartisan", code_no_comments) > regexpr("committee_chair_same", code_no_comments))
+    fail("bipartisan should come first in terms (x-axis), and committee_chair_same second (separate lines). Check the order inside c(...).")
+  if (!grepl("condition\\s*=", code_no_comments))
+    fail("Include the condition = argument to hold majority_margin at 25.")
+  if (!grepl("majority_margin\\s*=\\s*25", code_no_comments))
+    fail("Set majority_margin = 25 inside condition = list(...).")
+  if (!grepl("axis\\.title\\s*=", code_no_comments))
+    fail("Include the axis.title = argument with the prescribed labels.")
+  if (!grepl("labs\\s*\\(", code_no_comments))
+    fail("Add a labs(caption = \"...\") layer with the prescribed caption.")
+  if (!grepl("majority margin = 25", code_no_comments, fixed = TRUE))
+    fail("Update your caption to state that majority margin is held at 25 percentage points.")
+
+  pass("Well done. Look carefully at the two parallel lines --- their position, the gap between them, and what the caption tells you --- before answering the next questions.")
+})
+```
+
+### Interpret Prediction Plots for the Bill Passage Model
+
+The next three questions ask you to interpret prediction plots without producing them yourself. Read each description carefully and apply the five-component framework before answering.
+
+**Apply: Interpret a described conditioned plot**
+
+The plot described below was produced with this call:
+
+```r
+plot_model(model_bills, type = "pred",
+           terms = c("bipartisan", "committee_chair_same"),
+           condition = list(majority_margin = 8),
+           title = "...", axis.title = c("...", "...")) +
+  labs(caption = "Predictions are for bills with majority margin = 8 percentage points.")
+```
+
+In this plot, the Different Party line runs from about 32% at bipartisan = 0.05 to about 78% at bipartisan = 0.55. The Same Party line runs from about 63% to about 93% across the same range. Both lines slope upward and do not cross.
+
+Compare this to the plot you just produced (majority_margin = 25), where the Different Party line ran from about 56% to about 91% and the Same Party line ran from about 83% to about 97%.
+
+```{r quiz-cyu-condition-compare, echo=FALSE}
+question("Which statements correctly describe what the comparison between the two plots reveals? Select all that apply.",
+  correct = "Right: both statements about what changed and why are correct.",
+  answer("Both lines shifted downward substantially when moving from majority_margin = 25 to majority_margin = 8 --- a thin majority margin reduces the predicted probability of passage for all bills, at every level of bipartisan support and for both chair alignment categories",
+         correct = TRUE,
+         message = "At bipartisan = 0.30, the Different Party line drops from about 78% at margin = 25 to about 56% at margin = 8 --- a 22-point drop. The Same Party line drops from about 93% to about 82% at the same point --- an 11-point drop. Both lines moved down because conditioning on a lower majority margin places the predictions in a lower-probability context, consistent with the positive majority_margin coefficient."),
+  answer("The two lines remain parallel in both plots, which means the model estimates that the relationship between bipartisan support and passage probability is the same regardless of committee chair alignment or majority margin",
+         correct = TRUE,
+         message = "Non-crossing lines on the probability scale are the visual signature of an additive logistic model --- no interactions. On the log-odds scale, the same bipartisan coefficient applies to both chair alignment categories and at both majority margin values. Changing condition shifted the level of the predictions but not the log-odds slope. To allow the bipartisan slope to differ by chair alignment or by majority margin, we would need to add interaction terms to the model."),
+  answer("The gap between the Same Party and Different Party lines is larger at majority_margin = 8, which means committee chair alignment matters more when the majority margin is thin",
+         message = "The absolute gap between the lines is actually similar across the two plots --- it is the level that changes, not the gap. In an additive model without an interaction, the vertical distance between the two lines is determined by the committee_chair_same coefficient and does not change with the held value of majority_margin. The perception that the gap differs may reflect the different baseline levels of the curves."),
+  answer("The downward shift when moving from margin = 25 to margin = 8 shows that majority margin is the most important predictor of bill passage",
+         message = "A large shift when changing a condition value tells you about the size of the majority_margin effect in this region of the S-curve, but not about its importance relative to other predictors. Comparing predictor importance requires examining the coefficients and their significance, not the visual size of a shift between two conditioned plots."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements. Think about what changed (level of both lines), what stayed the same (the non-crossing structure), and what the non-crossing structure means about the model."
+)
+```
+
+**Apply: Interpret the two-variable plot you produced**
+
+Look at the conditioned two-variable plot you produced (majority_margin = 25) before answering.
+
+```{r quiz-cyu-twovar-interpret, echo=FALSE}
+question("Which statement best describes what the two-variable plot at majority_margin = 25 shows about the relationship between bipartisan support, committee chair alignment, and bill passage?",
+  correct = "Right. Parallel lines at different levels, both sloping upward.",
+  answer("Both the bipartisan effect and the committee chair gap are visible simultaneously: more bipartisan support raises the predicted probability for both chair alignment categories (lines that do not cross), and having a same-party chair raises the predicted probability at every level of bipartisan support (vertical gap between lines)",
+         correct = TRUE,
+         message = "At majority_margin = 25 and bipartisan = 0.05, the Different Party line is at about 56% and the Same Party line is at about 83% --- a 27-point gap. At bipartisan = 0.55, the gap narrows slightly (91% vs. 97%) because the Same Party line approaches the ceiling of the probability scale --- this is S-curve compression, not a model claim that the bipartisan effect differs by chair alignment. The non-crossing upward lines mean the log-odds bipartisan coefficient is the same for both chair categories; the consistent gap means a same-party chair helps passage regardless of how bipartisan the bill is."),
+  answer("The two lines cross somewhere in the middle, showing that bipartisan support matters more for bills with a same-party chair than for bills with a different-party chair",
+         message = "The lines do not cross --- the Same Party line is above the Different Party line throughout. Crossing lines would indicate an interaction: that the log-odds bipartisan slope differs by chair alignment. Without an interaction term in the model, the lines do not cross."),
+  answer("Because both lines slope upward and do not cross, we can conclude that committee chair alignment has no effect on passage probability",
+         message = "Non-crossing lines do not mean no effect --- they mean the log-odds slope is the same size across all levels of bipartisan support. The vertical gap between the lines is the committee chair effect, which is substantial and significant. The non-crossing structure tells you about the slope, not the level."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: identify two separate features of the plot --- the slope of the lines and the gap between them --- and describe what each one tells you about the model."
+)
+```
+
+**Apply: Connect condition to the research question**
+
+```{r quiz-cyu-condition-meaning, echo=FALSE}
+question("A researcher presents the two-variable plot at majority_margin = 25 as their main finding and is asked why they chose that held value rather than the mean (16.3). Which answer best defends the choice?",
+  correct = "Right. The held value should reflect the context the research question is about.",
+  answer("Because the research question focuses on conditions that favor passage, conditioning on a large majority margin shows the bipartisan and chair alignment effects in a context where passage is realistically possible and the relationships are most substantively meaningful",
+         correct = TRUE,
+         message = "Choosing condition values is a substantive decision, not a technical one. If the research question is about what makes bills pass --- rather than what makes them fail --- then a context where passage is plausible (large margin) may be more informative than the average context, which mixes many different political environments. The key principle from the tutorial: choose held values that reflect the context your research question is actually about, and be transparent about that choice in the caption."),
+  answer("Because majority_margin = 25 produces a more visually appealing plot than the mean value",
+         message = "Visual appeal is not a justification for a held value choice. If a particular value makes the plot look better while obscuring a substantively important pattern, that is a reason not to use it. Held value choices should be defended on substantive grounds."),
+  answer("The researcher should always use the mean value --- choosing a non-mean held value introduces bias into the analysis",
+         message = "Using the mean is a default, not a requirement. The mean may not correspond to any real or meaningful case, and it may place predictions in an uninteresting region of the S-curve. Choosing a substantively meaningful value and being transparent about it is better practice than defaulting to the mean without thought."),
+  answer("Because majority_margin = 25 is the maximum observed value and therefore produces the most extreme predictions",
+         message = "The maximum is 30, not 25. More importantly, choosing extreme values to produce dramatic plots is not a good reason --- it can be misleading if the extreme is rare or unrepresentative. The goal is to choose values that illuminate the research question, not to maximize predicted probabilities."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: the best justification for a held value choice is always substantive --- it should connect to what the research question is actually about."
+)
+```
+
+
+## The Takeaways
+
+Tutorial 18 introduced prediction plots for linear regression: how to visualize the relationship between an explanatory variable and the outcome across its full range, and how to interpret that relationship using the five-component framework. Tutorial 20 applies the same tools to logistic regression --- with one fundamental difference. In an additive linear model without interactions involving the focal predictor, changing the values held constant for the other explanatory variables shifts the predicted line up or down but leaves its slope unchanged. In a logistic model, the held values determine which part of the S-curve the plot is showing, which can change both the level and the steepness of the relationship. This is why choosing held values thoughtfully is part of the analysis in logistic regression, not a technicality.
+
+**Why prediction plots matter more here.** In linear regression, the slope is the effect --- completely and directly. A one-unit increase in an explanatory variable is associated with the same change in the outcome everywhere along its range. The coefficients table gives you the effect size once, and it applies everywhere. In logistic regression, the coefficient gives you direction and significance but not size. The change in the predicted probability for a given shift in an explanatory variable depends on where on the S-curve the comparison falls, which depends on the values of every other variable in the model. The prediction plot is the primary tool for communicating effect size --- not an illustration of something you already know from the table, but the place where interpretation actually happens.
+
+**`plot_model()` from [sjPlot]{.package-name}.** The `plot_model()` function from the [sjPlot]{.package-name} package produces prediction plots from fitted models. For logistic regression, the key arguments are:
+
+- `type = "pred"` to produce a prediction plot on the probability scale
+- `terms =` to name the variable on the x-axis (a single string for a single-variable plot, or `c("x_variable", "group_variable")` for a two-variable plot)
+- `axis.title =` to label the x-axis and y-axis, in that order
+- `+ labs(caption = "...")` to add a caption describing the held values
+
+When `terms =` names an interval variable, `plot_model()` produces a continuous S-curve. When `terms =` names a factor variable, it produces a dot with a confidence interval for each level --- there is no continuous range to sweep across for a categorical variable, only discrete levels to compare.
+
+**The `condition` argument.** By default, `plot_model()` holds other explanatory variables at their means (for interval variables) or their reference category (for factor variables). The `condition` argument overrides those defaults: `condition = list(variable_name = value)` holds the named variable at the specified value while the x-axis variable varies. You can set multiple variables at once: `condition = list(variable1 = value1, variable2 = value2)`. The most useful condition values are **substantively meaningful** --- corresponding to real, recognizable cases rather than arbitrary numbers --- and **reveal contrast** --- placed in a different region of the S-curve so the resulting plots tell different stories. A condition value that produces nearly the same curve as the default is not doing useful analytical work. The caption is not a formality: it is essential information about what the plot is actually showing, and reading it carefully is part of applying the five-component framework.
+
+**Reading non-crossing curves.** When `terms =` names two variables, `plot_model()` produces one curve per level of the grouping variable. In an additive logistic model --- one without an interaction term --- these curves will not cross: on the log-odds scale, the same coefficient for the x-axis variable applies in every group, and the vertical gap between the curves on the probability scale is determined by the group coefficient. The gap may appear to narrow near the extremes of the probability scale due to S-curve compression, but the curves themselves do not cross. Non-crossing curves are not a limitation; they are the model's claim on the probability scale. Curves that cross --- where one group starts below and ends above another --- require an interaction term in the model. If you find yourself believing that the relationship should be steeper in one group than another, that belief calls for an interaction, not just a different held value.
+
+**The five-component framework.** Every prediction plot, regardless of what model produced it, can be read using the same five components introduced in Tutorial 18:
+
+1. **The pattern** --- the direction and shape of the relationship as the x-axis variable increases
+2. **The held values** --- what the other explanatory variables were set to, and what that means for how the result generalizes
+3. **Specific predicted values** --- what the model predicts at substantively meaningful points along the x-axis
+4. **The uncertainty** --- the width of the confidence band and whether it varies across the range
+5. **The hypothesis connection** --- whether the pattern is consistent with the hypothesis that motivated the model, and what the plot adds beyond the significance test
+
+In logistic regression, component 2 deserves particular attention: the held values determine which part of the S-curve you are seeing, which affects every other component.
+
+You now have the complete toolkit for binary outcomes. Starting with Tutorial 12, you learned to describe, compare, and test hypotheses about relationships in data. Tutorials 15 through 18 built that toolkit for interval outcomes: estimation, interpretation, hypothesis testing, predicted values, and prediction plots for linear regression. Tutorials 19 and 20 extended every piece of that toolkit to binary outcomes, showing both what stays the same --- the five-step testing procedure, the logic of predicted values, the interpretation framework --- and what changes: the log-odds scale, the S-curve, the dependence of effect size on context. The methods you have learned cover the most common research designs in political science and are the foundation for every more advanced technique you will encounter. Use them well.
+
+## Submit Your Work
+
+When you have completed all exercises in this tutorial, generate your submission code using the button below. Copy the full code that appears and paste it into the Canvas submission box for this tutorial. The code can be long --- make sure you have copied all of it before submitting.
+
+```{r encode-logic-20, context="server"}
+learnrhash::encoder_logic()
+```
+
+```{r encode-ui-20, echo=FALSE}
+learnrhash::encoder_ui(
+  ui_before = shiny::div(
+    shiny::p("Click the button below to generate your submission code.
+              Copy the full code and paste it into Canvas.")
+  )
+)
+```
+
+```{r tutorial-success-banner-20, results="asis", echo=FALSE}
+cat('
+<p class="tutorial-complete"
+   role="status"
+   aria-label="Excellent work! You have completed this tutorial and can now visualize predicted probabilities from logistic regression models, including S-curves, factor plots, and two-variable plots.">
+  <span aria-hidden="true">📈</span>
+  Excellent work! You can now visualize predicted probabilities from logistic regression models --- and you understand why those plots are the only way to see the size of a logistic regression effect, not just its direction.
+</p>
+')
+```

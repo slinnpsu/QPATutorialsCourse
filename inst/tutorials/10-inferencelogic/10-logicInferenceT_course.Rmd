@@ -1,0 +1,1586 @@
+---
+title: "Logic of Inference"
+tutorial:
+  id: "10-Logic-Inference"
+output:
+  QPATutorialsCourse::qpa_tutorial:
+    progressive: true
+    allow_skip: true
+runtime: shiny_prerendered
+description: >
+  Build intuition for statistical inference: populations and samples,
+  sampling variation, sampling distributions, the Central Limit
+  Theorem, and the standard error.
+---
+
+## Learning Objectives {#main-content}
+
+Everything you have done so far in this course has been descriptive --- computing statistics that summarize the cases in your data. This tutorial marks the shift to statistical inference: using a sample to draw conclusions about a larger population you cannot fully observe. The ideas here are the foundation for every hypothesis test and confidence interval in the tutorials that follow.
+
+In this tutorial you will learn to:
+
+* Explain the difference between a sample statistic and a population
+  parameter, and what a point estimate is
+* Describe what sampling variation is and why it makes statistical
+  inference necessary
+* Distinguish the population distribution, the sample distribution,
+  and the sampling distribution
+* Explain why sample means and proportions from random samples are
+  centered on the corresponding population parameters, and what the
+  CLT adds to this
+* Describe how sample size affects the precision of a sample estimate
+  and why
+* Explain what the Central Limit Theorem implies and why it
+  enables inference
+* Define the standard error and explain what determines its size
+
+```{r setup, include=FALSE}
+library(learnr)
+library(learnrhash)
+library(tidyverse)
+library(moderndive)
+library(infer)
+library(gridExtra)
+library(knitr)
+library(gradethis)
+tutorial_options(exercise.checker = gradethis::grade_learnr)
+knitr::opts_chunk$set(error = TRUE)
+options(lifecycle_verbosity = "quiet")
+
+# Pre-compute sampling objects so exercise chunks stay clean
+set.seed(1000)
+virtual_shovel <- bowl %>% rep_sample_n(size = 100, reps = 1)
+
+set.seed(1000)
+repeated_samples100 <- bowl %>% rep_sample_n(size = 100, reps = 1000)
+virtual_prop_red100 <- repeated_samples100 %>%
+  group_by(replicate) %>%
+  summarise(red = sum(color == "red")) %>%
+  mutate(p = red / 100)
+
+set.seed(1000)
+repeated_samples25 <- bowl %>% rep_sample_n(size = 25, reps = 1000)
+virtual_prop_red25 <- repeated_samples25 %>%
+  group_by(replicate) %>%
+  summarise(red = sum(color == "red")) %>%
+  mutate(p = red / 25)
+
+set.seed(1000)
+repeated_samples500 <- bowl %>% rep_sample_n(size = 500, reps = 1000)
+virtual_prop_red500 <- repeated_samples500 %>%
+  group_by(replicate) %>%
+  summarise(red = sum(color == "red")) %>%
+  mutate(p = red / 500)
+```
+
+## Introduction
+
+Up to now in this course, every statistic you have computed has
+described the cases in your data. You have calculated means, medians,
+and standard deviations; built frequency tables; and constructed plots
+showing how variables are distributed. All of that is descriptive
+statistics --- it tells you what your sample looks like. But most
+research questions in political science are not really about the cases
+you happen to have data on. They are about a larger world you cannot
+fully observe. That shift --- from describing your data to drawing
+conclusions about a broader reality --- is what this tutorial is about.
+
+### Populations and samples
+
+A [**population**]{.important-text} is the full set of cases you want
+to draw conclusions about. It could be all voters in a presidential
+election, all countries in the world, all U.S. states across time, or
+all adults living in a particular city. The population is defined by
+your research question, not by your data.
+
+A [**sample**]{.important-text} is the subset of the population you
+actually observe. A survey of 1,200 American adults is a sample drawn
+from the population of all American adults. A dataset of 40 countries
+is a sample drawn from the population of all countries. Your data are
+almost always a sample --- a partial view of the population you care
+about.
+
+<img src="images/PopulationSample.png"
+     alt="Diagram showing a large cloud labeled Population containing many figures, with an arrow pointing down to a smaller cloud labeled Sample containing fewer figures. Population is defined as the universe of cases we want to describe, for example all voters in the 2016 presidential election. Sample is defined as the number of cases drawn from the population for study, for example a sample survey of 1,000 voters."
+     style="max-width: 85%; height: auto; margin: 1.4rem auto; display: block;">
+
+### Sample statistics and population parameters
+
+Suppose Gallup reports that 30% of a sample of 1,200 American adults
+approve of the way the president is handling the job. That figure ---
+30% --- was computed from the sample. But what you really want to know
+is not what those 1,200 people think. It is what *all* American adults
+think. The 30% is your best single guess for the true approval rate in
+the population --- what statisticians call a
+[**point estimate**]{.important-text}. But it is only an estimate. A
+different random sample of 1,200 adults drawn on the same day would
+almost certainly produce a somewhat different percentage.
+
+The same situation arises throughout political science. Suppose a
+researcher surveys 40 countries and finds that the average democracy
+score in her sample is 58 points. Democracy scores are numerical
+measures of how democratic a country's institutions are, typically
+ranging from 0 (fully authoritarian) to 100 (fully democratic). The
+mean of 58 describes those 40 countries accurately. But her real
+question is about the average level of democracy across *all* countries
+in the world. The 58 is a point estimate of that unknown quantity.
+
+These two roles --- the quantity computed from your data, and the true
+quantity in the population you are trying to learn about --- have
+names.
+
+::: {.important-note}
+**Sample statistics and population parameters**
+
+A [**sample statistic**]{.important-text} is a quantity computed from
+your data --- for example, a sample mean, a sample proportion, or a
+sample correlation. It is a point estimate of the corresponding
+population quantity. Different random samples from the same population
+will produce different values of the statistic.
+
+A [**population parameter**]{.important-text} is the true value of
+that same quantity in the full population --- for example, the mean
+democracy score of all countries, or the proportion of all American
+adults who approve of the president. Population parameters are almost
+always unknown. That is precisely why we need inference.
+:::
+
+These two concepts also have standard notation that you will encounter throughout the course and in published research. Sample statistics are written with Roman letters; population parameters use Greek letters.
+
+| Quantity | Sample Statistic | Population Parameter |
+|:---------|:----------------:|:--------------------:|
+| Mean | $\bar{X}$ | $\mu$ |
+| Proportion | $p$ | $\pi$ |
+| Standard deviation | $s$ | $\sigma$ |
+| Correlation | $r$ | $\rho$ |
+
+
+**Practice: Statistic or parameter?**
+
+```{r q-stat-param, echo=FALSE}
+question(
+  "A researcher randomly selects 45 countries and measures the
+  percentage of seats in the national legislature held by women.
+  The mean in her sample is 28%. Which of the following correctly
+  identifies the sample statistic and explains why?",
+  answer(
+    "28% is the population parameter, because the researcher
+    measured it carefully and precisely from real data.",
+    message = "Careful measurement does not make something a
+    population parameter. A population parameter is the true value
+    in the full population --- here, all countries in the world.
+    The 28% was computed from only 45 of them, so it is a sample
+    statistic regardless of how carefully it was measured."
+  ),
+  answer(
+    "45 is the sample statistic, because it tells you how many
+    countries were measured.",
+    message = "The sample size tells you how many cases are in the
+    dataset, but it is not a statistic in the sense used here. A
+    statistic is a quantity that summarizes a variable --- like a
+    mean, proportion, or correlation. Here the statistic is the
+    mean percentage of women in legislatures: 28%."
+  ),
+  answer(
+    "28% is the sample statistic, because it was computed from
+    the 45 countries in her dataset --- a subset of all countries
+    in the world.",
+    correct = TRUE,
+    message = "Correct. A sample statistic is always a quantity
+    computed from the data you have. The 28% accurately describes
+    the mean percentage of women in legislatures among these
+    particular 45 countries. The population parameter --- the true
+    mean across all countries in the world --- is a separate,
+    unknown quantity that the 28% helps us estimate."
+  ),
+  answer(
+    "28% is both the sample statistic and the population parameter,
+    because the sample is representative of the population.",
+    message = "Representativeness affects whether the sample
+    statistic is a good estimate of the population parameter, but
+    it does not make them the same thing. The sample statistic is
+    always what you computed from your data. The population
+    parameter is always the unknown true value in the full
+    population. A representative sample brings the two closer
+    together --- it does not make them identical."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: A sample statistic is always computed from your data. A population parameter is the true value in the full population. Which one is 28% here?"
+)
+```
+
+### A critical requirement: random sampling
+
+Having a sample is not enough on its own. For a sample statistic to
+be a trustworthy estimate of the population parameter, the sample
+needs to be [**representative**]{.important-text} of the population
+--- it needs to reflect the population's composition rather than some
+distorted version of it.
+
+The most reliable way to achieve this is [**random
+sampling**]{.important-text}: drawing cases from the population in a
+way that gives every member a known, and often equal, chance of being
+selected. Think
+of the bowl of red and white balls we will use in the next section.
+Imagine the balls have not been mixed --- all the red balls have
+settled to the bottom. If you reach in and scoop, your handful will
+be almost entirely white, badly underestimating the true proportion
+of red balls in the bowl. Now imagine thoroughly stirring the bowl
+before you scoop. With the balls well mixed, any handful you draw
+will tend to reflect the overall composition of the bowl. That is
+what random sampling does: it gives every part of the population a
+chance to appear in the sample, so that across repeated samples the
+sampling process does not systematically over- or underrepresent one
+part of the population.
+
+The uncertainty that remains even after random sampling --- the fact
+that your sample proportion might be 28% when the true population
+proportion is 31% --- is called
+[**sampling error**]{.important-text}. It is random, unavoidable,
+and crucially, quantifiable. Statistical inference is built on
+quantifying it.
+
+Sampling error is very different from [**sampling
+bias**]{.important-text}, which arises when the sampling process
+systematically over- or underrepresents certain members of the
+population. A survey that only reaches people with landline phones
+will systematically underrepresent younger adults. A dataset of
+countries assembled by selecting the ones a researcher knows best
+will systematically overrepresent wealthy democracies. Bias does not
+average out across samples --- it pushes estimates in the wrong
+direction every time.
+
+::: {.caution}
+**Inference requires a defensible source of randomness or
+uncertainty.** In the simplest survey setting, that comes from random
+sampling. Standard inferential tools --- sampling distributions,
+standard errors, p-values, and confidence intervals --- assume the
+data have this property. Applying them to a convenience sample or a
+biased sample produces numbers that look precise but may be badly
+misleading.
+:::
+
+### Statistical inference
+
+With those foundations in place, we can now say precisely what
+statistical inference is.
+
+::: {.important-note}
+**Statistical inference** is the process of using a sample statistic
+to draw conclusions about a population parameter, while honestly
+accounting for the uncertainty introduced by sampling. The two main
+tools of statistical inference are:
+
+- [**Hypothesis tests**]{.important-text}, which assess whether the
+  data provide sufficient evidence to reject a specific claim about
+  the population parameter.
+- [**Confidence intervals**]{.important-text}, which provide a range
+  of plausible values for the population parameter consistent with
+  what the sample shows.
+:::
+
+Both tools are grounded in the same mathematical foundation: the
+theory of sampling distributions and the Central Limit Theorem. These
+results tell us how sample statistics behave across repeated random
+samples --- which is exactly what we need to quantify uncertainty
+honestly. That theory is what we turn to next.
+
+## The Virtual Experiment
+
+The best way to build intuition for statistical inference is to watch
+it happen. In this section you will conduct a virtual sampling
+experiment using a bowl of 2,400 red and white balls. The bowl plays
+the role of the population --- think of the balls as voters, each of
+whom either approves (red) or disapproves (white) of the president.
+A sample of balls drawn from the bowl is like a Gallup survey: a
+random subset of the population used to estimate the true approval
+rate.
+
+We use the [moderndive]{.package-name} package for this experiment.
+The package was designed specifically to teach statistical inference
+through virtual sampling, and it provides both the **bowl** dataset
+and the `rep_sample_n()` function we will use to draw random samples
+from it.
+
+### Look at the bowl
+
+The **bowl** data frame has one row per ball. The variable **ball_ID**
+is an identification number, and **color** records whether each ball
+is red or white. The code below prints the data frame so you can see
+its structure.
+
+**Run and observe: Examine the bowl**
+
+```{r ex-look-bowl, exercise=TRUE, exercise.cap="Run and observe: Examining the bowl data frame"}
+bowl
+```
+
+The output shows the first several rows and reports the total number
+of rows at the bottom. With 2,400 balls in the bowl, we actually could
+compute the true population parameter directly by counting all the red
+balls. Unlike most real research situations, we can check our
+estimates against the truth --- but we will save that for later. For
+now, we will do what researchers always have to do: draw a sample and
+estimate.
+
+### Drawing one sample
+
+In real research you rarely observe every member of the population ---
+and even when your data cover every case in a defined population, you
+may be reasoning about an underlying process that could have generated
+different outcomes. In those situations, a random sample is your
+window into the population. We mimic this by drawing a sample of balls
+from the bowl using `rep_sample_n()`.
+
+`rep_sample_n()` takes two key arguments: `size` sets the number of
+balls to draw in each sample, and `reps` sets how many separate
+samples to draw. Each call draws a fresh random sample --- as if the
+bowl were stirred thoroughly before every scoop, ensuring every ball
+has a known, equal chance of being selected. We start with one sample of
+100 balls: `size = 100, reps = 1`.
+
+**Run and observe: Draw one random sample of 100 balls**
+
+```{r ex-one-sample, exercise=TRUE, exercise.cap="Run and observe: Drawing one random sample of 100 balls"}
+set.seed(1000)
+virtual_shovel <- bowl %>%
+  rep_sample_n(size = 100, reps = 1)
+virtual_shovel
+```
+
+The output has 100 rows, one per ball in the sample. The **replicate**
+column takes the value 1 for every row, indicating that all 100 balls
+came from the same single sample. The **ball_ID** column identifies
+which of the 2,400 balls ended up in this draw. Notice that
+`set.seed(1000)` appears before the sampling call --- this makes the
+random draw reproducible so that everyone running this tutorial gets
+the same sample.
+
+**Practice: Understanding the sample**
+
+```{r q-replicate, echo=FALSE}
+question(
+  "The variable replicate takes the value 1 for every row in
+  virtual_shovel. A student says this means every ball was drawn
+  exactly once. Another says it means all 100 rows belong to the
+  first and only sample drawn. Who is right?",
+  answer(
+    "Both are saying the same thing in different words.",
+    message = "They are actually describing two different things.
+    The replicate variable tracks sample membership --- which sample
+    a row belongs to --- not whether any individual ball appeared
+    more than once. With reps = 1 there is one sample, so replicate
+    = 1 for all rows."
+  ),
+  answer(
+    "The first student. Each ball_ID appears only once, confirming
+    that every ball was drawn exactly once.",
+    message = "While it may be true that no ball_ID repeats in this
+    sample, that is a feature of sampling without replacement, not
+    what the replicate variable measures. The replicate variable
+    tracks which sample each row belongs to, not whether balls
+    were repeated."
+  ),
+  answer(
+    "The second student. The replicate variable identifies which
+    sample each row belongs to. With reps = 1, there is only one
+    sample, so every row has replicate = 1.",
+    correct = TRUE,
+    message = "Right. The replicate variable labels sample membership --- which sample each row belongs to --- not whether individual balls were drawn with or without replacement. When we draw 1,000 samples later, replicate will range from 1 to 1,000, with each value identifying which of the 1,000 samples a ball belongs to."
+  ),
+  answer(
+    "Neither. The replicate variable records how many times each
+    ball was sampled across all repetitions.",
+    message = "The replicate variable labels which sample each row
+    belongs to, not a count of how many times a ball was drawn.
+    With reps = 1, every row belongs to the first and only sample,
+    so replicate = 1 throughout."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: The replicate variable tells you which sample a row belongs to. With reps = 1 there is only one sample. What value would every row have for replicate?"
+)
+```
+
+### The sample distribution
+
+Before computing the proportion of red balls, let's look at the
+distribution of **color** in our sample. You have been plotting
+distributions like this all semester --- this is a sample distribution,
+the distribution of a variable in one dataset. The code uses
+`geom_bar()` with `after_stat(prop)` to display proportions rather
+than counts on the y-axis, and `group = 1` tells ggplot2 to compute
+proportions across all bars rather than within each one.
+
+**Run and observe: Plot the sample distribution**
+
+```{r ex-sample-dist, exercise=TRUE, exercise.cap="Run and observe: Plotting the sample distribution"}
+ggplot(virtual_shovel, aes(x = color)) +
+  geom_bar(aes(y = after_stat(prop), group = 1),
+           fill = "steelblue", color = "white") +
+  labs(title = "Sample Distribution",
+       subtitle = "One random sample of 100 balls",
+       x = "Color",
+       y = "Proportion") +
+  theme_minimal()
+```
+
+This bar chart shows the proportion of red and white balls in our one
+sample. It describes what this particular sample looks like --- nothing
+more. A different random draw of 100 balls would produce a slightly
+different chart.
+
+### Calculating the sample proportion
+
+The bar chart gives us a visual summary, but we need a number: the
+proportion of red balls in the sample. This is our sample statistic
+--- our point estimate of the true proportion of red balls in the
+bowl, just as Gallup's 30% approval figure is their point estimate of
+the true approval rate among all American adults.
+
+You have used `summarise()` and `mutate()` in previous tutorials to
+compute summary statistics and add new variables. We use the same
+tools here. `summarise()` with `sum(color == "red")` counts the red
+balls --- the expression `color == "red"` evaluates to TRUE for each
+red ball and FALSE for each white ball, and `sum()` counts the TRUE
+values. Then `mutate()` divides that count by 100 to get the
+proportion.
+
+**Run and observe: Calculate the proportion of red balls**
+
+```{r ex-prop-red, exercise=TRUE, exercise.cap="Run and observe: Calculating the sample proportion"}
+virtual_shovel %>%
+  summarise(num_red = sum(color == "red")) %>%
+  mutate(p = num_red / 100)
+```
+
+The result gives us **num_red**, the count of red balls, and **p**,
+the proportion. This single number is our best guess for the true
+proportion of red balls in the entire bowl of 2,400. Just as a Gallup
+survey of 1,200 adults produces one estimate of the approval rate
+among all American adults, this one scoop of 100 balls produces one
+estimate of the true proportion of red balls in the bowl. 
+
+**Practice: The limits of one sample**
+
+```{r q-one-sample-limit, echo=FALSE}
+question(
+  "Your sample of 100 balls produces a proportion p. A classmate
+  argues that because the sample was drawn randomly, p must be
+  very close to the true population proportion. A second classmate
+  argues that p is just one of many possible estimates and could
+  be somewhat far from the truth. Who has the stronger argument,
+  and why?",
+  answer(
+    "The first classmate. A random sample of 100 is large enough
+    to guarantee that p is within a few percentage points of the
+    true proportion.",
+    message = "Random sampling does not guarantee closeness in any
+    individual sample --- it guarantees that the estimates are
+    centered on the truth across many samples. How close any one
+    sample tends to be depends on sample size and population
+    variability, but there is always some possibility of a sample
+    that differs meaningfully from the truth."
+  ),
+  answer(
+    "Both are partly right. Random sampling guarantees p equals
+    the true proportion, but only if the sample size is at
+    least 100.",
+    message = "No sample size guarantees that p equals the true
+    proportion exactly. Random sampling ensures estimates are
+    unbiased on average, not that any individual estimate is
+    exact. Even a sample of 10,000 would not guarantee an exact
+    match with the population proportion."
+  ),
+  answer(
+    "Neither. The only way to know how close p is to the truth
+    is to examine all 2,400 balls.",
+    message = "While examining all 2,400 balls would give us the
+    truth directly, statistical inference gives us a way to
+    quantify uncertainty without doing so. That is precisely what
+    makes inference useful: it lets us make principled claims about
+    the population from a sample alone."
+  ),
+  answer(
+    "The second classmate. Random sampling ensures the estimate
+    is unbiased on average across many samples, but any single
+    random sample can differ from the population proportion by
+    a meaningful amount due to sampling variation.",
+    correct = TRUE,
+    message = "Right. Random sampling guarantees that estimates are centered on the truth across many repetitions --- that is what unbiasedness means. But it does not guarantee closeness in any one sample. The gap between your single estimate and the true population proportion is sampling variation, and quantifying that gap is exactly what statistical inference is built to do."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: Think about the difference between how a process performs on average across many repetitions versus how it performs in any single instance."
+)
+```
+
+### Drawing 1,000 samples
+
+You now have a point estimate: the proportion of red balls in your
+sample. But how good an estimate is it? Could a different random
+sample of 100 balls have given you a very different answer?
+
+In real research you cannot answer this question directly. You draw
+one sample, compute one estimate, and that is all you have. You cannot
+re-run the survey a thousand times to see how much your estimates
+would vary. The gap between your sample statistic and the true
+population parameter is real, but you have no direct way to measure
+it.
+
+This is where the virtual experiment gives us something real research
+cannot. Because the bowl is a simulated population, we can draw as
+many samples as we like and watch what happens. We are not doing this
+because we need 1,000 estimates --- we only ever use one in practice.
+We are doing it to understand how much a single random sample of 100
+balls can vary, which tells us how much uncertainty surrounds the one
+estimate we would have in a real study.
+
+Each sample is a fresh random draw --- as if the bowl were stirred
+before every scoop. Because each draw selects a different subset of
+100 balls from the 2,400 in the bowl, the proportions computed from
+them will differ. This is [**sampling variation**]{.important-text}:
+not a flaw in the process, but an inherent consequence of working with
+a random subset rather than the full population.
+
+The code works in two steps. First, `rep_sample_n()` with
+`reps = 1000` draws all 1,000 samples at once, producing a data frame
+with 100,000 rows (1,000 samples x 100 balls each). The **replicate**
+variable now ranges from 1 to 1,000, identifying which sample each
+ball belongs to. Second, `group_by(replicate)` treats each sample
+separately, `summarise()` counts the red balls within each, and
+`mutate()` computes **p** for each sample. The result has one row per
+sample.
+
+**Run and observe: Draw 1,000 samples and compute a proportion for each**
+
+```{r ex-1000-samples, exercise=TRUE, exercise.cap="Run and observe: Drawing 1,000 samples and computing proportions"}
+set.seed(1000)
+repeated_samples100 <- bowl %>%
+  rep_sample_n(size = 100, reps = 1000)
+
+virtual_prop_red100 <- repeated_samples100 %>%
+  group_by(replicate) %>%
+  summarise(red = sum(color == "red")) %>%
+  mutate(p = red / 100)
+
+virtual_prop_red100
+```
+
+Look at the **p** column. The proportions vary from sample to sample
+--- some samples happened to scoop more red balls, others fewer,
+purely by chance. This is sampling variation in action. The question
+is: how much does it matter? The histogram in the next step makes
+that visible.
+
+**Practice: What does sampling variation mean for your estimate?**
+
+```{r q-sampling-variation, echo=FALSE}
+question(
+  "You computed p from one sample of 100 balls. A classmate
+  says: 'Since each sample is drawn randomly, your p is just
+  as likely to be above the true population proportion as
+  below it, so on average random samples get it right ---
+  there is nothing to worry about.' What is the flaw in
+  this reasoning?",
+  answer(
+    "The classmate is correct. If random samples get it right
+    on average, there is no inferential problem to solve.",
+    message = "Unbiasedness --- being right on average --- is
+    a necessary but not sufficient condition for useful
+    inference. It tells you the estimates are centered on the
+    truth, but not how tightly they cluster around it. A single
+    estimate could still be far from the truth even when the
+    process is unbiased on average."
+  ),
+  answer(
+    "The flaw is that random samples are actually biased
+    toward overestimating the population proportion.",
+    message = "Random samples are not systematically biased in
+    either direction --- that is what makes them random. The
+    flaw in the classmate's reasoning is not about bias but
+    about the difference between average performance across
+    many samples and the performance of any one sample."
+  ),
+  answer(
+    "The classmate is wrong because random samples are not
+    equally likely to be above or below the truth.",
+    message = "Actually the classmate is right about the main
+idea --- random samples are centered on the population
+parameter across repeated samples. The flaw is in concluding
+that this means there is nothing to worry about in any
+individual sample. Being right on average does not tell you
+how far your one estimate might be from the truth."
+  ),
+  answer(
+    "Being right on average across many samples is not the
+    same as being right in any particular sample. In real
+    research you only have one sample, and that one sample
+    could be above or below the truth by a meaningful amount
+    with no way to tell which.",
+    correct = TRUE,
+    message = "Right. The classmate is describing unbiasedness: random samples are centered on the truth across many repetitions. That is a real and important property. But it says nothing about how close your one sample is to the truth. In real research you only have one draw, and that draw could land anywhere in the sampling distribution. Quantifying how far it might be from the truth is exactly what the rest of this tutorial develops."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: The classmate is right that random samples are centered on the truth on average. The question is what that guarantees about any single sample."
+)
+```
+
+### Plotting the sampling distribution
+
+A histogram of the 1,000 proportions makes the pattern of sampling
+variation visible all at once. The code plots **p** on the x-axis and
+adds a red vertical line at the mean of all 1,000 proportions with
+`geom_vline()`. The `binwidth = 0.02` argument sets the width of each
+bar, and `boundary = 0.4` ensures the bars align at sensible cut
+points.
+
+**Run and observe: Plot the distribution of sample proportions**
+
+```{r ex-sampling-dist, exercise=TRUE, warning=FALSE, exercise.cap="Run and observe: Plotting the sampling distribution"}
+ggplot(data = virtual_prop_red100,
+       mapping = aes(x = p)) +
+  geom_histogram(binwidth = 0.02, boundary = 0.4,
+                 color = "white") +
+  geom_vline(xintercept = mean(virtual_prop_red100$p),
+             color = "red") +
+  labs(title = "Sampling Distribution of the Proportion",
+       subtitle = "1,000 random samples of size 100",
+       x = "Proportion Red",
+       y = "Frequency") +
+  scale_x_continuous(limits = c(0.1, 0.6))
+```
+
+The histogram shows the [**sampling distribution**]{.important-text}
+of the sample proportion --- the distribution of **p** across 1,000
+repeated random samples from the same population. The proportions
+vary, but they cluster around a central value marked by the red line.
+Values far from that center are rare. The shape is approximately
+bell-shaped and symmetric.
+
+Notice what the red line tells you: it marks the average of all 1,000
+estimates. If your single sample's estimate happens to land near that
+center, it is close to what most other samples would have given. If
+it falls in one of the tails, it is an unusual draw. But in real
+research, you cannot see this histogram --- you only have your one
+sample. That is why we need tools to quantify how much uncertainty
+surrounds a single estimate. We will develop those tools starting with
+the next section.
+
+**Practice: Reading the sampling distribution**
+
+```{r q-sampling-dist-read, echo=FALSE}
+question(
+  "A student looks at the histogram and says: 'Most of the
+  1,000 samples gave proportions between about 0.30 and 0.45,
+  so the sampling distribution tells us the true proportion
+  of red balls in the bowl is somewhere in that range.' What
+  is wrong with this interpretation?",
+  answer(
+    "The interpretation is correct. The sampling distribution
+    shows all values the true proportion could plausibly take.",
+    message = "The sampling distribution shows how sample
+    statistics vary around the truth, not the range of
+    plausible values for the population parameter itself.
+    The true proportion is a single fixed value --- the
+    spread of the sampling distribution describes uncertainty
+    about estimates, not uncertainty about where the
+    truth is located."
+  ),
+  answer(
+    "The interpretation is wrong because 1,000 samples is
+    not enough to draw any conclusions from the histogram.",
+    message = "1,000 samples is more than sufficient to reveal
+    the shape and center of the sampling distribution. The
+    student's error is conceptual --- misidentifying the
+    spread of the distribution with the range of plausible
+    values for the population parameter."
+  ),
+  answer(
+    "The range is too narrow. The true proportion could be
+    anywhere from 0 to 1.",
+    message = "The student's error is not about the range being
+    too narrow but about misidentifying what the spread of
+    the sampling distribution means. The spread reflects
+    sampling variation in the estimates, not the full range
+    of possible values for the population parameter."
+  ),
+  answer(
+    "The range 0.30 to 0.45 describes where most sample
+    proportions fall due to sampling variation, not the
+    location of the true population proportion. The true
+    proportion is a single fixed value, estimated by the
+    center of the distribution, not its full spread.",
+    correct = TRUE,
+    message = "Right. The spread of the sampling distribution tells you how much individual sample estimates vary around the true value --- not the range of possible locations for the truth itself. The true proportion is a single fixed number. The center of the distribution is the best estimate of it. The width of the distribution reflects how precise that estimate is."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: The sampling distribution shows how sample statistics vary. Ask what the spread of this distribution tells you versus what the center tells you."
+)
+```
+
+## What the Sampling Distribution Tells Us
+
+You have just built something remarkable: a picture of how a sample
+statistic behaves across many repeated random samples. In real
+research you never get to see this picture --- you have one sample and
+one estimate. But the virtual experiment lets us peek behind the
+curtain, and what we find there is the foundation of all statistical
+inference.
+
+### The reveal
+
+So far we have been treating the true proportion of red balls in the
+bowl as unknown --- just as a researcher treats a population parameter
+as unknown. But the bowl is a simulated population, which means we
+actually can compute the truth directly. The code below counts every
+red and white ball across all 2,400 rows and computes the true
+population proportion $\pi$.
+
+**Run and observe: Compute the true population proportion**
+
+```{r ex-reveal, exercise=TRUE, exercise.cap="Run and observe: Computing the true population proportion"}
+bowl %>%
+  summarise(
+    sum_red   = sum(color == "red"),
+    sum_white = sum(color != "red")
+  ) %>%
+  mutate(pi = sum_red / (sum_red + sum_white))
+```
+
+This is a rare privilege. In virtually every real research situation,
+the population parameter can only be known through a complete census
+--- which is expensive, time-consuming, and often impossible. Here we
+can see it directly because we constructed the population ourselves.
+Take note of the value: we will use it immediately.
+
+**Practice: The truth and your estimate**
+
+```{r q-reveal, echo=FALSE}
+question(
+  "The true proportion of red balls in the bowl is 0.375. Look
+  back at the sampling distribution histogram you produced. The
+  red vertical line marks the mean of the 1,000 sample
+  proportions. Which of the following best describes the
+  relationship between the mean of the sampling distribution
+  and the true population proportion?",
+  answer(
+    "The mean of the sampling distribution is close to 0.375
+    by coincidence. With a different set of 1,000 samples it
+    would likely be quite different.",
+    message = "This is not a coincidence --- it is a property
+    of random sampling. The mean of the sampling distribution
+    should be close to the true population parameter, and with
+    more repeated samples it would tend to get even closer.
+    This is what it means for an estimator to be unbiased."
+  ),
+  answer(
+    "The mean of the sampling distribution equals 0.375
+    exactly because we used set.seed(), which controls the
+    random draws.",
+    message = "set.seed() makes the draws reproducible but
+    does not control what values are produced. The closeness
+    of the sampling distribution mean to 0.375 is a property
+    of random sampling, not of the seed. With a different
+    seed the mean would still be close to 0.375."
+  ),
+  answer(
+    "The mean of the sampling distribution is very close to
+    0.375 --- the true population proportion. This is not a
+    coincidence: it reflects the fact that, across many random
+    samples, sample proportions are centered on the true
+    population proportion.",
+    correct = TRUE,
+    message = "Right. This is one of the two most important properties of sampling distributions. Across many random samples, sample means and proportions are centered on the true population parameter --- they are unbiased estimators. No single sample is guaranteed to land exactly on the truth, but the process does not systematically push estimates above or below it. This is not a coincidence; it is a mathematical property of random sampling."
+  ),
+  answer(
+    "The relationship is unclear because we cannot compare
+    a distribution to a single value.",
+    message = "We can absolutely compare the mean of the
+    sampling distribution --- a single summary of the
+    distribution --- to the population parameter. The mean
+    of the 1,000 sample proportions is a single number,
+    and comparing it to the true proportion of 0.375
+    is exactly what reveals the unbiasedness property."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: The red line marks the mean of the 1,000 sample proportions. The true proportion is 0.375. What does it mean that these two numbers are so close to each other?"
+)
+```
+
+### The effect of sample size
+
+The sampling distribution is centered on the truth --- that is
+reassuring. But how tightly do individual estimates cluster around
+it? A single sample of 100 balls gave us one proportion. Could it
+have been very different? To answer this, we compare sampling
+distributions from three different sample sizes: 25, 100, and 500.
+Each uses 1,000 repeated random samples from the same bowl, so the
+only thing changing is how many balls are in each scoop.
+
+The code below produces three histograms side by side. The
+`scale_x_continuous()` and `scale_y_continuous()` calls fix the axes
+to the same range across all three plots so the comparison is fair ---
+you are seeing the same scale in all three panels.
+
+**Run and observe: Compare sampling distributions across sample sizes**
+
+```{r ex-sample-size, exercise=TRUE, warning=FALSE, exercise.cap="Run and observe: Comparing sampling distributions across sample sizes"}
+dist_25 <- ggplot(virtual_prop_red25, aes(x = p)) +
+  geom_histogram(binwidth = 0.02, boundary = 0.4,
+                 color = "white") +
+  labs(title = "n = 25",
+       x = "Proportion Red", y = "Frequency") +
+  scale_x_continuous(limits = c(0, 0.7)) +
+  scale_y_continuous(limits = c(0, 400))
+
+dist_100 <- ggplot(virtual_prop_red100, aes(x = p)) +
+  geom_histogram(binwidth = 0.02, boundary = 0.4,
+                 color = "white") +
+  labs(title = "n = 100",
+       x = "Proportion Red", y = "Frequency") +
+  scale_x_continuous(limits = c(0, 0.7)) +
+  scale_y_continuous(limits = c(0, 400))
+
+dist_500 <- ggplot(virtual_prop_red500, aes(x = p)) +
+  geom_histogram(binwidth = 0.02, boundary = 0.4,
+                 color = "white") +
+  labs(title = "n = 500",
+       x = "Proportion Red", y = "Frequency") +
+  scale_x_continuous(limits = c(0, 0.7)) +
+  scale_y_continuous(limits = c(0, 400))
+
+grid.arrange(dist_25, dist_100, dist_500, nrow = 1)
+```
+
+Before reading on, pause for a moment with the three histograms. The important lesson is visible before we put words to it: the centers are similar, but the spreads are not.
+
+
+**What they have in common.** All three distributions are centered
+near 0.375 --- the true population proportion you just computed. It
+doesn't matter whether each sample contained 25 balls or 500: across
+many draws, sample proportions are centered on the truth. This is
+what it means for sample proportions to be unbiased estimators of
+the population proportion. Random sampling doesn't guarantee that
+any single estimate is correct, but it guarantees that the process
+isn't systematically fooling you in one direction. That is a
+powerful assurance.
+
+**What is different.** Now look at the spread. With samples of only
+25 balls, the proportions scatter widely --- individual samples give
+you everything from around 0.15 to 0.60. If you happened to draw one
+of those extreme samples in a real study, you'd be quite far from the
+truth with no way of knowing it. With samples of 500, the proportions
+pack tightly near the center. Almost every sample gives you something
+close to 0.375.
+
+This difference in spread is the difference in
+[**precision**]{.important-text} --- how tightly individual estimates
+cluster around the population parameter. Precision is not the same as
+unbiasedness. All three processes are unbiased. But only the larger
+samples are precise, meaning that any single draw is likely to be
+close to the truth rather than somewhere in a wide range around it.
+
+This matters enormously for real research. You never get to draw
+1,000 samples. You get one. If your one sample comes from a narrow
+sampling distribution --- because your sample is large --- you can be
+reasonably confident your estimate is close to the population
+parameter. If it comes from a wide one --- because your sample is
+small --- you have a point estimate but much more uncertainty about
+how far it might be from the truth. Quantifying that uncertainty
+precisely is what the rest of this tutorial is about.
+
+**Practice: Connecting precision to real research**
+
+```{r q-sample-size-applied, echo=FALSE}
+question(
+  "Gallup typically surveys around 1,000 American adults to
+  estimate presidential approval. A critic argues they should
+  survey at least 100,000 people to get a useful estimate.
+  Based on what you observed in the three sampling
+  distributions, what is the most relevant response to
+  this criticism?",
+  answer(
+    "The critic is right. A sample of 1,000 is far too small
+    to estimate anything about a population of 330 million
+    Americans.",
+    message = "For very large populations, the precision of a random sample depends primarily on the absolute size of the sample, not its size relative to the population. A well-designed random sample of 1,000
+    produces a narrow sampling distribution even when the
+    population is very large."
+  ),
+  answer(
+    "The critic is right because presidential approval is
+    too variable to estimate from any sample smaller than
+    the full population.",
+    message = "Variability in the population affects the
+    standard error, but it does not make inference impossible
+    with a sample of 1,000. Random samples of that size
+    routinely produce precise estimates of population
+    proportions."
+  ),
+  answer(
+    "Sample size is irrelevant as long as the sample is
+    random. Gallup's 1,000 interviews are exactly as precise
+    as 100,000 would be.",
+    message = "Sample size does matter for precision. Larger
+    samples produce narrower sampling distributions. The
+    point is not that size is irrelevant but that the gains
+    in precision beyond a few thousand respondents are small
+    relative to the cost."
+  ),
+  answer(
+    "Increasing the sample size does reduce sampling
+    variation, but the gains in precision diminish as the
+    sample gets larger. A well-designed random sample of
+    1,000 already produces estimates that cluster tightly
+    around the truth, and the additional precision from
+    100,000 interviews may not be worth the cost.",
+    correct = TRUE,
+    message = "Right. The three sampling distributions showed that going from n = 25 to n = 100 produces a dramatic reduction in spread, but the gain from n = 100 to n = 500 is smaller. This diminishing return continues: to cut the standard error in half, you need to quadruple the sample size. A random sample of 1,000 is already quite precise for estimating a national proportion, which is why major polling organizations converge on roughly that size."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: Look at how the spread changed across the three histograms. Was each step an equal reduction in spread? What does that suggest about the returns to larger samples?"
+)
+```
+
+## Three Distributions
+
+::: {.tip}
+**Good place to take a break.** You have now covered samples, sampling
+variation, and sampling distributions, and seen how the sampling
+distribution is centered on the truth and how sample size affects
+precision. The next sections explain why these ideas allow us to
+compute standard errors and use the Central Limit Theorem.
+:::
+
+To use inferential tools correctly --- and to avoid one of the most
+common errors in interpreting statistical results --- you need to be precise about which kind of distribution is in front of you. There are three kinds of distribution --- the population distribution, the
+sample distribution, and the sampling distribution --- and they are
+easy to confuse. Confusing them leads to real mistakes: misreading a
+histogram, misinterpreting a standard error, or drawing the wrong
+conclusion from a p-value. Getting them straight now will pay off
+every time you encounter inferential output for the rest of the
+course.
+
+The bowl experiment used a simple two-category population --- red and
+white balls --- which kept the mechanics clear. To see what all three
+distributions look like for a continuous numerical variable, consider
+the following example. A population of 10,000 individuals has been
+measured on annual income in thousands of dollars, with a mean of 10
+and a standard deviation of 2. We draw one random sample of 100 from
+this population and also construct the sampling distribution of the
+sample mean across 1,000 repeated samples.
+
+```{r three-dist-plot, echo=FALSE, warning=FALSE, message=FALSE, fig.height=9, fig.cap="Three stacked histograms comparing the population distribution, one sample distribution, and the sampling distribution of the mean. The population and sample distributions show individual income values and look similarly spread out. The sampling distribution of the mean is much narrower and centered on the same value, marked with a red vertical line.", fig.alt="Three histograms stacked vertically. Panel 1, Population Distribution, shows the spread of annual income across all 10,000 individuals, roughly bell-shaped and centered near 10 thousand dollars. Panel 2, Sample Distribution, shows one random sample of 100 individuals with a similar spread and shape to the population. Panel 3, Sampling Distribution of the Mean, shows the mean income from each of 1,000 random samples of size 100; this distribution is much narrower than the other two and is centered at the same value, marked with a red vertical line at the population mean."}
+set.seed(1230)
+population_norm <- data.frame(value = rnorm(10000, 10, 2))
+sample_norm     <- population_norm %>% sample_n(100)
+sampling_means  <- data.frame(
+  mean = replicate(1000,
+                   mean(sample(population_norm$value, 100)))
+)
+
+p_pop <- ggplot(population_norm, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "lightblue",
+                 color = "black") +
+  labs(title = "1. Population Distribution",
+       subtitle = "All 10,000 individuals",
+       x = "Annual Income (thousands of dollars)",
+       y = "Frequency") +
+  theme_minimal()
+
+p_samp <- ggplot(sample_norm, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "lightgreen",
+                 color = "black") +
+  labs(title = "2. Sample Distribution",
+       subtitle = "One random sample of 100 individuals",
+       x = "Annual Income (thousands of dollars)",
+       y = "Frequency") +
+  theme_minimal()
+
+p_sdist <- ggplot(sampling_means, aes(x = mean)) +
+  geom_histogram(bins = 30, fill = "lightsalmon",
+                 color = "black") +
+  geom_vline(xintercept = mean(sampling_means$mean),
+             color = "red", linewidth = 1) +
+  labs(title = "3. Sampling Distribution of the Mean",
+       subtitle = "Mean of each of 1,000 random samples of size 100",
+       x = "Sample Mean Income (thousands of dollars)",
+       y = "Frequency") +
+  theme_minimal()
+
+grid.arrange(p_pop, p_samp, p_sdist, ncol = 1)
+```
+
+Look at all three panels together. The top two --- the population
+distribution and the sample distribution --- show the spread of
+individual income values. They look similar in shape and spread
+because one random sample of 100 tends to resemble the population
+it was drawn from. The bottom panel is fundamentally different. It
+does not show individual incomes at all. It shows the mean income of
+each sample --- a single summary number --- computed across 1,000
+repeated draws. Because averaging reduces variability, the sampling
+distribution is much narrower than the other two. And notice the red
+line: just as with the bowl, the mean of the sampling distribution
+lands right on the true population mean, reflecting the same
+unbiasedness you observed earlier.
+
+::: {.important-note}
+**Three distributions**
+
+A [**population distribution**]{.important-text} is the distribution
+of a variable across every member of the population. In the example
+above, it is the distribution of annual incomes across all 10,000
+individuals. In real research you cannot observe this directly --- it
+is the unknown you are trying to learn about.
+
+A [**sample distribution**]{.important-text} is the distribution of
+a variable in one sample. It is what your dataset looks like --- the
+histogram of a variable in your data. You typically have only one
+sample, and the sample distribution is what you have been plotting
+all semester.
+
+A [**sampling distribution**]{.important-text} is the distribution
+of a sample *statistic* --- such as a mean or proportion --- across
+many repeated samples from the same population. In real research you
+never observe this directly. It is a theoretical distribution whose
+properties can be derived mathematically, and it is the foundation of
+all statistical inference. The sampling distribution is not a
+distribution of individual observations --- it is a distribution of
+summary numbers, one per sample.
+:::
+
+The critical distinction to internalize is between the sample
+distribution and the sampling distribution. The sample distribution
+describes individual *observations* in one dataset. The sampling
+distribution describes a *statistic* computed from each of many
+datasets. These are fundamentally different objects, and mixing them
+up is one of the most persistent sources of confusion in learning
+inference.
+
+**Practice: Identify the distribution**
+
+```{r q-three-dists-1, echo=FALSE}
+question(
+  "A graduate student downloads the 2022 American National
+  Election Study, which surveyed about 1,600 American adults.
+  She plots a histogram of respondents' feelings toward
+  Congress on a 0-100 scale. Which distribution does her
+  histogram represent, and why?",
+  answer(
+    "The population distribution, because the ANES is a
+    nationally representative sample that reflects all
+    American adults.",
+    message = "Even a representative sample is still a sample.
+    The population distribution would require data on all
+    American adults. Representativeness means the sample
+    closely reflects the population, but it does not make
+    the sample distribution the same as the population
+    distribution."
+  ),
+  answer(
+    "The sampling distribution, because it shows how feelings
+    toward Congress vary across many respondents.",
+    message = "A sampling distribution shows how a statistic
+    --- such as the mean feeling score --- varies across many
+    different samples. A single histogram of individual
+    responses from one survey is not a sampling distribution,
+    regardless of how many respondents it contains."
+  ),
+  answer(
+    "The sample distribution, because it shows the values
+    of a variable across the 1,600 individuals in this
+    particular dataset.",
+    correct = TRUE,
+    message = "Right. A histogram of a variable in one survey is a sample distribution. It describes the shape, center, and spread of feelings toward Congress among the 1,600 people in this particular dataset. A different random sample of 1,600 adults would produce a similar but not identical histogram. The population distribution would require all American adults; the sampling distribution would require many repeated surveys."
+  ),
+  answer(
+    "It is impossible to tell without knowing how the
+    sample was drawn.",
+    message = "The type of distribution does not depend on
+    how the sample was drawn. A histogram of individual
+    responses in one dataset is always a sample distribution,
+    regardless of the sampling method."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: Ask what the x-axis shows. Are these individual responses from one dataset, or statistics computed from many datasets?"
+)
+```
+
+**Practice: A trickier case**
+
+```{r q-three-dists-2, echo=FALSE}
+question(
+  "A researcher is writing a meta-analysis of public opinion
+  research. She collects 50 published survey studies, each
+  of which surveyed a different random sample of American
+  adults and reported the mean approval rating of Congress.
+  She builds a table of those 50 means and plots them as
+  a histogram. What distribution does her histogram
+  represent, and what makes this case different from the
+  previous question?",
+  answer(
+    "It is the population distribution, because combining
+    50 studies gives a more complete picture of American
+    adults.",
+    message = "The population distribution would show
+    individual scores across all American adults. The
+    researcher is plotting means --- one per study ---
+    not individual scores. Combining more studies does
+    not turn a distribution of statistics into a
+    population distribution."
+  ),
+  answer(
+    "It is a sampling distribution, because it shows
+    how a statistic --- the mean approval rating ---
+    varies across 50 different samples drawn from the
+    same population. Unlike the previous question, the
+    histogram shows one number per study rather than
+    one observation per person.",
+    correct = TRUE,
+    message = "Right. This is the subtle distinction. Both histograms involve survey data about American adults, but they show fundamentally different things. The first showed individual responses in one dataset --- a sample distribution. This one shows means computed from 50 separate datasets --- a sampling distribution. The key is what the x-axis represents: individual scores in the first case, sample means in the second. One observation per person versus one statistic per study."
+  ),
+  answer(
+    "It is still a sample distribution, because each of
+    the 50 studies surveyed a sample of American adults.",
+    message = "Each individual study produced a sample
+    distribution of its respondents. But the researcher is
+    not plotting individual responses --- she is plotting
+    one mean per study. A histogram of statistics computed
+    from repeated samples is a sampling distribution,
+    not a sample distribution."
+  ),
+  answer(
+    "It cannot be any of the three distributions because
+    it was not constructed by simulation.",
+    message = "Sampling distributions can be constructed
+    from real repeated studies as well as from simulations.
+    The bowl experiment was a simulation, but the logic
+    is identical: a histogram of a statistic computed
+    from many separate samples is a sampling distribution
+    regardless of how those samples were obtained."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: Ask what the x-axis shows. Is it individual responses from one survey, or one number computed from each of many surveys?"
+)
+```
+
+
+## The Central Limit Theorem and Standard Error
+
+### The Central Limit Theorem
+
+The sampling distributions you built in the previous sections were all
+approximately bell-shaped, regardless of whether the underlying
+population was a two-category bowl or a continuous income distribution.
+This is not a coincidence. It is a consequence of one of the most
+important results in all of statistics.
+
+::: {.important-note}
+**The Central Limit Theorem (CLT)**
+
+For sufficiently large samples, the sampling distribution of the
+sample mean will be approximately normal, regardless of the shape of the population distribution. A common rule of thumb is that this
+approximation usually works well once $n \geq 30$, though more skewed populations may require larger samples. For sample proportions, the same idea applies when the sample is large enough to include enough cases in both outcome categories. A sample proportion is a special case of a mean: it is the mean of a 0/1 variable where 1 indicates the outcome of interest.
+
+For sample means and proportions from random samples, the sampling
+distribution is centered on the corresponding population parameter.
+This centering does not come from the CLT itself --- it comes from
+the fact that these statistics are unbiased estimators under random
+sampling. The CLT adds the second crucial piece: for large enough
+samples, the sampling distribution is approximately normal.
+:::
+
+The CLT is what makes statistical inference work in practice. Because
+the sampling distribution is approximately normal, we can use the
+known mathematical properties of the normal distribution to make
+precise probability statements --- things like "there is only a 5%
+chance of getting a result this far from the population parameter if
+the null hypothesis is true." This holds regardless of the shape of
+the population distribution. Without the CLT, we would need to know
+the shape of the population to say anything precise about uncertainty.
+With it, we do not.
+
+The claim that a skewed population produces a normal sampling
+distribution can sound implausible until you see it. The figure below
+makes it concrete: the left panel is a population that looks like
+many real-world variables in political science --- income, campaign
+donations, hate crime rates --- with most cases low and a long tail
+of high values. The right panel is the sampling distribution of the
+mean, built from 1,000 random samples of size 30 drawn from that
+same skewed population.
+
+```{r clt-skew-demo, echo=FALSE, warning=FALSE, message=FALSE, fig.height=4, fig.cap="Side by side comparison of a right-skewed population distribution and the sampling distribution of its mean for samples of size 30. The population is heavily skewed with a long right tail, but the sampling distribution of the mean is approximately symmetric and bell-shaped, centered on the population mean.", fig.alt="Two histograms side by side. The left panel, Skewed Population, shows a right-skewed distribution: most values are low, with a long tail of high values extending to the right, and no symmetry. The right panel, Sampling Distribution of the Mean, n equals 30, shows an approximately symmetric, bell-shaped distribution centered near the population mean, with a red vertical line marking that mean. Despite the skewed shape on the left, the distribution on the right is approximately normal."}
+set.seed(2026)
+skewed_population <- data.frame(value = rexp(10000, rate = 1))
+
+skewed_sampling_means <- data.frame(
+  mean = replicate(1000, mean(sample(skewed_population$value, 30)))
+)
+
+p_skew_pop <- ggplot(skewed_population, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "lightblue", color = "black") +
+  labs(title = "Skewed Population",
+       subtitle = "10,000 cases, long right tail",
+       x = "Value",
+       y = "Frequency") +
+  theme_minimal()
+
+p_skew_sdist <- ggplot(skewed_sampling_means, aes(x = mean)) +
+  geom_histogram(bins = 30, fill = "lightsalmon", color = "black") +
+  geom_vline(xintercept = mean(skewed_population$value),
+             color = "red", linewidth = 1) +
+  labs(title = "Sampling Distribution of the Mean",
+       subtitle = "1,000 samples of size n = 30",
+       x = "Sample Mean",
+       y = "Frequency") +
+  theme_minimal()
+
+grid.arrange(p_skew_pop, p_skew_sdist, ncol = 2)
+```
+
+Notice what happened. The population on the left is nothing like a
+bell curve --- it is heavily skewed, with most values clustered near
+zero and a long tail stretching to the right. But the sampling
+distribution on the right, built entirely from means of samples drawn
+from that same skewed population, is approximately symmetric and
+bell-shaped, centered on the true population mean. This is the CLT
+in action: the shape of the population disappears once you average,
+and what is left is approximately normal.
+
+**Practice: What the CLT requires and provides**
+
+```{r q-clt-1, echo=FALSE}
+question(
+  "A researcher studies CO2 emissions across countries. The
+  population distribution is highly skewed --- most countries
+  have low emissions, but a handful of wealthy industrialized
+  countries have extremely high values. She draws a random
+  sample of 50 countries and computes the mean. According to
+  the CLT, which of the following is true about the sampling
+  distribution of her sample mean?",
+  answer(
+    "The sampling distribution will also be skewed, because
+    it reflects the shape of the population.",
+    message = "This is what you might expect intuitively, but
+    the CLT says otherwise. Even when the population is skewed,
+    the sampling distribution of the mean is approximately
+    normal for large enough samples. This is precisely what
+    makes the theorem so powerful."
+  ),
+  answer(
+    "The sampling distribution will be normal only if she
+    transforms the variable to remove the skew first.",
+    message = "The CLT requires no transformation. It applies
+    to the sample mean computed from the raw data, provided
+    the sample is large enough. A sample of 50 is above
+    the rule-of-thumb threshold of 30."
+  ),
+  answer(
+    "The sampling distribution will be approximately normal,
+    centered on the true population mean, even though the
+    population distribution is skewed.",
+    correct = TRUE,
+    message = "Right. The shape of the population does not determine the shape of the sampling distribution. For samples of 50 --- well above the rule-of-thumb threshold of 30 --- the CLT supports treating the sampling distribution of the mean as approximately normal, regardless of the skew in the underlying population. This is what makes standard inferential tools usable with skewed variables."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: The CLT makes a claim about what happens to the sampling distribution as sample size grows, regardless of the population's shape. What does it imply about the shape of the sampling distribution?"
+)
+```
+
+### The Empirical Rule
+
+Because the sampling distribution is approximately normal, we can use
+a well-known property of the normal distribution to say something
+precise about how far sample statistics typically fall from the
+population parameter. This property is called the Empirical Rule.
+
+<img src="images/EmpiricalRule2.png"
+     alt="Bell curve labeled The 68-95-99.7 Rule showing three nested regions: 68% of data falls within 1 standard deviation of the mean, 95% within 2 standard deviations, and 99.7% within 3 standard deviations. The x-axis shows standard deviation units from negative 3 to positive 3."
+     style="max-width: 85%; height: auto; margin: 1.4rem auto; display: block;">
+
+::: {.important-note}
+**The Empirical Rule**
+
+For any approximately normal distribution:
+
+- About **68%** of values fall within 1 standard deviation of the mean
+- About **95%** of values fall within 2 standard deviations of the mean
+- About **99.7%** of values fall within 3 standard deviations of the mean
+:::
+
+Applied to the sampling distribution, this means that about 95% of
+sample statistics fall within approximately 2 standard deviations of
+the population parameter. More precisely, the value is 1.96 standard
+deviations --- this is where the critical value of 1.96 you will use
+in confidence intervals comes from. It is not an arbitrary number: it
+is the exact point on the normal distribution that captures the middle
+95%, leaving 2.5% in each tail.
+
+This inferential use of the Empirical Rule depends on having a
+defensible source of randomness, such as those built from [**random
+samples**]{.important-text}. If the sample was not drawn randomly, the usual sampling distribution may not describe the uncertainty in your estimate. The numbers may still look precise, but the inferential interpretation is no longer justified without additional assumptions.
+
+**Practice: Applying the Empirical Rule**
+
+```{r q-empirical-rule, echo=FALSE}
+question(
+  "A sampling distribution has a mean of 0.375 and a standard
+  deviation of 0.047 (the standard error for samples of size
+  100 from the bowl). According to the Empirical Rule,
+  approximately what range captures 95% of all sample
+  proportions?",
+  answer(
+    "Between 0.328 and 0.422, computed as 0.375 plus or minus
+    1 times 0.047.",
+    message = "That range captures approximately 68% of sample
+    proportions, not 95%. For 95% you need to go out
+    approximately 2 standard deviations in each direction."
+  ),
+  answer(
+    "Between 0.281 and 0.469, computed as 0.375 plus or minus
+    2 times 0.047.",
+    correct = TRUE,
+    message = "Right. The Empirical Rule says approximately 95% of values fall within 2 standard deviations of the mean. Applied here: 0.375 minus 2(0.047) = 0.281 and 0.375 plus 2(0.047) = 0.469. This means 95% of random samples of size 100 from the bowl will produce a proportion between 0.281 and 0.469 --- and only about 5% will fall outside this range. This 2-standard-deviation threshold is the origin of the 1.96 critical value used in confidence intervals."
+  ),
+  answer(
+    "Between 0.234 and 0.516, computed as 0.375 plus or minus
+    3 times 0.047.",
+    message = "That range captures approximately 99.7% of
+    sample proportions. For 95% you need approximately 2
+    standard deviations, not 3."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: The Empirical Rule says 95% of values fall within how many standard deviations of the mean? Multiply that by 0.047 and add/subtract from 0.375."
+)
+```
+
+### The standard error
+
+You have now seen qualitatively that larger samples produce narrower
+sampling distributions --- the three histograms in the previous
+section made that visible. Now let's put numbers on it. The spread
+of the sampling distribution has a formal name and a formula.
+
+::: {.important-note}
+**The standard error**
+
+The [**standard error**]{.important-text} ($s.e.$) is the standard
+deviation of the sampling distribution. It measures how much a sample
+statistic typically varies from the population parameter across
+repeated samples.
+
+For the sample mean, the standard error is:
+
+$$s.e. = \frac{s}{\sqrt{n}}$$
+
+where $s$ is the sample standard deviation and $n$ is the sample size.
+A smaller $s.e.$ means estimates cluster more tightly around the
+population parameter. A larger $s.e.$ means individual estimates vary
+more widely and any given estimate could be farther from the truth.
+:::
+
+The formula reveals two levers for reducing uncertainty. The first is
+sample size: because $n$ appears under a square root in the
+denominator, increasing the sample size reduces the standard error ---
+but with diminishing returns. To cut the standard error in half, you
+need to quadruple the sample size. This is why polling organizations
+rarely survey more than about 1,000 respondents: the gains in
+precision beyond that point are small relative to the cost of
+additional interviews. The second lever is population variability:
+when everyone in the population is similar ($s$ is small), any sample
+closely reflects the whole and the standard error is small. When the
+population is heterogeneous ($s$ is large), individual estimates vary
+more from sample to sample.
+
+We can now compute the standard deviation of the 1,000 sample
+proportions for each of the three sample sizes. For proportions the formula takes a related form; here we estimate the standard error directly from the simulated sampling distributions by computing the standard deviation of the 1,000 sample proportions. The `sd(p)` function
+computes the standard deviation of the proportions across the 1,000
+samples --- this is the empirical standard error for each sample size,
+and it is the number that corresponds to the spread you saw visually
+in the histograms.
+
+**Run and observe: Compute the standard deviation of each sampling distribution**
+
+```{r ex-sd-compare, exercise=TRUE, exercise.cap="Run and observe: Computing the standard deviation of each sampling distribution"}
+virtual_prop_red25 %>%
+  summarise(se_n25 = sd(p))
+
+virtual_prop_red100 %>%
+  summarise(se_n100 = sd(p))
+
+virtual_prop_red500 %>%
+  summarise(se_n500 = sd(p))
+```
+
+The three values are approximately
+`r round(sd(virtual_prop_red25$p), 3)` (n = 25),
+`r round(sd(virtual_prop_red100$p), 3)` (n = 100), and
+`r round(sd(virtual_prop_red500$p), 3)` (n = 500). These numbers
+quantify exactly what you observed in the histograms. The n = 25
+distribution was wide ---
+`r round(sd(virtual_prop_red25$p), 3)` means a typical sample of
+25 balls lands about
+`r round(sd(virtual_prop_red25$p) * 100, 1)` percentage points away
+from the truth. The n = 500 distribution was narrow ---
+`r round(sd(virtual_prop_red500$p), 3)` means a typical sample of
+500 lands about
+`r round(sd(virtual_prop_red500$p) * 100, 1)` percentage points away.
+Notice also the square-root pattern: going from n = 25 to n = 100 is
+a fourfold increase and roughly halves the standard error; going from
+n = 100 to n = 500 is a fivefold increase and roughly halves it
+again.
+
+**Practice: Connecting standard error to sample size**
+
+```{r q-se-formula, echo=FALSE}
+question(
+  "A researcher estimates the standard error of the mean for
+  a survey of 400 respondents is 0.040. A colleague suggests
+  expanding to 1,600 respondents. Assuming the population
+  standard deviation stays the same, what will the new
+  standard error be?",
+  answer(
+    "0.040, because the standard error depends only on the
+    population, not the sample size.",
+    message = "Sample size is one of the two determinants of
+    the standard error. The formula is s / sqrt(n), so
+    increasing n reduces the standard error."
+  ),
+  answer(
+    "0.010, because quadrupling the sample size quarters the
+    standard error.",
+    message = "The standard error decreases by the square root
+    of the increase in sample size, not proportionally.
+    Quadrupling n doubles sqrt(n), which halves the standard
+    error --- not quarters it."
+  ),
+  answer(
+    "0.020, because quadrupling the sample size halves the
+    standard error.",
+    correct = TRUE,
+    message = "Right. The standard error formula is s / sqrt(n). Quadrupling the sample size from 400 to 1,600 doubles sqrt(n) --- from 20 to 40 --- which halves the denominator and halves the standard error: 0.040 / 2 = 0.020. This square-root relationship is what produces the diminishing returns of larger samples: you need four times as many respondents to cut uncertainty in half, sixteen times as many to cut it to one quarter."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: The standard error formula is s / sqrt(n). What happens to sqrt(n) when n is quadrupled? What does that do to the standard error?"
+)
+```
+
+**Practice: When does the standard error matter?**
+
+```{r q-se-meaning, echo=FALSE}
+question(
+  "Two researchers study the same population. Researcher A uses
+  a sample of 50 and finds a mean of 42.3 with a standard error
+  of 3.8. Researcher B uses a sample of 800 and finds a mean of
+  41.1 with a standard error of 0.9. The true population mean is
+  41.5. Which researcher's estimate is closer to the truth, and
+  what does the difference in standard errors tell you?",
+  answer(
+    "Researcher A's estimate is more trustworthy because A
+    found a higher mean, and higher means are more likely to
+    be correct.",
+    message = "The size of the mean has no bearing on its
+    trustworthiness. What matters is the standard error ---
+    how precisely the sample estimates the population parameter."
+  ),
+  answer(
+    "Researcher B's estimate is closer to the truth. The
+    smaller standard error means B's sampling distribution
+    is much more tightly clustered around the population
+    mean, so B's estimate is more likely to be close to
+    41.5 in any given sample.",
+    correct = TRUE,
+    message = "Right. Researcher B's estimate of 41.1 is closer to the true 41.5 than A's 42.3. The standard error of 0.9 versus 3.8 tells you something important: B's estimates cluster tightly around the truth across repeated samples, while A's are far more dispersed. In this particular sample A got unlucky and B got lucky --- but the standard error tells you that B's larger sample produces more reliable estimates on average. With a standard error of 3.8, A could easily land 4 or 5 points from the truth in any given sample."
+  ),
+  answer(
+    "Neither estimate is useful because neither researcher
+    found a mean exactly equal to 41.5.",
+    message = "No sample is guaranteed to produce a mean
+    exactly equal to the population parameter. The standard
+    error tells you how close any given estimate is likely
+    to be --- that is what determines usefulness."
+  ),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: Compare the two standard errors. What does a smaller standard error tell you about how estimates cluster around the truth? Which estimate is actually closer to 41.5?"
+)
+```
+
+## The Takeaways
+
+This tutorial built the foundation for statistical inference --- the logical chain that connects sampling variation to the standard error, the Central Limit Theorem, and ultimately to the hypothesis tests and confidence intervals in Tutorial 11.
+
+The CLT and the normal distribution are the foundation for inference about means and proportions with large samples. Not all tests rely on the normal distribution: Tutorial 12 introduces the chi-square distribution for relationships between two categorical variables, Tutorial 13 introduces both the t-distribution and F for comparing group means, and Tutorial 14 extends the same logic to correlation. The underlying machinery you have built here powers all of them --- locate your observed statistic on the relevant distribution, see how far into the tail it falls, and let that tell you how surprising your result would be if the null hypothesis were true.
+
+**The problem statistical inference solves.** You have a
+[**sample statistic**]{.important-text} --- a mean, proportion, or
+correlation computed from your data. You want to say something about
+the corresponding [**population parameter**]{.important-text}, which
+you cannot observe directly. The obstacle is
+[**sampling variation**]{.important-text}: different random samples
+from the same population produce different estimates, so yours could
+differ from the truth by some unknown amount.
+
+**The sampling distribution is the key.** If you could draw many
+repeated samples from the same population and compute your statistic
+each time, the distribution of those statistics is the
+[**sampling distribution**]{.important-text}. You never observe it
+directly --- but theory tells you its shape, its center, and its
+spread. It is centered on the population parameter (your statistic is
+an unbiased estimator), and its spread is measured by the
+[**standard error**]{.important-text}.
+
+**The Central Limit Theorem makes inference practical.** For
+sufficiently large samples, the sampling distribution of the mean or
+proportion is approximately normal regardless of the shape of the
+population. This is what allows us to make precise probability
+statements about how far our estimate is likely to be from the truth
+--- without needing to know anything about the population's shape.
+Larger samples produce smaller standard errors, which means more
+precise estimates.
+
+**What comes next.** Tutorial 11 uses this foundation to introduce the
+two main tools of statistical inference: hypothesis tests, which assess
+whether an observed result is too surprising to be explained by chance,
+and confidence intervals, which give the range of plausible values for
+the population parameter. Both tools are built entirely on what you
+learned here.
+
+## Submit Your Work
+
+When you have completed all exercises in this tutorial, generate your submission code using the button below. Copy the full code that appears and paste it into the Canvas submission box for this tutorial. The code can be long --- make sure you have copied all of it before submitting.
+
+```{r encode-logic-10, context="server"}
+learnrhash::encoder_logic()
+```
+
+```{r encode-ui-10, echo=FALSE}
+learnrhash::encoder_ui(
+  ui_before = shiny::div(
+    shiny::p("Click the button below to generate your submission code.
+              Copy the full code and paste it into Canvas.")
+  )
+)
+```
+
+```{r tutorial-success-banner-10, results="asis", echo=FALSE}
+cat('
+<p class="tutorial-complete"
+   role="status"
+   aria-label="Wonderful work! You have completed this tutorial and can now explain the logic of statistical inference, including sampling variation, sampling distributions, the Central Limit Theorem, and standard error.">
+  <span aria-hidden="true">🎉</span>
+  Wonderful work! You can now explain the logic of statistical inference, including sampling variation, sampling distributions, the Central Limit Theorem, and standard error.
+</p>
+')
+```
