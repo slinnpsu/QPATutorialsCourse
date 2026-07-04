@@ -6,7 +6,8 @@
 qpa_tutorial <- function(...) {
 
   fmt <- learnr::tutorial(
-    ...
+    ...,
+    shiny_args = list(launch.browser = TRUE)
   )
 
   old_pp <- fmt$post_processor
