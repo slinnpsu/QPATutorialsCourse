@@ -182,25 +182,24 @@
      ------------------------------ */
 
   safe(function () {
-    // Only redirect if running in RStudio's internal viewer pane
-    // Detected by: not a real browser tab, has a localhost port,
-    // and window.self === window.top (not already in an iframe redirect loop)
-    var isRStudioViewer =
-      typeof window.qtwebchannel !== "undefined" ||
-      (window.location.hostname === "127.0.0.1" &&
-        window.location.port !== "" &&
-        window.navigator.userAgent.indexOf("QtWebEngine") !== -1);
-
-    if (isRStudioViewer) {
+    // RStudio's Tutorial pane runs on 127.0.0.1 with a random port
+    // and exposes a global called `Shiny` before the page fully loads.
+    // We check for localhost + port and attempt to open in system browser.
+    if (
+      window.location.hostname === "127.0.0.1" &&
+      window.location.port !== ""
+    ) {
       var url =
-        window.location.protocol +
-        "//" +
-        window.location.hostname +
-        ":" +
+        window.location.protocol + "//" +
+        window.location.hostname + ":" +
         window.location.port +
         window.location.pathname +
         window.location.search;
-      window.open(url, "_blank");
+
+      // Small delay to let the tutorial start rendering first
+      setTimeout(function () {
+        window.open(url, "_blank");
+      }, 1000);
     }
   });
 })();
