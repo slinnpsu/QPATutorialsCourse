@@ -177,29 +177,4 @@
     });
   });
 
-/* ------------------------------
-     Auto-open in browser when running in RStudio viewer
-     ------------------------------ */
-
-  safe(function () {
-    // RStudio's Tutorial pane runs on 127.0.0.1 with a random port
-    // and exposes a global called `Shiny` before the page fully loads.
-    // We check for localhost + port and attempt to open in system browser.
-    if (
-      window.location.hostname === "127.0.0.1" &&
-      window.location.port !== ""
-    ) {
-      var url =
-        window.location.protocol + "//" +
-        window.location.hostname + ":" +
-        window.location.port +
-        window.location.pathname +
-        window.location.search;
-
-      // Small delay to let the tutorial start rendering first
-      setTimeout(function () {
-        window.open(url, "_blank");
-      }, 1000);
-    }
-  });
 })();
