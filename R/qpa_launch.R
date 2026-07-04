@@ -17,7 +17,6 @@
 #'
 #' @export
 qpa_launch <- function(tutorial) {
-
   tutorials <- c(
     "01-rBasics1",
     "02-rBasics2",
@@ -40,7 +39,6 @@ qpa_launch <- function(tutorial) {
     "19-logit",
     "20-logitPredictions"
   )
-
   if (is.numeric(tutorial)) {
     if (tutorial < 1 || tutorial > length(tutorials)) {
       stop("Tutorial number must be between 1 and ", length(tutorials), ".")
@@ -66,45 +64,12 @@ qpa_launch <- function(tutorial) {
   } else {
     stop("'tutorial' must be a number or a character string.")
   }
+  options(shiny.launch.browser = TRUE)
 
-  # Kill any existing process on port 3838
-  suppressWarnings({
-    pid <- system("lsof -ti :3838", intern = TRUE)
-    if (length(pid) > 0) {
-      system(paste("kill -9", paste(pid, collapse = " ")))
-      Sys.sleep(3)
-    }
-  })
-
-  # Start tutorial in background
-  p <- callr::r_bg(
-    function(dir_name, port) {
-      learnr::run_tutorial(
-        name = dir_name,
-        package = "QPATutorialsCourse",
-        shiny_args = list(port = port, launch.browser = FALSE)
-      )
-    },
-    args = list(dir_name = dir_name, port = 3838),
-    stdout = file.path(tempdir(), "qpa_out.txt"),
-    stderr = file.path(tempdir(), "qpa_err.txt"),
-    package = TRUE
+  learnr::run_tutorial(
+    name = dir_name,
+    package = "QPATutorialsCourse",
+    as_rstudio_job = FALSE,
+    shiny_args = list(launch.browser = TRUE)
   )
-
-  saveRDS(p, file.path(tempdir(), "qpa_tutorial_process.rds"))
-
-  # Wait for server to be ready (up to 30 seconds)
-  url <- "http://127.0.0.1:3838"
-  for (i in 1:30) {
-    Sys.sleep(1)
-    result <- tryCatch(
-      { readLines(url, n = 1, warn = FALSE); TRUE },
-      error = function(e) FALSE
-    )
-    if (result) break
-  }
-
-  system2("open", url)
-  message("Tutorial running at ", url)
-  message("Run qpa_launch() again to switch tutorials.")
 }
