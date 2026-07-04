@@ -177,4 +177,30 @@
     });
   });
 
+/* ------------------------------
+     Auto-open in browser when running in RStudio viewer
+     ------------------------------ */
+
+  safe(function () {
+    // Only redirect if running in RStudio's internal viewer pane
+    // Detected by: not a real browser tab, has a localhost port,
+    // and window.self === window.top (not already in an iframe redirect loop)
+    var isRStudioViewer =
+      typeof window.qtwebchannel !== "undefined" ||
+      (window.location.hostname === "127.0.0.1" &&
+        window.location.port !== "" &&
+        window.navigator.userAgent.indexOf("QtWebEngine") !== -1);
+
+    if (isRStudioViewer) {
+      var url =
+        window.location.protocol +
+        "//" +
+        window.location.hostname +
+        ":" +
+        window.location.port +
+        window.location.pathname +
+        window.location.search;
+      window.open(url, "_blank");
+    }
+  });
 })();
