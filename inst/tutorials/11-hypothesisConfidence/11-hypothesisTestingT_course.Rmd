@@ -13,9 +13,9 @@ description: >
   their connection to hypothesis tests.
 ---
 
-## Learning Objectives {#main-content}
+## Overview {#main-content}
 
-Tutorial 10 built the foundation: sampling variation, sampling distributions, the Central Limit Theorem, and the standard error. This tutorial puts that foundation to work. You will learn the two main tools of statistical inference --- hypothesis tests and confidence intervals --- and by the end you will be able to apply them to real research questions, including the state-level data you will use throughout this course.
+Tutorial 10 built the foundation for statistical inference: sampling variation, the sampling distribution, the Central Limit Theorem, and the standard error. Those ideas answer a descriptive question --- how precise is my estimate? This tutorial uses that foundation to answer a different question: is the pattern I observe in my data systematic, or could it have arisen by chance? By the end you will have two tools for addressing it --- hypothesis tests, which give a yes/no decision about whether an observed result is surprising under a null hypothesis, and confidence intervals, which give the range of plausible values for the population parameter consistent with what the sample shows.
 
 In this tutorial you will learn to:
 
@@ -36,40 +36,15 @@ library(infer)
 library(gridExtra)
 library(knitr)
 library(gradethis)
-tutorial_options(exercise.checker = gradethis::grade_learnr)
+tutorial_options(exercise.checker = gradethis::grade_learnr,
+                 exercise.completion = FALSE)
 knitr::opts_chunk$set(error = TRUE)
 options(lifecycle_verbosity = "quiet")
 ```
 
-## Introduction
-
-Tutorial 10 built the foundation for statistical inference: you learned
-what sampling variation is, how the sampling distribution captures that
-variation, why the Central Limit Theorem implies the sampling
-distribution is approximately normal for large samples, and how the
-standard error measures its spread. These ideas answer a descriptive
-question --- how precise is my estimate?
-
-This tutorial uses that foundation to answer a different question: is
-the pattern I observe in my data real, or could it have arisen by
-chance? That is the question statistical hypothesis testing is designed
-to answer. By the end of this tutorial you will have two tools for
-addressing it: hypothesis tests, which give a yes/no decision about
-whether an observed result is surprising under the null, and confidence
-intervals, which give the range of plausible values for the population
-parameter consistent with what the sample shows.
-
 ## The Logic of Statistical Hypothesis Testing
 
-The standard error tells you how spread out the sampling distribution
-is, and the Empirical Rule tells you that 95% of sample statistics
-fall within about 1.96 standard errors of the population parameter.
-But these tools answer a descriptive question --- how precise is my
-estimate? Most research questions demand something more: is this
-result real, or could it have arisen by chance?
-
-That is the question statistical hypothesis testing is designed to
-answer.
+Most research questions demand something more than a precise estimate: is the pattern I observe in my data systematic, or could it have arisen by chance alone? A hypothesis test answers that question by evaluating two competing explanations for an observed result.
 
 ::: {.important-note}
 **Null and alternative hypotheses**
@@ -89,14 +64,16 @@ explanations for an observed result:
 
 You might wonder: why frame the test around the null hypothesis rather
 than directly assessing the alternative you actually care about? The
-reason is precision. The null hypothesis specifies an exact, testable
-state of the world. If Sarah is guessing, each trial has exactly a
-50% chance of success --- that precision lets us construct a sampling
-distribution and calculate probabilities. The alternative hypothesis
---- that Sarah can solve problems --- does not say how good she is.
-Better than chance by how much? Because the alternative is vague, we
-cannot build a sampling distribution around it. We can only ask: how
-surprising is this result if the null were true?
+standard hypothesis test is framed around the null because the null
+gives us a specific benchmark against which to evaluate the observed
+result. In Sarah's case, if she is guessing, each trial has exactly a
+50% chance of success --- that lets us construct the distribution of
+results we would expect under the null and ask how surprising her
+actual result would be. The alternative --- that Sarah performs better
+than chance --- includes many possible levels of ability and does not
+provide one single benchmark distribution. So we ask the question the
+null makes tractable: how surprising is this result if the null were
+true?
 
 This also explains the asymmetry in how we state conclusions.
 Rejecting the null means the data are inconsistent with the precise
@@ -259,6 +236,14 @@ question(
 )
 ```
 
+In this simulation, the p-value is the proportion of the 1,000
+simulated outcomes that were 7 or more out of 8 correct --- the
+outcomes at least as extreme as Sarah's result. You can see from the
+histogram that very few bars fall at or to the right of the red line,
+so that proportion is small. That small number is the p-value: a
+precise measure of how rarely a guessing chimp would produce a result
+as good as Sarah's.
+
 ### The p-value
 
 Sarah's result falls in the tail of the null distribution ---
@@ -290,26 +275,121 @@ of the sampling distribution. Walk through it piece by piece:
 - The two tails, labeled *"very unlikely observations,"* contain
   results that would be rare in either direction if the null were
   true --- doing much better, or much worse, than chance would predict.
-- The dashed line marked *"95% statistical significance threshold"*
-  is the cutoff: results beyond this line are rare enough under the
-  null (occurring less than 5% of the time) to count as evidence
-  against it.
+- The dashed line marks the critical value for a test at the 5%
+  significance level ($\alpha = 0.05$): results beyond this cutoff
+  are rare enough under the null --- occurring less than 5% of the
+  time --- to count as evidence against it.
 - The green dot, labeled *"Observed result,"* is where your actual
   data falls on this distribution --- for Sarah, the proportion of
   problems she actually solved correctly.
-- The shaded region labeled *"Observed p-value"* represents the
-  probability of getting a result as extreme as the one observed, or more extreme, if the null hypothesis were true. For a one-sided
-  test, that area is in one tail. For a two-sided test, it includes
-  results equally extreme in either direction.
+- The shaded region labeled "Area representing the p-value" shows the probability of getting a result as extreme as the one observed, or more extreme, if the null hypothesis were true. For a one-sided test, that area is in one tail. For a two-sided test, it includes results equally extreme in either direction.
 
-Because the shaded region falls beyond the 95% threshold, this
+Because the shaded region falls beyond the critical value, this
 observed result would lead to rejecting the null hypothesis: a result
 this far out is rare enough under the assumption of pure guessing that
 we reject the null of no effect.
 
-<img src="images/InferenceGraph.png"
-     alt="Bell curve showing the sampling distribution under the null hypothesis. The peak is labeled 'True value under the null hypothesis and most likely observation.' A point to the right of center is labeled 'Observed result.' A vertical dashed line to the right is labeled '95% statistical significance threshold.' The shaded tail area beyond the threshold is labeled 'Observed p-value (statistical significance).' Both tails are labeled 'very unlikely observations.'"
-     style="max-width: 90%; height: auto; margin: 1.4rem auto; display: block;">
+```{r inference-graph, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.alt="Bell curve showing the sampling distribution under the null hypothesis. The peak is labeled 'True value under the null hypothesis and most likely observation.' A green dot to the right of center is labeled 'Observed result (value).' A vertical dashed line to the right of the dot is labeled 'Critical value, alpha equals 0.05.' The shaded tail area beyond the observed result is labeled 'Observed p-value.' Both tails are labeled 'very unlikely observations.'"}
+navy <- "#1a3a6b"
+green <- "#2d6a2d"
+
+mu    <- 0
+sigma <- 1
+crit  <- 1.65
+obs   <- 2.2
+
+x  <- seq(-4, 4, length.out = 1000)
+y  <- dnorm(x, mu, sigma)
+df <- data.frame(x = x, y = y)
+shade_df <- subset(df, x >= obs)
+
+ggplot(df, aes(x, y)) +
+  geom_line(linewidth = 2.0, color = navy) +
+  geom_area(data = shade_df, fill = navy, alpha = 1.0) +
+  annotate("segment", x = crit, xend = crit,
+           y = 0, yend = dnorm(crit),
+           linetype = "dashed", color = navy, linewidth = 1.0) +
+  annotate("point", x = obs, y = 0, color = green, size = 7) +
+  # x-axis
+  annotate("segment", x = -3.9, xend = 4.1,
+           y = 0, yend = 0,
+           arrow = arrow(ends = "both", length = unit(0.2, "cm")),
+           color = navy, linewidth = 0.9) +
+  annotate("text", x = 0, y = -0.025,
+           label = "set of possible results",
+           size = 4.5, color = navy) +
+  # y-axis
+  annotate("segment", x = -3.9, xend = -3.9,
+           y = 0, yend = 0.43,
+           arrow = arrow(ends = "last", length = unit(0.2, "cm")),
+           color = navy, linewidth = 0.9) +
+  annotate("text", x = -4.35, y = 0.21,
+           label = "probability of\nobservation",
+           size = 4.0, color = navy, angle = 90, hjust = 0.5) +
+  # Peak label and arrow
+  annotate("text", x = -0.2, y = 0.475,
+           label = "True value under the null hypothesis\nand most likely observation",
+           size = 4.0, fontface = "bold", hjust = 0.5, color = navy) +
+  annotate("segment", x = 0, xend = 0,
+           y = 0.445, yend = dnorm(0) + 0.025,
+           arrow = arrow(length = unit(0.28, "cm")),
+           color = navy, linewidth = 0.9) +
+  # Critical value label and arrow
+  annotate("text", x = crit + 1.05, y = 0.33,
+           label = "Critical value\n(\u03b1 = 0.05)",
+           size = 4.0, fontface = "bold", hjust = 0.5, color = navy) +
+  annotate("segment", x = crit + 0.55, xend = crit + 0.04,
+           y = 0.27, yend = 0.13,
+           arrow = arrow(length = unit(0.22, "cm")),
+           color = navy, linewidth = 0.7) +
+  # Observed result label and arrow
+  annotate("text", x = obs - 1.4, y = 0.08,
+           label = "Observed result\n(value)",
+           size = 4.0, fontface = "bold", color = green, hjust = 0.5) +
+  annotate("segment", x = obs - 1.0, xend = obs - 0.12,
+           y = 0.055, yend = 0.012,
+           arrow = arrow(length = unit(0.22, "cm")),
+           color = green, linewidth = 0.7) +
+  # Observed p-value label and arrow
+  annotate("text", x = obs + 1.1, y = 0.26,
+           label = "Area representing\n the p-value",
+           size = 4.0, fontface = "bold", color = green, hjust = 0.5) +
+  annotate("segment", x = obs + 0.75, xend = obs + 0.4,
+           y = 0.21, yend = 0.055,
+           arrow = arrow(length = unit(0.22, "cm")),
+           color = green, linewidth = 0.7) +
+  # Left bracket
+  annotate("segment", x = -3.6, xend = -2.3,
+           y = 0.018, yend = 0.018,
+           color = navy, linewidth = 0.8) +
+  annotate("segment", x = -3.6, xend = -3.6,
+           y = 0.008, yend = 0.028,
+           color = navy, linewidth = 0.8) +
+  annotate("segment", x = -2.3, xend = -2.3,
+           y = 0.008, yend = 0.028,
+           color = navy, linewidth = 0.8) +
+  annotate("text", x = -2.95, y = 0.046,
+           label = "very unlikely\nobservations",
+           size = 3.8, color = navy, hjust = 0.5) +
+  # Right bracket
+  annotate("segment", x = 2.9, xend = 3.7,
+           y = 0.018, yend = 0.018,
+           color = navy, linewidth = 0.8) +
+  annotate("segment", x = 2.9, xend = 2.9,
+           y = 0.008, yend = 0.028,
+           color = navy, linewidth = 0.8) +
+  annotate("segment", x = 3.7, xend = 3.7,
+           y = 0.008, yend = 0.028,
+           color = navy, linewidth = 0.8) +
+  annotate("text", x = 3.3, y = 0.046,
+           label = "very unlikely\nobservations",
+           size = 3.8, color = navy, hjust = 0.5) +
+  theme_void() +
+  theme(plot.margin = margin(10, 60, 10, 70)) +
+  coord_cartesian(xlim = c(-4.5, 4.5),
+                  ylim = c(-0.045, 0.51),
+                  clip = "off")
+```
 
 ::: {.caution}
 **The most common p-value misconception:** A p-value of 0.03 does
@@ -419,7 +499,7 @@ question(
     reach significance, possibly because its sample was
     smaller or its data more variable.",
     correct = TRUE,
-    message = "Right. Statistical significance and practical importance are not the same thing. Study 1 is statistically significant despite the smaller effect because the estimate is precise enough to rule out chance. Study 2 found a larger effect but the evidence against the null was not strong enough --- possibly due to a smaller or noisier sample. Always consider both the p-value and the magnitude of the effect."
+    message = "Right. Statistical significance and practical importance are not the same thing. Study 1 is statistically significant despite the smaller effect because the result provides stronger evidence against the null --- a result this far from zero would be unlikely if the null were true. Study 2 found a larger effect but the evidence against the null was not strong enough --- possibly due to a smaller or noisier sample. Always consider both the p-value and the magnitude of the effect."
   ),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -515,28 +595,30 @@ the job. That 30% is our point estimate. But how much uncertainty
 surrounds it?
 
 Suppose the standard deviation of approval ratings in the sample is
-49.0 percentage points (treating approval as a 0/1 variable --- 1 for
-approve, 0 for disapprove --- and expressing the result in percentage
-points by multiplying by 100). Using the 95% critical
-value of 1.96, we construct the interval in four steps.
+45.8 percentage points (treating approval as a 0/1 variable --- 1 for
+approve, 0 for disapprove --- the standard deviation of a proportion
+$p$ is $\sqrt{p(1-p)}$, and for $p = 0.30$ that gives
+$\sqrt{0.30 \times 0.70} \times 100 = 45.8$ percentage points).
+Using the 95% critical value of 1.96, we construct the interval in
+four steps.
 
 **Step 1: Compute the standard error.**
 
-$$s.e. = \frac{49.0}{\sqrt{1200}} = \frac{49.0}{34.6} = 1.42 \text{ points}$$
+$$s.e. = \frac{45.8}{\sqrt{1200}} = \frac{45.8}{34.6} = 1.32 \text{ points}$$
 
 **Step 2: Compute the margin of error.**
 
-$$1.96 \times 1.42 = 2.78 \text{ points}$$
+$$1.96 \times 1.32 = 2.59 \text{ points}$$
 
 **Step 3: Compute the lower and upper bounds.**
 
-$$\text{Lower bound} = 30.0 - 2.78 = 27.22\%$$
+$$\text{Lower bound} = 30.0 - 2.59 = 27.41\%$$
 
-$$\text{Upper bound} = 30.0 + 2.78 = 32.78\%$$
+$$\text{Upper bound} = 30.0 + 2.59 = 32.59\%$$
 
 **Step 4: State the interval.**
 
-The 95% confidence interval is [27.22%, 32.78%]. We estimate that
+The 95% confidence interval is [27.41%, 32.59%]. We estimate that
 between 27% and 33% of all American adults approve of the president,
 with 95% confidence.
 
@@ -548,12 +630,12 @@ with 95% confidence.
      adds the null-value comparison.
      ============================================================ -->
 
-```{r gallup-ci-plot, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="The 95% confidence interval for presidential approval: a point estimate of 30.0% with a margin of error of 2.78 points, giving an interval of [27.22%, 32.78%].", fig.alt="Horizontal dot-and-whisker plot showing a single confidence interval. A point marks the estimate of 30 percent approval. A horizontal line through the point extends from 27.22 percent to 32.78 percent, representing the 95 percent confidence interval."}
+```{r gallup-ci-plot, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="The 95% confidence interval for presidential approval: a point estimate of 30.0% with a margin of error of 2.59 points, giving an interval of [27.41%, 32.59%].", fig.alt="Horizontal dot-and-whisker plot showing a single confidence interval. A point marks the estimate of 30 percent approval. A horizontal line through the point extends from 27.41 percent to 32.59 percent, representing the 95 percent confidence interval."}
 gallup_data <- tibble(
   label    = "Approval estimate",
   estimate = 30.0,
-  lower    = 27.22,
-  upper    = 32.78
+  lower    = 27.41,
+  upper    = 32.59
 )
 
 ggplot(gallup_data, aes(x = estimate, y = label)) +
@@ -564,7 +646,7 @@ ggplot(gallup_data, aes(x = estimate, y = label)) +
            label = "Point estimate: 30.0%",
            color = "#1565C0", size = 3.2, fontface = "bold") +
   annotate("text", x = 30.0, y = 0.65,
-           label = "95% CI: [27.22%, 32.78%]",
+           label = "95% CI: [27.41%, 32.59%]",
            color = "#1565C0", size = 3.2) +
   scale_y_discrete(expand = expansion(mult = c(0.6, 0.6))) +
   labs(
@@ -656,8 +738,8 @@ ggplot(ci_data,
 
 ::: {.caution}
 **A common misinterpretation:** It is tempting to say "there is a
-95% probability that the true approval rate falls between 27% and
-33%." This is incorrect. The true approval rate is a fixed value
+95% probability that the true approval rate falls between 27.41% and
+32.59%." This is incorrect. The true approval rate is a fixed value
 --- it either is or is not in this interval. The 95% describes the
 procedure: if Gallup ran this survey many times and constructed a
 confidence interval each time, about 95% of those intervals would
@@ -722,12 +804,7 @@ question(
   finds the interval is wider and says this makes it less
   useful. What is the flaw in her reasoning?",
   answer(
-    "Her reasoning is incomplete. A wider interval is less
-precise, but that does not automatically make it less
-useful. The 99% interval uses a larger critical value
-(2.576 instead of 1.96), which gives stronger long-run
-coverage. Whether 95% or 99% is more appropriate depends
-on the stakes of being wrong.",
+    "Her reasoning is incomplete. A wider interval is less precise, but that does not automatically make it less useful. The 99% interval uses a larger critical value (2.576 instead of 1.96), which gives stronger long-run coverage. Whether 95% or 99% is more appropriate depends on the stakes of being wrong.",
     correct = TRUE,
     message = "Right. There is always a tradeoff between confidence and precision. A 99% interval is wider --- [48.9, 59.1] versus [50.1, 57.9] --- but it is less likely to miss the true parameter across repeated samples. In high-stakes decisions where the cost of missing the truth is high, that additional coverage may be exactly what is needed. Width is a cost; coverage is a benefit. Whether the tradeoff is worth it depends on context."
   ),
@@ -760,8 +837,9 @@ Think of it this way: a 95% confidence interval marks the range of
 parameter values that are consistent with your data at the 0.05
 level. A two-sided hypothesis test at $\alpha = 0.05$ asks whether
 the null value is consistent with your data at the same level. If
-the null value falls outside the interval --- in the region the data
-rule out --- the p-value is less than 0.05 and you reject the null.
+the null value falls outside the interval --- outside the range of
+values consistent with the data at the 0.05 level --- the p-value is
+less than 0.05 and you reject the null.
 If it falls inside the interval, the p-value is greater than 0.05
 and you fail to reject.
 
@@ -789,11 +867,11 @@ outside the interval.
      (reject) the interval.
      ============================================================ -->
 
-```{r ci-ht-connection, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="A 95% confidence interval of [1.12, 1.58] for the mean hate crime rate, with the null hypothesis value of 1.0 marked. Because the null value falls outside the interval, in the region the data rule out, the corresponding two-sided hypothesis test at alpha = 0.05 rejects the null.", fig.alt="Horizontal dot-and-whisker plot showing a 95 percent confidence interval from 1.12 to 1.58 for the mean hate crime rate, marked in teal with a point at the center estimate. A red X to the left of the interval, at 1.0, marks the null hypothesis value. The X falls outside the teal interval, illustrating that the null value is excluded by the data."}
-ci_lower    <- 1.12
-ci_upper    <- 1.58
-ci_estimate <- (ci_lower + ci_upper) / 2
-null_value  <- 1.0
+```{r ci-ht-connection, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="A 95% confidence interval of [50.1, 57.9] for the mean democracy score across 100 countries, with the null hypothesis value of 50 marked. Because the null value falls outside the interval, the corresponding two-sided hypothesis test at alpha = 0.05 rejects the null.", fig.alt="Horizontal dot-and-whisker plot showing a 95 percent confidence interval from 50.1 to 57.9 for the mean democracy score, marked in teal with a point at the center estimate of 54. A red X to the left of the interval, at 50, marks the null hypothesis value. The X falls outside the teal interval, illustrating that the null value is excluded by the data."}
+ci_lower    <- 50.1
+ci_upper    <- 57.9
+ci_estimate <- 54.0
+null_value  <- 50
 
 connection_data <- tibble(
   label    = "Sample estimate",
@@ -818,7 +896,7 @@ ggplot(connection_data, aes(x = estimate, y = label)) +
   labs(
     title = "The Null Value Falls Outside the Confidence Interval",
     subtitle = "So the equivalent hypothesis test rejects the null at alpha = 0.05",
-    x = "Hate Crimes per 100,000 Residents",
+    x = "Mean Democracy Score (0-100 scale)",
     y = NULL
   ) +
   theme_minimal() +
@@ -826,34 +904,33 @@ ggplot(connection_data, aes(x = estimate, y = label)) +
         axis.ticks.y = element_blank())
 ```
 
-The null value (1.0, marked with the red X) sits to the left of the
-entire interval --- it is not one of the values the data are
-consistent with. That is exactly what it means for a p-value to be
-below 0.05: the null value is excluded. If the null value had fallen
-between the two ends of the teal bar instead, the test would fail to
-reject, because the null would be one of the plausible values given
-the data.
+The null value (50, marked with the red X) sits to the left of the
+entire interval --- it is not among the values consistent with the
+data at the 0.05 level. That is exactly the connection: when the null
+value falls outside the corresponding 95% confidence interval, the
+two-sided p-value is below 0.05. If the null value had fallen between
+the two ends of the teal bar instead, the test would fail to reject,
+because the null would be one of the plausible values given the data.
 
 **Practice: Using a CI to evaluate a hypothesis test**
 
 ```{r q-ci-ht, echo=FALSE}
 question(
-  "A researcher uses USStatesData to study hate crimes. She
-  tests whether the mean number of hate crimes per 100,000
-  residents differs from the national rate of 1.0. Her
-  sample of 50 states yields a 95% confidence interval of
-  [1.12, 1.58]. At alpha = 0.05, what should she conclude,
-  and what does the confidence interval tell her beyond
-  the hypothesis test?",
+  "A researcher surveys 100 countries and tests whether the mean
+  democracy score differs from 50 --- the midpoint of the 0-to-100
+  scale, representing neither autocracy nor democracy. Her sample
+  yields a 95% confidence interval of [50.1, 57.9]. At alpha = 0.05,
+  what should she conclude, and what does the confidence interval
+  tell her beyond the hypothesis test?",
   answer(
-    "Fail to reject the null. The interval [1.12, 1.58]
-    is close to 1.0, so the difference is probably not
+    "Fail to reject the null. The interval [50.1, 57.9]
+    is close to 50, so the difference is probably not
     meaningful.",
     message = "Statistical significance is not determined
     by whether values seem close to the null. It is
     determined by whether the null value falls inside or
-    outside the confidence interval. Here 1.0 is entirely
-    below the lower bound of 1.12, so she rejects the null."
+    outside the confidence interval. Here 50 is entirely
+    below the lower bound of 50.1, so she rejects the null."
   ),
   answer(
     "Cannot determine the conclusion from a confidence
@@ -866,19 +943,19 @@ question(
     reject. No separate p-value calculation is needed here."
   ),
   answer(
-    "Reject the null hypothesis. The null value of 1.0
+    "Reject the null hypothesis. The null value of 50
     falls below the lower bound of the confidence interval,
     meaning the data are inconsistent with a true mean of
-    1.0 at the 0.05 level. The confidence interval also
+    50 at the 0.05 level. The confidence interval also
     tells her the true mean is estimated to lie between
-    1.12 and 1.58 --- higher than the national rate ---
+    50.1 and 57.9 --- above the midpoint of the scale ---
     which the p-value alone would not reveal.",
     correct = TRUE,
-    message = "Right. Because the null value of 1.0 falls outside the interval [1.12, 1.58], the p-value must be below 0.05 --- reject the null. But the confidence interval adds something a p-value alone cannot provide: the range of plausible values for the mean. The mean hate crime rate in states is estimated to be between 1.12 and 1.58 --- between 12% and 58% higher than the national rate of 1.0. That is substantively important information beyond the yes/no decision."
+    message = "Right. Because the null value of 50 falls outside the interval [50.1, 57.9], the p-value must be below 0.05 --- reject the null. But the confidence interval adds something a p-value alone cannot provide: the range of plausible values for the mean. The population mean democracy score is estimated to lie between 50.1 and 57.9, so the entire 95% confidence interval lies above the scale midpoint. That gives substantively useful information beyond the yes/no hypothesis-test decision."
   ),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Check whether the null value of 1.0 falls inside or outside the confidence interval [1.12, 1.58]. If it falls outside, what does that tell you about the p-value relative to 0.05?"
+  try_again = "Hint: Check whether the null value of 50 falls inside or outside the confidence interval [50.1, 57.9]. If it falls outside, what does that tell you about the p-value relative to 0.05?"
 )
 ```
 
@@ -942,11 +1019,14 @@ period or every set of states. But it is evidence that the
 relationship you observed is not simply noise.
 
 This is why your textbook and your instructors apply inferential tools
-to state-level data even though all states are observed. It is not a
-mistake. It is a thoughtful choice about what question inference is
-answering --- one that political scientists and econometricians have
-debated carefully, and one that you are now equipped to reason about
-yourself.
+to state-level data even though all states are observed. It is not
+necessarily a mistake. It reflects a particular way of defining the
+inferential question --- one that political scientists and
+econometricians have debated carefully, and one that you are now
+equipped to reason about yourself. In this setting, inference is
+model-based: its conclusions depend on treating the observed states
+as one realization of an underlying process and on the assumptions
+of the statistical model being used.
 
 ::: {.important-note}
 **When to use inference with complete data**

@@ -29,15 +29,16 @@ library(tidyverse)
 library(knitr)
 library(poliscidata)
 library(gradethis)
-tutorial_options(exercise.checker = gradethis::grade_learnr)
+tutorial_options(exercise.checker = gradethis::grade_learnr,
+                 exercise.completion = FALSE)
 knitr::opts_chunk$set(error = TRUE)
 data("counties", package = "QPATutorialsCourse")
-data("fHouse", package = "QPATutorialsCourse")
+data("qog", package = "QPATutorialsCourse")
 ```
 
 ## Testing the Relationship Between Two Interval Variables
 
-In Tutorial 9, you summarized the relationship between two interval variables with Pearson's correlation coefficient, $r$. But $r$ is calculated from a sample --- if we drew a different sample from the same population, $r$ would come out at least a little different, just by chance. A [**correlation test**]{.important-text} asks whether the population correlation, denoted $\rho$ (rho), is different from zero --- or, when a hypothesis predicts a direction, whether it is specifically greater than or less than zero. $\rho$, like $\mu$ in Tutorial 13 and $\pi$ in Tutorial 12, denotes the population parameter --- the quantity a hypothesis test is actually about --- while $r$ is the Roman-letter sample statistic, from Tutorial 10's table, that estimates it.
+In Tutorial 9, you summarized the relationship between two interval variables with Pearson's correlation coefficient, $r$. But $r$ is calculated from a sample --- if we drew a different sample from the same population, $r$ would come out at least a little different, just by chance. A [**correlation test**]{.important-text} asks whether the population correlation, denoted [$\rho$]{.important-text} (rho), is different from zero --- or, when a hypothesis predicts a direction, whether it is specifically greater than or less than zero. $\rho$, like $\mu$ in Tutorial 13 and $\pi$ in Tutorial 12, denotes the population parameter --- the quantity a hypothesis test is actually about --- while $r$ is the Roman-letter sample statistic, from Tutorial 10's table, that estimates it.
 
 ### The Test Statistic
 
@@ -45,23 +46,23 @@ The test statistic for a correlation test is:
 
 $$t=\frac{r\sqrt{n-2}}{\sqrt{1-r^2}}$$
 
-where $r$ is the sample correlation and $n$ is the sample size. As with every other test statistic in this course, you do not need to memorize this formula --- understand the logic, and let R compute it for you. Like every t-statistic in Tutorial 13, this one is a ratio: $r$ divided by its own standard error, which shrinks as the sample size grows. A given $r$ is harder to explain by chance --- and produces a bigger $t$ --- when it comes from a larger sample, the same logic behind every standard error in this course.
+where $r$ is the sample correlation and $n$ is the sample size. As with every other test statistic in this course, you do not need to memorize this formula --- understand the logic, and let R compute it for you. Like the t-statistics in Tutorial 13, this one reflects both the size of the observed relationship and how much information we have to estimate it. For the same value of $r$, a larger sample produces a larger absolute t-statistic because the correlation is estimated more precisely. A given $r$ is harder to explain by chance --- and produces a bigger $t$ --- when it comes from a larger sample, the same logic behind every standard error in this course.
 
-The good news is that this is not really a new complication: $t$ here is the same kind of test statistic, following the same t-distribution, that you used throughout Tutorial 13. There is no new distribution shape to learn --- only the formula used to calculate $t$ from the data has changed.
+The good news is that this is not really a new complication: $t$ here is the same kind of test statistic you used throughout Tutorial 13 and is evaluated using a t-distribution. There is no new distribution shape to learn --- only the formula used to calculate $t$ from the data has changed.
 
 ### Running the Test with `cor.test()`
 
 To run a correlation test, we use the `cor.test()` function in base R. Its first two arguments, `x` and `y`, are the two interval variables, in either order --- unlike a scatter plot, where the explanatory variable belongs on the x-axis specifically, the order of `x` and `y` here does not change the result. We set `method = "pearson"` to request Pearson's correlation coefficient.
 
 ::: {.tip}
-**`cor.test()` handles missing values automatically.** Unlike `cor()` in Tutorial 9, which needed `use = "pairwise.complete.obs"` because it can compute correlations across many variables at once, `cor.test()` tests exactly two named variables and automatically uses the cases with complete data on both variables. No `use` argument is needed.
+**cor.test()` handles missing values automatically.** Unlike `cor()` in Tutorial 9, which needed `use = "pairwise.complete.obs"` to handle missing values explicitly, `cor.test()` tests exactly two named variables and automatically uses the cases with complete data on both variables. No `use` argument is needed.
 :::
 
 The `alternative` argument works exactly as it did in Tutorials 12 and 13: the default, `alternative = "two.sided"`, tests whether the correlation differs from zero in either direction. When a hypothesis predicts a specific direction, we instead use `alternative = "less"` or `alternative = "greater"`, matching the direction the hypothesis predicts.
 
 `cor.test()` is part of base R --- no `library()` call is needed for any exercise in this tutorial.
 
-Alongside the p-value, `cor.test()`'s output also reports a 95% confidence interval for $\rho$, the population correlation --- the same cross-check you have now used in Tutorials 12 and 13. An interval that excludes the hypothesized value, 0, leads to the same conclusion as a significant p-value. For a one-tailed test, one side of that interval will show as the theoretical extreme --- here, that extreme is -1 or 1, the same as the proportions in Tutorial 12, since a correlation, like a proportion, has a fixed range it cannot exceed. The bound that matters is the other one: does it exclude 0?
+Alongside the p-value, `cor.test()`'s output also reports a 95% confidence interval for $\rho$, the population correlation --- the same cross-check you have now used in Tutorials 12 and 13. An interval that excludes the hypothesized value, 0, leads to the same conclusion as a significant p-value. For a one-tailed test, one side of that interval will show as the theoretical extreme --- here, -1 or 1. As with proportions in Tutorial 12, a correlation has fixed bounds that it cannot exceed. The bound that matters is the other one: does it exclude 0?
 
 ### Applying the Five-Step Hypothesis Testing Procedure
 
@@ -77,15 +78,13 @@ We will follow these same five steps to test relationships between two interval 
 
 ## Do More Effective Governments Have Higher Life Expectancy?
 
-In Tutorial 9, you described this relationship and found the pattern consistent with the hypothesis. Now we test it formally. We argued that more effective governments are better able to provide the public goods that support health: clean water, sanitation, vaccination programs, reliable health systems, and emergency response. We examined whether the data were consistent with the following hypothesis:
+Of the three examples in Tutorial 9, the relationship between government effectiveness and life expectancy produced the clearest descriptive pattern. The scatter plot sloped upward, the points clustered reasonably close to the line, and r = 0.633 was the strongest correlation in the tutorial --- consistent with the argument that effective governments deliver the public goods that keep people alive longer: clean water, sanitation, functioning health systems, vaccination programs, emergency response. The descriptive pattern pointed clearly in the predicted direction. Now we ask whether a relationship this strong in the sample is large enough to rule out chance in the population.
 
 ::: {.hypothesis}
 In a comparison of [countries], those with [more effective governments] will tend to have [higher life expectancy] than will those with [less effective governments].
 :::
 
 The data frame **world** contains the interval variable **effectiveness**, a measure of government effectiveness where higher values indicate more effective government, and the interval variable **lifeex_total**, life expectancy at birth.
-
-We now test that hypothesis formally.
 
 ### Step 1: State the Null Hypothesis
 
@@ -100,13 +99,13 @@ $$H_A: \rho>0$$
 
 ### Step 3: Run the Test
 
+We set `alternative = "greater"` because the hypothesis predicts a *positive* correlation --- more effective governments associated with higher, not just different, life expectancy.
+
 **Run and observe: Run a one-tailed correlation test**
 
 ```{r cortest-effectiveness-lifeexpectancy, exercise=TRUE, exercise.cap="Run and observe: One-tailed correlation test for government effectiveness and life expectancy"}
 cor.test(world$effectiveness, world$lifeex_total, method = "pearson", alternative = "greater")
 ```
-
-We set `alternative = "greater"` because the hypothesis predicts that the correlation is *positive* --- not just different from zero.
 
 ### Steps 4 and 5: Find the P-value, Decide, and Report the Result
 
@@ -115,70 +114,89 @@ We set `alternative = "greater"` because the hypothesis predicts that the correl
 Find the p-value in your output and check whether the sign of r matches the direction the hypothesis predicted before answering.
 
 ```{r quiz-effectiveness-lifeexpectancy-result, echo=FALSE}
-question("Find the p-value in your output. Is this pattern consistent with the hypothesis?",
-  correct = "Right. The p-value is far below .05 --- we reject the null hypothesis. Government effectiveness and life expectancy are positively correlated, matching the predicted direction. The confidence interval excludes 0, consistent with the p-value.",
+question("Find the p-value in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
+  correct = "Right. The p-value is far below .05, the correlation is positive matching the predicted direction, and the confidence interval excludes 0.",
   answer("Yes --- the p-value is far below .05, and government effectiveness and life expectancy are positively correlated, matching the predicted direction",
          correct = TRUE,
-         message = "The sample correlation is r = 0.633, a moderately strong positive relationship, and the test is statistically significant (t = 10.045, p < .001) with a 95% confidence interval of (0.545, 1.000) that excludes 0 entirely. This is strong evidence consistent with the hypothesis that more effective governments are associated with higher life expectancy."),
+         message = "The sample correlation is r = 0.633, a moderately strong positive relationship, and the test is statistically significant (t = 10.045, p < .001) with a 95% confidence interval of (0.545, 1.000) that excludes 0 entirely. This is statistically significant evidence in support of the hypothesis that more effective governments are associated with higher life expectancy."),
   answer("We fail to reject the null hypothesis, since a p-value this small means the relationship could easily be due to chance",
-         message = "A p-value this small (r = 0.633, t = 10.045, p < .001) means the opposite: it tells us this pattern would be very unlikely if there were really no relationship in the population --- which is exactly why we reject the null, not fail to reject it. Small p-values lead to rejecting the null; it's a p-value above .05 that would lead to failing to reject."),
+         message = "A p-value this small (r = 0.633, t = 10.045, p < .001) means the opposite: it tells us this pattern would be very unlikely if there were really no linear association between the variables in the population --- which is exactly why we reject the null, not fail to reject it. Small p-values lead to rejecting the null; it's a p-value above .05 that would lead to failing to reject."),
   answer("We reject the null hypothesis, which proves that more effective governments cause higher life expectancy",
          message = "Rejecting the null hypothesis (r = 0.633, p < .001) provides evidence that government effectiveness and life expectancy are related in the population, and that the relationship runs in the predicted direction --- but a correlation, however strong, never proves causation. Many other factors could explain or contribute to this relationship."),
+  answer("Yes, but only because the sample is large --- with enough countries, any correlation becomes significant",
+         message = "Sample size does affect p-values, but r = 0.633 is a moderately strong relationship by Tutorial 9's guide, not a weak one detected only because of a large sample. The effect size here is genuinely substantial, not an artifact of statistical power."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: Find the p-value and compare it to .05. Then check whether the sign of r matches the direction the hypothesis predicted."
 )
 ```
 
-## Does a Country's Level of Democracy Predict Support for Democracy?
+## Is Income Inequality Associated with Democracy?
 
-In Tutorial 9, you described this relationship. Now we test it formally. We argued that citizens who live under well-functioning democratic institutions accumulate direct experience with the benefits of democratic governance, which in turn builds support for democracy as a system of government. We examined whether the data were consistent with the following hypothesis:
+The inequality--democracy relationship is one of those hypotheses that many people treat as settled. Of course highly unequal societies struggle to sustain democratic institutions --- concentrated wealth translates into concentrated political power, crowding out the broad participation democracy depends on. In Tutorial 9, you found that the data did not cooperate: the scatter plot was wide, the fitted line nearly flat, and the correlation barely negative. That was a genuinely interesting finding, not a failed exercise. Now the formal test lets you say something more precise: not just that the pattern was weak, but whether it clears the bar for ruling out chance.
 
 ::: {.hypothesis}
-In a comparison of [countries], those with [a higher level of democracy] will have [higher support for democratic government] than will those with [a lower level of democracy].
+In a comparison of [countries], those with [higher income inequality] will have [lower levels of democracy] than will those with [lower income inequality].
 :::
 
-The data frame **fHouse** contains the interval variable **FHTotalAggr**, the Freedom House measure of a country's level of democracy, and the interval variable **Pro.Dem**, the percent of a country's respondents who view democracy favorably.
+The data frame **qog**, from the Quality of Government project, contains the interval variable **wdi_gini**, the World Bank's Gini index of income inequality (higher values mean more unequal), and the interval variable **vdem_polyarchy**, the V-Dem electoral democracy index (higher values indicate more democratic). **wdi_gini** is the explanatory variable and **vdem_polyarchy** is the outcome.
 
-### Step 1: State the Null Hypothesis
+### Steps 1 and 2: State the Hypotheses
+
+You've seen how to set up the null and alternative once. Before building this test, identify the correct pairing on your own.
+
+```{r quiz-gini-polyarchy-alternative, echo=FALSE}
+question("The hypothesis predicts that higher inequality is associated with lower democracy. Which value of `alternative` correctly tests that prediction in `cor.test()`?",
+  correct = "Right. The hypothesis predicts a negative correlation, so `alternative = \"less\"` tests whether the population correlation is less than zero.",
+  answer('`alternative = "less"`',
+         correct = TRUE,
+         message = 'Higher inequality going with lower democracy is a negative relationship --- one variable goes up as the other goes down. `alternative = "less"` tests whether the population correlation $\\rho$ is less than zero, which is exactly what the hypothesis predicts.'),
+  answer('`alternative = "greater"`',
+         message = 'This would test whether the correlation is positive --- that higher inequality goes with higher democracy. The hypothesis predicts the opposite direction.'),
+  answer('`alternative = "two.sided"`',
+         message = 'A two-sided alternative tests whether the correlation differs from zero in either direction. That would be appropriate if the hypothesis had no directional prediction, but this one does: it specifically predicts a negative relationship.'),
+  answer('`alternative = "negative"`',
+         message = '`"negative"` is not a valid value for `alternative` in `cor.test()`. The three options are `"less"`, `"greater"`, and `"two.sided"`.'),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: What direction does the hypothesis predict --- positive or negative? Which value of `alternative` tests that specific direction?"
+)
+```
+
+The null and alternative hypotheses follow from what you just identified:
 
 $$H_0: \rho=0$$
-where $\rho$ is the population correlation between level of democracy and support for democracy.
+where $\rho$ is the population correlation between income inequality and democracy.
 
-### Step 2: State the Alternative Hypothesis
-
-The hypothesis predicts a positive relationship, so we test that specific direction:
-
-$$H_A: \rho>0$$
+$$H_A: \rho<0$$
 
 ### Step 3: Run the Test
 
-The structure is the same as the government effectiveness example above --- only the variables and data frame change. This is also an unusual case: the hypothesis predicts a positive relationship, but the descriptive evidence from Tutorial 9 already ran against it. Testing it formally anyway is good practice, and the result will tell us whether that descriptive pattern holds up as a population inference.
+Tutorial 9 turned up something worth sitting with: a relationship many people take for granted --- that unequal societies are less democratic --- barely showed up in the data at all. The scatter was wide and the fitted line nearly flat. The formal test lets us ask whether even that weak negative pattern is strong enough to rule out chance in the population.
 
 **Practice: Build the correlation test**
 
 Fill in the two variable names, the method, and the alternative. Two hints are available. Click Submit Answer to check your work.
 
-```{r cortest-democracylevel-prodem, exercise=TRUE, exercise.cap="Practice: Correlation test for democracy level and support for democracy"}
-cor.test(fHouse$___, fHouse$___, method = ___, alternative = ___)
+```{r cortest-gini-polyarchy, exercise=TRUE, exercise.cap="Practice: Correlation test for income inequality and democracy"}
+cor.test(qog$___, qog$___, method = ___, alternative = ___)
 ```
 
-```{r cortest-democracylevel-prodem-hint-1}
+```{r cortest-gini-polyarchy-hint-1}
 # Hint 1 of 2
-# Which variable is the explanatory variable here --- the measure
-# of democracy level --- and which is the outcome, support for
-# democracy? The hypothesis predicts a positive relationship:
-# which value of alternative tests that specific direction?
+# The hypothesis predicts that higher inequality goes with lower democracy.
+# Does that describe a positive or negative correlation?
+# Which value of alternative tests that specific direction?
 ```
 
-```{r cortest-democracylevel-prodem-hint-2}
+```{r cortest-gini-polyarchy-hint-2}
 # Hint 2 of 2
-# The hypothesis predicts a positive relationship, so
-# alternative = "greater". The variable names are in
-# the prose above; method is always "pearson" here.
+# A negative predicted relationship means alternative = "less".
+# The two variable names are wdi_gini and vdem_polyarchy, both
+# from the qog data frame. method is always "pearson" here.
 ```
 
-```{r cortest-democracylevel-prodem-check}
+```{r cortest-gini-polyarchy-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#.*", "", code)
@@ -186,36 +204,37 @@ grade_this({
   if (!grepl("cor\\.test\\s*\\(", code_no_comments)) {
     fail("Use cor.test() to run the correlation test.")
   }
-  if (!grepl("fHouse\\$FHTotalAggr", code_no_comments)) {
-    fail("FHTotalAggr is our explanatory variable --- it should appear as fHouse$FHTotalAggr.")
-  }
-  if (!grepl("fHouse\\$Pro\\.Dem", code_no_comments)) {
-    fail("Pro.Dem is our outcome variable --- it should appear as fHouse$Pro.Dem.")
+  if (!grepl("qog\\$wdi_gini", code_no_comments) ||
+      !grepl("qog\\$vdem_polyarchy", code_no_comments)) {
+    fail("Include both qog$wdi_gini and qog$vdem_polyarchy in your cor.test() call.")
   }
   if (!grepl("method\\s*=\\s*['\"]pearson['\"]", code_no_comments)) {
     fail('Set method = "pearson" to request Pearson\'s correlation coefficient.')
   }
-  if (!grepl("alternative\\s*=\\s*['\"]greater['\"]", code_no_comments)) {
-    fail('The hypothesis predicts a positive relationship. Set alternative = "greater" to test that specific direction.')
+  if (!grepl("alternative\\s*=\\s*['\"]less['\"]", code_no_comments)) {
+    fail('The hypothesis predicts a negative relationship --- higher inequality, lower democracy. Set alternative = "less" to test that specific direction.')
   }
 
   expected <- cor.test(
-    fHouse$FHTotalAggr,
-    fHouse$Pro.Dem,
+    qog$wdi_gini,
+    qog$vdem_polyarchy,
     method = "pearson",
-    alternative = "greater"
+    alternative = "less"
   )
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a result the grader can check.")
+  }
   if (!inherits(.result, "htest")) {
     fail("Your code should return the cor.test() output. If you're seeing an error, check for a misspelled variable name, a missing $ between the data frame and variable name, or a missing argument.")
   }
   if (!isTRUE(all.equal(as.numeric(.result$p.value),
                         as.numeric(expected$p.value),
                         tolerance = 1e-6))) {
-    fail('Check that you are running cor.test(fHouse$FHTotalAggr, fHouse$Pro.Dem, method = "pearson", alternative = "greater").')
+    fail('Check that you are running cor.test(qog$wdi_gini, qog$vdem_polyarchy, method = "pearson", alternative = "less").')
   }
 
-  pass("Correct! Testing FHTotalAggr and Pro.Dem with alternative = \"greater\" directly tests the hypothesis's predicted direction.")
+  pass("Right! Testing wdi_gini and vdem_polyarchy with alternative = \"less\" directly tests the hypothesis's predicted direction.")
 })
 ```
 
@@ -225,25 +244,27 @@ grade_this({
 
 Find the p-value in your output and check the sign of r before answering.
 
-```{r quiz-democracylevel-prodem-result, echo=FALSE}
-question("Find the p-value in your output. Is this pattern consistent with the hypothesis?",
-  correct = "Right. The p-value is far above .05 --- we fail to reject the null hypothesis. The data do not provide evidence that level of democracy and support for democracy are positively related. The sample correlation is near zero and the wrong sign entirely, matching the descriptive finding from Tutorial 9.",
-  answer("No --- the p-value is far above .05, so we fail to reject the null hypothesis: the data do not provide evidence that level of democracy and support for democracy are positively related",
+```{r quiz-gini-polyarchy-result, echo=FALSE}
+question("Find the p-value in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
+  correct = "Right. The p-value is above .05 --- we fail to reject the null, even though the correlation points in the predicted direction.",
+  answer("No --- the p-value is above .05, so we fail to reject the null hypothesis: the data do not provide statistically significant evidence that higher inequality is associated with lower democracy",
          correct = TRUE,
-         message = "The sample correlation is r = -0.040 --- both the wrong sign and close enough to zero to indicate essentially no linear relationship --- and the test is nowhere near significant (t = -0.345, p = .635), with a 95% confidence interval of (-0.226, 1.000) that comfortably includes 0. We fail to reject the null hypothesis. This matches the descriptive finding from Tutorial 9: a reasonable hypothesis can still fail to show up in the data. That is useful information, not a failure of the method."),
-  answer("Yes --- since the correlation is negative and the hypothesis predicted a positive relationship, rejecting the null in the opposite direction still counts as support",
-         message = "A correlation running in the opposite direction from a one-tailed hypothesis is about as far from support as a result can be. This p-value (r = -0.040, p = .635) is nowhere close to significant in either direction."),
-  answer("We reject the null hypothesis, since a p-value this large means the relationship is too strong to be due to chance",
-         message = "A large p-value means the data do not provide evidence for the positive relationship predicted by the alternative hypothesis. Large p-values lead to failing to reject the null; it's a p-value below .05 that would lead to rejecting it."),
+         message = "The sample correlation is r = -0.122 --- in the predicted direction, but weak --- and the test does not reach significance (t = -1.272, df = 108, p = .103), with a 95% confidence interval of (-1.000, 0.037) that includes 0. We fail to reject the null hypothesis. This matches the descriptive finding from Tutorial 9: the relationship leans the way the hypothesis predicts, but the signal is too weak relative to the noise to rule out chance as an explanation. The hypothesis is widely assumed to describe a strong relationship, yet it does not show up clearly in these data."),
+  answer("Yes --- the p-value is below .05, so we reject the null and conclude that higher inequality is associated with lower democracy in the population",
+         message = "Check the p-value again. A p-value of .103 is above the .05 threshold --- we do not reject the null hypothesis here."),
+  answer("Yes --- the correlation is negative and matches the predicted direction, so the hypothesis is supported regardless of the p-value",
+         message = "Direction alone is not enough. The p-value tells us whether the observed correlation is larger than we would expect by chance if the population correlation were really zero. At p = .103, we cannot rule out chance --- the result does not provide statistically significant evidence in support of the hypothesis."),
+  answer("We cannot tell --- the one-tailed test is unreliable when the correlation is this small",
+         message = "The one-tailed test is appropriate here because the hypothesis predicted a specific direction. The result is interpretable: r = -0.122, p = .103. The correlation is weak and the test does not reach significance, so we fail to reject the null."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Find the p-value and compare it to .05. Then check the sign of r --- does it match the direction the hypothesis predicted, or run against it?"
+  try_again = "Hint: Find the p-value and compare it to .05. Then check the sign of r --- does it match the direction the hypothesis predicted?"
 )
 ```
 
 ## Does Wage Growth Predict Democratic Vote Share?
 
-In Tutorial 9, you described this relationship and found the pattern consistent with the hypothesis --- though the relationship was weak. Now we test it formally. We argued that this reflects retrospective voting: voters tend to credit the incumbent party for a strong local economy, so counties experiencing stronger wage growth under the incumbent administration should be more likely to reward that party's candidate at the polls. We examined whether the data were consistent with the following hypothesis:
+In Tutorial 9, the wage growth scatter plot was consistent with the hypothesis --- the fitted line sloped upward --- but the relationship was weak enough that you had to look carefully to see it. Most counties clustered near zero wage growth with an enormous spread of vote share, and r was well below .2. This example is worth paying close attention to, because a very large sample changes how we should think about the relationship between statistical significance and the size of a correlation. The retrospective voting argument is plausible --- voters may credit the party in power for local economic gains --- but the question is whether the signal in this particular dataset clears the bar, and what to make of the answer.
 
 ::: {.hypothesis}
 In a comparison of [counties], those with [higher wage growth] will have [a higher Democratic vote share] than will those with [lower wage growth].
@@ -251,46 +272,53 @@ In a comparison of [counties], those with [higher wage growth] will have [a high
 
 The data frame **counties** contains the interval variable **wage_growth**, the percent change in average wages from 2008 to 2016, and the interval variable **dem2p_vote_share**, the Democratic candidate's share of the two-party vote in 2016.
 
-### Step 1: State the Null Hypothesis
+### Steps 1 and 2: State the Hypotheses
 
-$$H_0: \rho=0$$
-where $\rho$ is the population correlation between wage growth and Democratic vote share.
+This time, identify the complete null and alternative hypothesis pair before you build the test.
 
-### Step 2: State the Alternative Hypothesis
-
-$$H_A: \rho>0$$
+```{r quiz-wagegrowth-demvoteshare-hypotheses, echo=FALSE}
+question("The hypothesis predicts that counties with higher wage growth will give a higher Democratic vote share. Which pair of hypotheses correctly formalizes this?",
+  correct = "Right. The null is always that the population correlation is zero; the alternative matches the predicted positive direction.",
+  answer("$H_0: \\rho = 0$ and $H_A: \\rho > 0$",
+         correct = TRUE,
+         message = "The null hypothesis always states that the population correlation is zero --- no linear association between the variables. The hypothesis predicts a positive relationship (higher wage growth, higher Democratic vote share), so the alternative is $H_A: \\rho > 0$. This is what `alternative = \"greater\"` tests in `cor.test()`."),
+  answer("$H_0: \\rho = 0$ and $H_A: \\rho \\neq 0$",
+         message = "The null is right, but the alternative is two-sided. The hypothesis makes a specific directional prediction --- higher wage growth goes with higher vote share --- so the alternative should be directional too, not just 'different from zero.'"),
+  answer("$H_0: \\rho = 0$ and $H_A: \\rho < 0$",
+         message = "The null is right, but the alternative points in the wrong direction. The hypothesis predicts a positive relationship --- higher wage growth going with higher Democratic vote share --- so the alternative should be $H_A: \\rho > 0$, not $H_A: \\rho < 0$."),
+  answer("$H_0: r = 0$ and $H_A: r > 0$",
+         message = "Close, but hypothesis tests are about population parameters, not sample statistics. $r$ is the sample correlation --- it's what you calculate from your data. $\\rho$ is the population correlation --- it's what the hypothesis is actually about. The null and alternative should use $\\rho$."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: What does the null hypothesis always say about the population correlation? And does this hypothesis predict a positive or negative relationship?"
+)
+```
 
 ### Step 3: Run the Test
 
-Tutorial 9 found a weak positive relationship between wage growth and Democratic vote share. Now we ask whether even a weak correlation like that is statistically distinguishable from zero in a sample this large.
+Here's what makes this example worth paying attention to: with over 3,000 counties in the sample, the test has considerably more statistical power than the earlier examples did. As you run it, keep Tutorial 9's rough guide in mind --- you'll need both the p-value and the size of r to give a complete answer.
 
 **Practice: Build the correlation test**
 
-Use **wage_growth** and **dem2p_vote_share** from the **counties** data frame. Three hints are available. Click Submit Answer to check your work.
+Use **wage_growth** and **dem2p_vote_share** from the **counties** data frame. Two hints are available. Click Submit Answer to check your work.
 
 ```{r cortest-wagegrowth-demvoteshare, exercise=TRUE, exercise.cap="Practice: Correlation test for wage growth and Democratic vote share"}
 
 ```
 
 ```{r cortest-wagegrowth-demvoteshare-hint-1}
-# Hint 1 of 3
-# Which variable is the explanatory variable here --- wage
-# growth --- and which is the outcome, Democratic vote share?
-# The hypothesis predicts a specific direction: which value of
-# alternative tests that direction?
+# Hint 1 of 2
+# Use cor.test() with both variables written as counties$variable,
+# method = "pearson", and alternative matching the direction
+# you identified in the hypothesis question above.
+# The order of the two variables does not affect the result.
 ```
 
 ```{r cortest-wagegrowth-demvoteshare-hint-2}
-# Hint 2 of 3
-# The structure is the same as the two correlation tests you
-# already ran in this tutorial: cor.test() with the explanatory
-# variable first, the outcome second, method = "pearson",
-# and alternative matching the predicted direction.
-```
-
-```{r cortest-wagegrowth-demvoteshare-hint-3}
-# Hint 3 of 3: fill in the blanks
-cor.test(counties$___, counties$___, method = "pearson", alternative = ___)
+# Hint 2 of 2
+# The hypothesis predicts a positive relationship, so
+# alternative = "greater". The variable names are in
+# the prose above; method is always "pearson" here.
 ```
 
 ```{r cortest-wagegrowth-demvoteshare-check}
@@ -301,11 +329,9 @@ grade_this({
   if (!grepl("cor\\.test\\s*\\(", code_no_comments)) {
     fail("Use cor.test() to run the correlation test.")
   }
-  if (!grepl("counties\\$wage_growth", code_no_comments)) {
-    fail("wage_growth is our explanatory variable --- it should appear as counties$wage_growth.")
-  }
-  if (!grepl("counties\\$dem2p_vote_share", code_no_comments)) {
-    fail("dem2p_vote_share is our outcome variable --- it should appear as counties$dem2p_vote_share.")
+  if (!grepl("counties\\$wage_growth", code_no_comments) ||
+      !grepl("counties\\$dem2p_vote_share", code_no_comments)) {
+    fail("Include both counties$wage_growth and counties$dem2p_vote_share in your cor.test() call.")
   }
   if (!grepl("method\\s*=\\s*['\"]pearson['\"]", code_no_comments)) {
     fail('Set method = "pearson" to request Pearson\'s correlation coefficient.')
@@ -321,6 +347,9 @@ grade_this({
     alternative = "greater"
   )
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a result the grader can check.")
+  }
   if (!inherits(.result, "htest")) {
     fail("Your code should return the cor.test() output. If you're seeing an error, check for a misspelled variable name, a missing $ between the data frame and variable name, or a missing argument.")
   }
@@ -330,7 +359,7 @@ grade_this({
     fail('Check that you are running cor.test(counties$wage_growth, counties$dem2p_vote_share, method = "pearson", alternative = "greater").')
   }
 
-  pass("Correct! Testing wage_growth and dem2p_vote_share with alternative = \"greater\" directly tests the hypothesis's predicted direction.")
+  pass("Right! Testing wage_growth and dem2p_vote_share with alternative = \"greater\" directly tests the hypothesis's predicted direction.")
 })
 ```
 
@@ -342,12 +371,14 @@ Find the p-value in your output and check the size of r against Tutorial 9's rou
 
 ```{r quiz-wagegrowth-demvoteshare-result, echo=FALSE}
 question("Find the p-value in your output, then look back at Tutorial 9's rough guide for interpreting the size of r. Which statement best describes this result?",
-  correct = "Right. The relationship is statistically significant and runs in the predicted direction, but r is still weak by Tutorial 9's guide. With a sample of over 3,000 counties, even a small relationship produces a very small p-value. Significance and size are answering two different questions here.",
+  correct = "Right. The relationship is statistically significant and in the predicted direction, but r = 0.132 is still weak by Tutorial 9's guide --- a large sample can make a weak relationship significant.",
   answer("The relationship is statistically significant and runs in the predicted direction, but r = 0.132 is still a weak relationship by Tutorial 9's guide --- with a sample this large (n = 3,110), even a weak relationship can produce a very small p-value",
          correct = TRUE,
          message = "r = 0.132 is positive, matching the predicted direction, and the test is statistically significant (t = 7.431, p < .001), with a 95% confidence interval of (0.097, 0.167) that excludes 0. But by Tutorial 9's own guide, |r| below about .2 is still a weak relationship --- significance and size are answering two different questions. A sample this large (n = 3,110) gives the test enough statistical power to detect even a small, weak relationship; it does not mean the relationship itself is strong or substantively important."),
   answer("No --- since the p-value is significant, the relationship must be moderately strong or strong, not weak",
          message = "A small p-value (p < .001) tells you a relationship is unlikely to be due to chance. It does not tell you how big the relationship is. r = 0.132 is still weak by Tutorial 9's guide (|r| below about .2), regardless of how small the p-value is."),
+  answer("The result is unreliable because the sample is too large --- with over 3,000 counties, any correlation will be significant regardless of the true relationship",
+         message = "A large sample makes the test more sensitive, not unreliable. It can detect genuinely small relationships that a smaller sample might miss. That is exactly what is happening here: a real but weak relationship (r = 0.132) produces a significant result because we have enough data to distinguish it from zero."),
   answer("Since r = 0.132 is weak, this result provides no real evidence for the hypothesis, regardless of the p-value",
          message = "A weak relationship is not the same as no relationship. The test provides genuine evidence (r = 0.132, p < .001) that wage growth and Democratic vote share are positively related in the population --- the relationship is just modest in size. Significance and size are different questions, and this result speaks to both, just with different answers."),
   allow_retry = TRUE,
@@ -358,122 +389,65 @@ question("Find the p-value in your output, then look back at Tutorial 9's rough 
 
 ## Check Your Understanding
 
+The questions below do not ask you to run any code. Instead, they test whether you have internalized the key ideas from this tutorial: what the confidence interval tells you in a one-tailed test, what it means to fail to reject the null, how to translate a hypothesis into the correct `alternative` argument, and how to avoid overstating what a significant correlation can support. Each question asks you to reason from the concepts --- read carefully before choosing.
 
-Political scientists have long studied how economic disruption shapes voting behavior. A newer version of that question focuses on AI-driven automation: do places more exposed to job displacement risk show higher support for populist political parties? The idea is that economic anxiety and a sense of being left behind by technological change may translate into support for candidates who promise to disrupt the status quo.
+**Apply: Interpret a confidence interval from a one-tailed test**
 
-::: {.hypothesis}
-In a comparison of [metropolitan areas], those with [greater exposure to automation-driven job displacement] will have [higher support for populist political parties] than will those with [less exposure].
-:::
-
-Suppose a researcher collected data on 300 metropolitan areas, stored in a data frame called **automation_df**: the interval variable **automation_exposure**, an index from 0 to 100 measuring a metro area's exposure to job displacement risk from automation, and the interval variable **populist_vote_share**, the percent of the vote won by populist party candidates in the most recent election.
-
-```{r cyu-prepare-automation, include=FALSE}
-set.seed(14)
-automation_exposure <- round(runif(300, min = 10, max = 90), 1)
-noise <- rnorm(300, mean = 0, sd = 20)
-populist_vote_share <- round(15 + 0.09 * automation_exposure + noise, 1)
-populist_vote_share <- pmax(pmin(populist_vote_share, 65), 2)
-automation_df <- data.frame(automation_exposure, populist_vote_share)
-```
-
-The scenario above gives you a new hypothesis, new variables, and a new data frame. The test structure is identical to the three examples in this tutorial.
-
-**Apply: Build a correlation test from a fresh scenario**
-
-Fill in the two variable names, the method, and the alternative direction the hypothesis predicts. Two hints are available. Click Submit Answer to check your work.
-
-```{r cyu-cortest-automation, exercise=TRUE, exercise.setup="cyu-prepare-automation", exercise.cap="Apply: Correlation test for automation exposure and populist vote share"}
-
-```
-
-```{r cyu-cortest-automation-hint-1}
-# Hint 1 of 2
-# Which variable is the explanatory variable here, and which is
-# the outcome? The hypothesis predicts a specific direction:
-# which value of alternative tests that direction?
-```
-
-```{r cyu-cortest-automation-hint-2}
-# Hint 2 of 2: fill in the blanks
-cor.test(automation_df$___, automation_df$___, method = "pearson", alternative = ___)
-```
-
-```{r cyu-cortest-automation-check}
-grade_this({
-  code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
-
-  if (!grepl("cor\\.test\\s*\\(", code_no_comments)) {
-    fail("Use cor.test() to run the correlation test.")
-  }
-  if (!grepl("automation_df\\$automation_exposure", code_no_comments)) {
-    fail("automation_exposure is our explanatory variable --- it should appear as automation_df$automation_exposure.")
-  }
-  if (!grepl("automation_df\\$populist_vote_share", code_no_comments)) {
-    fail("populist_vote_share is our outcome variable --- it should appear as automation_df$populist_vote_share.")
-  }
-  if (!grepl("method\\s*=\\s*['\"]pearson['\"]", code_no_comments)) {
-    fail('Set method = "pearson" to request Pearson\'s correlation coefficient.')
-  }
-  if (!grepl("alternative\\s*=\\s*['\"]greater['\"]", code_no_comments)) {
-    fail('The hypothesis predicts a positive relationship. Set alternative = "greater" to test that specific direction.')
-  }
-
-  expected <- cor.test(
-    automation_df$automation_exposure,
-    automation_df$populist_vote_share,
-    method = "pearson",
-    alternative = "greater"
-  )
-
-  if (!inherits(.result, "htest")) {
-    fail("Your code should return the cor.test() output. If you're seeing an error, check for a misspelled variable name, a missing $ between the data frame and variable name, or a missing argument.")
-  }
-  if (!isTRUE(all.equal(as.numeric(.result$p.value),
-                        as.numeric(expected$p.value),
-                        tolerance = 1e-6))) {
-    fail('Check that you are running cor.test(automation_df$automation_exposure, automation_df$populist_vote_share, method = "pearson", alternative = "greater").')
-  }
-
-  pass("Correct! Testing automation_exposure and populist_vote_share with alternative = \"greater\" directly tests the hypothesis's predicted direction.")
-})
-```
-
-**Apply: Evaluate the result**
-
-Find the p-value in your output and check the size of r against Tutorial 9's rough guide before answering.
-
-```{r cyu-automation-result, echo=FALSE}
-question("Find the p-value in your output, then consider the size of r. Which statement best describes this result?",
-  correct = "Right. The relationship is statistically significant and runs in the predicted direction, but r is still weak by Tutorial 9's guide. A sample of 300 metro areas gives the test enough power to detect even a weak relationship --- that does not make it a strong one.",
-  answer("The relationship is statistically significant and runs in the predicted direction, but r is still weak by Tutorial 9's guide --- with a sample this large, even a weak relationship can produce a small p-value",
+```{r cyu-ci-interpretation, echo=FALSE}
+question("A researcher runs a one-tailed correlation test predicting a positive relationship and gets a 95% confidence interval of (0.034, 1.000). A classmate says the upper bound of 1.000 means the true correlation is probably very strong. What is wrong with that interpretation?",
+  correct = "Right. The upper bound of 1.000 is fixed automatically by R for any one-tailed test predicting a positive relationship --- it carries no information about where the true correlation lies. The informative bound is the lower one.",
+  answer("The upper bound of 1.000 is the theoretical maximum a correlation can take, fixed automatically by R for a one-tailed test predicting a positive relationship --- it is not estimated from the data and says nothing about the likely size of the true correlation. The informative bound is the lower one: does it exclude 0?",
          correct = TRUE,
-         message = "Right. r = 0.161 is positive, matching the predicted direction, and the test is statistically significant (t = 2.812, p = .003), with a 95% confidence interval of (0.067, 1.000) that excludes 0. But by Tutorial 9's own guide, |r| below about .2 is still a weak relationship. A sample of 300 metro areas gives the test enough power to detect even a small relationship --- that does not mean automation exposure is a strong predictor of populist support."),
-  answer("Since the p-value is significant, this is a strong relationship between automation exposure and populist vote share",
-         message = "A significant p-value (p = .003) tells you the relationship is unlikely to be due to chance. It does not tell you how big the relationship is. r = 0.161 is still weak by Tutorial 9's guide (|r| below about .2), regardless of how small the p-value is."),
-  answer("Since r = 0.161 is weak, this test provides no real evidence that the two variables are related",
-         message = "A weak relationship is not the same as no relationship. The test provides genuine evidence (r = 0.161, p = .003) that automation exposure and populist vote share are positively related in the population --- the relationship is just modest in size."),
+         message = "For a one-tailed test predicting a positive relationship, R sets the upper bound to 1.000 because the alternative hypothesis places no upper constraint on $\\rho$ --- the test is only asking whether it exceeds zero. The lower bound is what matters: here, 0.034 excludes 0, which is consistent with rejecting the null. The interval tells you the relationship is likely positive, not that it is likely strong."),
+  answer("The interval is wrong because a confidence interval for a correlation can never include 1.000",
+         message = "A correlation can equal 1.000 in theory --- it would mean a perfect positive linear relationship. The issue is not that 1.000 is impossible, but that R fixes it as the upper bound for any one-tailed test predicting a positive relationship, so it carries no information about where the true correlation actually falls."),
+  answer("The classmate is right --- an upper bound of 1.000 does suggest the true correlation could be very strong",
+         message = "The upper bound of 1.000 is not estimated from the data. R fixes it automatically for any one-tailed test predicting a positive relationship, because the alternative hypothesis only asks whether $\\rho$ exceeds zero --- it places no upper constraint. The bound tells you nothing about the likely size of the true correlation."),
+  answer("The confidence interval should be ignored whenever one bound is a theoretical extreme --- only the p-value is informative in that case",
+         message = "The confidence interval is still informative --- just not through the fixed bound. For a one-tailed test, the bound that matters is the one estimated from the data. Here, the lower bound of 0.034 excludes 0, which is consistent with rejecting the null. The p-value and that bound are telling you the same thing."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Check both the p-value and the size of r using Tutorial 9's rough guide. What does each tell you, and are they telling you the same thing?"
+  try_again = "Hint: For a one-tailed test predicting a positive relationship, R fixes one bound automatically. Which bound is it, and which one is actually estimated from the data?"
+)
+```
+
+**Apply: Failing to reject the null**
+
+```{r cyu-fail-to-reject, echo=FALSE}
+question("In the income inequality example, the test produced r = −0.122, p = .103. A student writes: 'The test proved that income inequality has no effect on democracy.' What is wrong with that conclusion?",
+  correct = "Right. Failing to reject the null is not the same as proving the null true. The test found insufficient evidence, not evidence of absence.",
+  answer("Failing to reject the null hypothesis is not the same as proving it true. A p-value of .103 means the data do not provide sufficient evidence to rule out chance --- it does not mean the population correlation is zero or that no linear association exists",
+         correct = TRUE,
+         message = "This is one of the most important distinctions in hypothesis testing. We either reject the null or fail to reject it --- we never accept it or prove it. A p-value above .05 means the observed result is not surprising enough under the null to rule chance out. It could reflect a genuinely weak relationship, a real relationship the sample was too small to detect, or noise. It is also worth noting that 'has no effect' implies causation, which a correlation test cannot establish in either direction."),
+  answer("The conclusion is wrong because the correlation is negative, which means inequality does reduce democracy",
+         message = "A negative correlation in the predicted direction does not by itself establish that the relationship is real in the population --- that is exactly what the p-value addresses. At p = .103, we cannot rule out chance as an explanation for the observed r = −0.122."),
+  answer("The conclusion is wrong only because the word 'proved' is too strong --- the student should have written 'suggests' instead",
+         message = "The word choice is a problem, but it is not the only one. The deeper issue is the direction of the error: failing to reject the null does not support the null --- it simply means the evidence was insufficient to reject it. Softening 'proved' to 'suggests' would still leave the student claiming the data point toward no relationship, which goes beyond what the test found."),
+  answer("The conclusion is correct --- a p-value above .05 means the null hypothesis is true",
+         message = "A p-value above .05 means we fail to reject the null, not that we accept it as true. The null hypothesis is a baseline assumption, not a conclusion. Failing to find evidence against it leaves it standing as a working assumption --- it does not confirm it."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: What does failing to reject the null hypothesis actually mean? Is that the same as concluding the null is true?"
 )
 ```
 
 **Apply: Predict the right direction for a new hypothesis**
 
 ```{r cyu-direction-prediction, echo=FALSE}
-question("A hypothesis predicts that people who spend more time consuming political content on social media exhibit higher affective polarization --- more negative feelings toward the opposing party --- than people who spend less time. If you ran a correlation test on these two variables, which value of alternative would test this hypothesis directly?",
-  correct = "Right. The hypothesis predicts a positive relationship --- more social media time goes with higher polarization. alternative = \"greater\" tests whether the population correlation is greater than 0, exactly the direction predicted.",
-  answer('alternative = "greater"',
+question("A researcher hypothesizes that as citizens' trust in government increases, their support for anti-establishment political parties decreases. She enters support for anti-establishment parties as the first variable in `cor.test()` and trust in government as the second. Which value of `alternative` tests her hypothesis directly?",
+  correct = "Right. The predicted correlation is negative regardless of variable order, and `alternative = \"less\"` tests whether it is less than zero.",
+  answer('`alternative = "less"`',
          correct = TRUE,
-         message = "The hypothesis predicts a positive relationship --- more time on social media goes with higher polarization. alternative = \"greater\" tests whether the population correlation is greater than 0, exactly the direction predicted."),
-  answer('alternative = "less"',
-         message = "The hypothesis predicts a positive relationship, not a negative one. alternative = \"less\" would test whether the correlation is less than 0 --- the opposite of what this hypothesis predicts."),
-  answer('alternative = "two.sided", since we cannot know the direction in advance',
-         message = "We can know the direction in advance --- it is what the hypothesis predicts. A two-sided test would be appropriate if we had no directional prediction, but this hypothesis makes one explicitly."),
+         message = 'The hypothesis predicts a negative correlation: as trust increases, anti-establishment support decreases. Reversing the order of variables in `cor.test()` does not change the sign of the correlation --- the correlation between X and Y is the same as between Y and X. So `alternative = "less"` correctly tests the predicted direction regardless of which variable is listed first.'),
+  answer('`alternative = "greater"`',
+         message = 'The hypothesis predicts that trust and anti-establishment support move in opposite directions --- a negative correlation. `alternative = "greater"` would test whether the correlation is positive, which is the wrong direction. And reversing the variable order would not fix this: the sign of a Pearson correlation does not depend on which variable is listed first.'),
+  answer('`alternative = "two.sided"`, since we cannot know the direction in advance',
+         message = "We can know the direction in advance --- it is what the hypothesis predicts. The hypothesis explicitly predicts that trust and anti-establishment support move in opposite directions, which is a negative correlation. A two-sided test would be appropriate only if we had no directional prediction."),
+  answer('`alternative = "greater"`, because entering anti-establishment support first reverses the predicted direction',
+         message = 'The order of variables in `cor.test()` does not change the sign of the correlation. The correlation between anti-establishment support and trust is the same as between trust and anti-establishment support. The predicted direction --- negative --- stays negative regardless of which variable is listed first, so `alternative = "less"` is still correct.'),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: The hypothesis predicts that more time on social media goes with higher polarization. Does that predict a positive or negative correlation? Which value of alternative tests that direction?"
+  try_again = "Hint: Does the order of variables in cor.test() change the sign of the correlation? What direction does the hypothesis predict, and which value of alternative tests that direction?"
 )
 ```
 
@@ -481,35 +455,37 @@ question("A hypothesis predicts that people who spend more time consuming politi
 
 ```{r cyu-correlation-causation, echo=FALSE}
 question("A researcher finds a statistically significant positive correlation between the number of registered lobbyists in a state and the rate at which introduced bills become law. A news article reports this finding with the headline \"Lobbyists Get Bills Passed.\" What is the strongest critique of that headline?",
-  correct = "Right. A significant correlation tells us the two variables are related in the population. It says nothing about why --- a third factor could drive both, lobbyists could select into productive legislatures, or the causation could run the other way. The headline overstates what the finding can support.",
+  correct = "Right. A significant correlation provides evidence that the two variables are related in the population. It says nothing about why --- a third factor could drive both, lobbyists could select into productive legislatures, or the causation could run the other way. The headline overstates what the finding can support.",
   answer("The correlation does not establish causation --- a lobbyist-heavy state and a high bill-passage rate could both result from a third factor, like how active or productive the legislature is overall, rather than lobbyists directly causing bills to pass",
          correct = TRUE,
-         message = "A statistically significant correlation tells us the two variables are related in the population --- it does not tell us why. A more active, productive legislature could attract more lobbyists and pass more bills for reasons that have nothing to do with lobbyists causing that second outcome. Ruling out alternative explanations like this requires more than a correlation."),
+         message = "A statistically significant correlation provides evidence that the two variables are related in the population --- it does not tell us why. A more active, productive legislature could attract more lobbyists and pass more bills for reasons that have nothing to do with lobbyists causing that second outcome. Ruling out alternative explanations like this requires more than a correlation."),
   answer("The headline is correct, since a positive and statistically significant correlation is strong evidence of a causal relationship",
          message = "A significant correlation is evidence that two variables are related in the population. It is not evidence about why they are related, or which one influences the other --- correlation, however strong or significant, never establishes causation on its own."),
   answer("The finding is meaningless, since a correlation never tells us anything about how two variables relate",
-         message = "A correlation is not meaningless --- it does tell us the two variables are related in the population, including the direction and approximate strength of that relationship. What it cannot tell us is whether one causes the other."),
+         message = "A correlation is not meaningless --- it provides evidence that the two variables are related in the population, including the direction and approximate strength of that relationship. What it cannot tell us is whether one causes the other."),
+  answer("The correlation is only meaningful if it is also strong --- a weak but significant correlation cannot support any causal claim",
+         message = "The strength of a correlation is separate from the causation question. Even a strong correlation does not establish causation. The issue with the headline is not the size of r but the leap from 'these variables are related' to 'one causes the other.'"),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: A significant correlation tells you the two variables are related. What are all the reasons two variables can move together besides one causing the other?"
+  try_again = "Hint: A significant correlation provides evidence the two variables are related. What are all the reasons two variables can move together besides one causing the other?"
 )
 ```
 
 ## The Takeaways
 
-This tutorial completed the three-part hypothesis testing sequence begun in Tutorial 12: two categorical variables, one categorical and one interval, and now two interval variables. In each tutorial, the descriptive pattern from Tutorials 7, 8, and 9 became the starting point for a formal test. The question was always similar: would a pattern this strong be surprising if there were no relationship in the population? --- and the answer followed the same five steps every time.
+This tutorial completed the three-part hypothesis testing sequence begun in Tutorial 12. In each of those tutorials, the descriptive patterns you found in Tutorials 7, 8, and 9 became the starting points for formal tests --- moving from "does the pattern point in the predicted direction?" to "is the pattern too strong to be explained by chance?" The question changed; the five steps did not.
 
-The **correlation test**, run with `cor.test(x, y, method = "pearson", alternative = ...)`, tests whether the population correlation $\rho$ differs from zero. Unlike `t.test()`'s formula method, the order of `x` and `y` does not affect the result --- the correlation between `x` and `y` is the same as between `y` and `x`. Use `alternative = "less"` or `"greater"` when a hypothesis predicts a specific direction, or leave the default `"two.sided"` when it does not.
+The [**correlation test**]{.important-text}, run with `cor.test(x, y, method = "pearson", alternative = ...)`, tests whether the [**population correlation**]{.important-text} $\rho$ differs from zero. Unlike the formula notation used in Tutorial 13, the order of `x` and `y` here does not matter --- the correlation between two variables is the same in either direction. Use `alternative = "less"` or `"greater"` when a hypothesis predicts a specific direction, or the default `"two.sided"` when it does not.
 
-Unlike the chi-square test in Tutorial 12 or the one-way ANOVA in Tutorial 13, **there is no general claim to test first**. A correlation already describes the relationship between exactly two named variables --- there are no categories to aggregate across. Every test in this tutorial was a single, five-step test, directional whenever the hypothesis predicted a direction.
+There is no general-to-directional two-step structure here, unlike the chi-square-to-proportions pattern in Tutorial 12 or the ANOVA-to-t-test pattern in Tutorial 13. A correlation already describes the relationship between exactly two named variables, so every test in this tutorial was a single, five-step test --- directional whenever the hypothesis predicted a direction.
 
-The **confidence interval** reported alongside the p-value is the same cross-check used throughout Tutorials 12 and 13: an interval that excludes 0 points to the same conclusion as a significant p-value. For a one-tailed test, one bound shows as the theoretical extreme --- here, -1 or 1, since a correlation has a fixed range it cannot exceed.
+The [**confidence interval**]{.important-text} reported alongside the p-value works the same way it did in Tutorials 12 and 13: an interval that excludes 0 leads to the same conclusion as a significant p-value. For a one-tailed test, R fixes one bound at the theoretical extreme ($-1$ or $1$) --- the bound that matters is the other one.
 
-**Significance and size are different questions.** A small p-value tells you the observed relationship would be unlikely if the population correlation were really 0. It does not tell you how big that relationship is. Recall Tutorial 9's rough guide: $|r|$ below about .2 is weak, .3 to .6 is moderate, above .6 or .7 is strong. With a large enough sample, even a weak relationship can produce a very small p-value. Always report both the p-value and the approximate size of $r$.
+[**Significance and size are different questions.**]{.important-text} A small p-value tells you the observed relationship would be unlikely if $\rho$ were really zero. It does not tell you how big the relationship is. Recall Tutorial 9's rough guide: $|r|$ below about .2 is weak, .3 to .6 is moderate, above .6 or .7 is strong. A large sample can make even a weak relationship statistically significant. Always report both.
 
-That decision is worth being precise about here in a way specific to correlation. Rejecting the null hypothesis in a correlation test --- even with a very small p-value --- is evidence that two variables are related in the population. It is never proof that one causes the other. Two variables can move together because one influences the other, because both are influenced by some third factor, or simply by chance in a particular sample --- a correlation test cannot distinguish among these on its own. Throughout this tutorial, when we found a result consistent with a hypothesis, that is exactly what we said --- evidence consistent with it, not proof of it --- because a correlation, however strong or significant, can never honestly tell us more than that.
+And a significant result is still not proof of causation. Rejecting the null --- even with a very small p-value --- is [**statistically significant evidence in support of a hypothesis**]{.important-text}, not certainty that it is right, and not evidence that one variable causes the other. Two variables can move together because one influences the other, because both are shaped by a third factor, or by chance in a particular sample. A correlation test cannot distinguish among these on its own.
 
-You have now completed the bivariate description sequence (Tutorials 7–9) and the hypothesis testing sequence (Tutorials 12–14). The tools from these six tutorials --- cross-tabs, group means, scatter plots, chi-square tests, t-tests, ANOVA, and correlation tests --- are the foundation for everything that follows. The next tutorials build directly on them.
+You have now completed the bivariate description sequence (Tutorials 7–9) and the hypothesis testing sequence (Tutorials 12–14). The tools from these six tutorials --- cross-tabs, group means, scatter plots, chi-square tests, t-tests, ANOVA, and correlation tests --- are the foundation for everything that follows.
 
 ## Submit Your Work
 

@@ -249,7 +249,7 @@ In a comparison of [countries], those that [are more democratic] will have [high
 
 The causal explanation is that democratic accountability gives leaders an incentive to pursue broadly beneficial economic policy, since they can be removed from office if the economy performs poorly, while leaders in non-democratic systems face fewer such constraints.
 
-The data frame **world** contains the interval variable **gdppcap08**, GDP per capita in 2008 measured in US dollars. We use GDP per capita rather than total GDP because it accounts for country size --- China and the United States have large total GDPs partly because of their large populations, not necessarily because their citizens are more prosperous. Dividing by population gives a better sense of average living standards. The nominal variable **dem_level4** records regime type on a four-category scale: Full Democracy, Partial Democracy, Hybrid, and Authoritarian.
+The data frame **world** contains the interval variable **gdppcap08**, GDP per capita in 2008 measured in US dollars. We use GDP per capita rather than total GDP because it accounts for country size --- China and the United States have large total GDPs partly because of their large populations, not necessarily because their citizens are more prosperous. Dividing by population gives a better sense of average living standards. The ordinal variable **dem_level4** records regime type on a four-category scale: Full Democracy, Partial Democracy, Hybrid, and Authoritarian.
 
 ### Calculate the Means
 
@@ -481,7 +481,7 @@ counties %>%
   guides(fill = "none")
 ```
 
-Now each panel shows the shape of its own distribution clearly. Notice that all four panels show roughly bell-shaped distributions --- but they are centered at very different locations on the x-axis. The White Majority panel peaks around 25-30%, while the other three panels peak at much higher values. The free-axis version reveals the shape of each group's distribution; the shared-axis version above reveals that White Majority counties vastly outnumber the other three combined. Use the free-axis version to answer the shape and center question below, and the shared-axis version to answer questions about relative group size.
+Now each panel shows the shape of its own distribution clearly. The free-axis version reveals the shape of each group's distribution; the shared-axis version above reveals that White Majority counties vastly outnumber the other three combined. Use the free-axis version to answer the shape and center question below, and the shared-axis version to answer questions about relative group size.
 
 ### What Does the Histogram Add?
 
@@ -511,7 +511,7 @@ When the categorical variable is already visible on the x-axis or in the panel t
 
 **Practice: Compare the distribution of college graduation rates by rural**
 
-Build the faceted histogram from scratch using **prop_college_grad** (the proportion of college graduates) and **rural** from the **counties** data frame. Filter out missing values before plotting. Because **rural** is stored as a number, wrap it in `factor()` when mapping to `fill` inside `aes()` --- without it, ggplot would apply a continuous color gradient rather than discrete colors. Inside `facet_wrap()`, `factor()` is not needed: `fill` uses the variable to choose a color scale so R needs to know the values are categories, but `facet_wrap()` only needs the unique values to decide which cases go in each panel --- and `as_labeller()` handles the titles regardless of type. The numeric codes (0, 1, 2) are not self-explanatory, so use `labeller = as_labeller()` inside `facet_wrap()` to map `"0"` to `"Urban"`, `"1"` to `"Neither Urban nor Rural"`, and `"2"` to `"Rural"`. Add `guides(fill = "none")` to remove the redundant legend. Your plot should have title `"Distribution of College Graduation Rates by Rurality"`, x-axis label `"Proportion of College Graduates"`, y-axis label `"Frequency"`, and caption `"Source: Linn, Nagler, Zilinsky"`. Three hints are available. Click "Submit Answer" to check your work.
+Build the faceted histogram from scratch using **prop_college_grad** (the proportion of college graduates) and **rural** from the **counties** data frame. Filter out missing values before plotting. Because **rural** is stored as a number, wrap it in `factor()` when mapping to `fill` inside `aes()` --- without it, ggplot would apply a continuous color gradient rather than discrete colors. Inside `facet_wrap()`, `factor()` is not needed: `fill` uses the variable to choose a color scale so R needs to know the values are categories, but `facet_wrap()` only needs the unique values to decide which cases go in each panel --- and `as_labeller()` handles the titles regardless of type. The numeric codes (0, 1, 2) are not self-explanatory, so use `labeller = as_labeller()` inside `facet_wrap()` to map `"0"` to `"Urban"`, `"1"` to `"Neither Urban nor Rural"`, and `"2"` to `"Rural"`. Add `guides(fill = "none")` to remove the redundant legend. Your plot should have title `"Distribution of College Graduation Rates by Rurality"`, x-axis label `"Proportion of College Graduates"`, y-axis label `"Frequency"`, and caption `"Source: Linn, Nagler, Zilinsky"`. Four hints are available. Click "Submit Answer" to check your work.
 
 ```{r histogram-collegegrad-by-rural, exercise=TRUE, exercise.cap="Practice: Faceted histogram of college graduation rates by rurality", fig.alt="Faceted histograms showing the distribution of the proportion of college graduates on the x-axis and frequency on the y-axis, with separate panels labeled Urban, Neither Urban nor Rural, and Rural. The urban panel is widest with the longest right tail, the neither-urban-nor-rural panel is the tallest and narrowest, and the rural panel falls in between."}
 
@@ -604,10 +604,10 @@ grade_this({
     fail("Map prop_college_grad to the x-axis inside aes().")
   }
 
-  # Check fill uses factor(rural) or rural
-  fill_code <- any(grepl("fill\\s*=\\s*(factor\\s*\\(\\s*)?rural", code_no_comments))
+  # Check fill requires factor(rural) — not bare rural
+  fill_code <- any(grepl("fill\\s*=\\s*factor\\s*\\(\\s*rural\\s*\\)", code_no_comments))
   if (!fill_code) {
-    fail("Map rural (or factor(rural)) to fill inside aes() to color each panel.")
+    fail("Because rural is stored as a number, wrap it in factor() when mapping it to fill: fill = factor(rural). Without factor(), ggplot treats rural as continuous and applies a color gradient rather than discrete group colors.")
   }
 
   # Check layer types
@@ -616,9 +616,12 @@ grade_this({
     fail("Use geom_histogram() to create the histograms.")
   }
 
-  # Check faceting
+  # Check faceting uses rural
   if (!any(grepl("facet_wrap", .user_code))) {
     fail("Add facet_wrap() to give each rurality category its own panel.")
+  }
+  if (!any(grepl("facet_wrap\\s*\\(\\s*~\\s*(factor\\s*\\(\\s*)?rural", code_no_comments))) {
+    fail("Inside facet_wrap(), use ~rural (or ~factor(rural)) so each panel corresponds to a rurality category.")
   }
   if (!any(grepl("as_labeller", .user_code))) {
     fail("Use as_labeller() inside facet_wrap() to give panels readable titles.")
@@ -695,7 +698,7 @@ In a comparison of [countries], those that [are more democratic] will have a [hi
 
 The causal explanation is that democratic accountability creates pressure on governments to invest in public goods like healthcare and sanitation, since leaders who fail to deliver these benefits can be removed from office, while leaders in less democratic systems face less pressure to do so.
 
-The data frame **world** contains the interval variable **lifeex_total**, life expectancy at birth, and the nominal variable **dem_level4**, the same regime-type variable we used to compare GDP per capita.
+The data frame **world** contains the interval variable **lifeex_total**, life expectancy at birth, and the ordinal variable **dem_level4**, the same regime-type variable we used to compare GDP per capita.
 
 The categories of **dem_level4** are stored as a factor with levels in this order: `"Full Democ"`, `"Part Democ"`, `"Hybrid"`, `"Authoritarian"`. When you supply labels to `scale_x_discrete()` without names, ggplot assigns them positionally --- first label to first level, second to second, and so on. The labels in the scaffold follow that same order, replacing the abbreviated stored values with fuller names. If you ever write your own `scale_x_discrete()` call, always check the factor level order first with `levels(data$variable)`.
 
@@ -881,6 +884,8 @@ question("A researcher wants to compare the distribution of household income acr
          message = "A histogram does show more detail, but that level of detail becomes a liability with 50 groups --- 50 histogram panels are too many to compare effectively. A box plot trades some detail for the ability to compare many groups at once."),
   answer("It does not matter, since histograms and box plots always show the same information",
          message = "Histograms and box plots reveal different features of a distribution. A histogram shows the full shape, including skew and modality; a box plot summarizes that shape more compactly and loses some detail in exchange for being easier to compare across many groups."),
+  answer("A box plot, but only because income distributions are always skewed --- if income were symmetric, a histogram would be the better choice",
+         message = "The number of groups, not the shape of the distribution, is the main reason to prefer a box plot here. With 50 states, 50 histogram panels are too many to compare effectively regardless of whether the distributions are skewed or symmetric."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Incorrect. Try again."
@@ -905,6 +910,8 @@ question("Which of the following research questions fits the pattern covered in 
          message = "Here SAT score (interval) is the explanatory variable and admission (categorical) is the outcome --- not the setup this tutorial focuses on. You could compare mean SAT scores between admitted and non-admitted students --- that describes an association --- but it does not directly address how the probability of admission changes as SAT scores rise, which requires a different tool."),
   answer("Is a county's median household income associated with whether it voted for the incumbent party?",
          message = "Here income (interval) is the explanatory variable and vote choice (categorical) is the outcome --- not the setup this tutorial focuses on. You could compare mean income across voting groups --- that describes an association --- but it does not directly address how the probability of voting for the incumbent changes with income, which requires a different approach."),
+  answer("Does a country's regime type predict its probability of experiencing civil war?",
+         message = "Here regime type (categorical) is the explanatory variable and civil war occurrence (categorical --- yes or no) is the outcome --- not the setup this tutorial focuses on. When the outcome is categorical, comparing group means is not the right approach."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Incorrect. Try again."
