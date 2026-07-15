@@ -36,6 +36,7 @@ data("counties", package = "QPATutorialsCourse")
 data("qog", package = "QPATutorialsCourse")
 if (max(counties$wage_growth, na.rm = TRUE) < 2)
   counties$wage_growth <- counties$wage_growth * 100
+counties$dem2p_percent <- counties$dem2p_vote_share * 100
 ```
 
 
@@ -49,22 +50,79 @@ A [**positive relationship**]{.important-text} means that higher values of one v
 
 A [**negative relationship**]{.important-text} means that higher values of one variable tend to go with lower values of the other. Countries with higher GDP per capita tend to have lower fertility rates. The variables move in opposite directions.
 
-[**No relationship**]{.important-text} means that knowing a case's value on one variable tells you nothing about its value on the other.
+[**No linear relationship**]{.important-text} means that higher or lower values of one variable do not systematically go with higher or lower values of the other in a straight-line pattern.
 
-Two tools let us describe these patterns. A **scatter plot** shows the relationship visually --- each point represents one case, positioned by its values on the two variables. A **correlation coefficient** summarizes the same pattern with a single number that captures both direction and strength. The rest of this section develops both tools before showing you how to apply them.
+Two tools let us describe these patterns. A [**scatter plot**]{.important-text} shows the relationship visually --- each point represents one case, positioned by its values on the two variables. A [**correlation coefficient**]{.important-text} summarizes the same pattern with a single number that captures both direction and strength.
 
 
-Before we build scatter plots ourselves, let's look carefully at one. This scatter plot shows the relationship between **prop_college_grad**, the proportion of adults in a county who graduated from college, and **dem2p_vote_share**, the share of the 2016 presidential vote cast for Hillary Clinton. Each dot is one county. The horizontal and vertical lines mark the mean values of each variable.
+The most direct way to see the relationship between two interval variables is to plot one against the other. The scatter plot below shows the relationship between **prop_college_grad**, the proportion of adults in a county who graduated from college, and **dem2p_percent**, the percent of the 2016 presidential two-party vote cast for Hillary Clinton. Each dot is one county. The vertical and horizontal lines mark the mean values of each variable, dividing the plot into four quadrants. Four counties are labeled in color --- one in each quadrant.
 
-```{r scatterplot-clintonvote-by-education-label-arlington, echo=FALSE, out.width='70%', fig.alt="Scatter plot of U.S. counties showing proportion of adults with a college degree on the x-axis and Democratic two-party vote share in 2016 on the y-axis. Each point represents one county. Vertical and horizontal reference lines mark the means of the two variables, dividing the plot into four quadrants. Arlington, Virginia is labeled in the upper-right quadrant, with above-average college graduation and above-average Democratic vote share. Many counties fall in the lower-left and upper-right quadrants, illustrating a positive relationship between the two variables."}
-knitr::include_graphics("images/samplescattervoteedArlington.png")
+```{r scatterplot-clintonvote-by-education-labeled, echo=FALSE, message=FALSE, warning=FALSE, out.width='80%', fig.alt="Scatter plot of U.S. counties showing proportion of adults with a college degree on the x-axis and percent of two-party vote for Clinton in 2016 on the y-axis. Each point represents one county. Vertical and horizontal reference lines mark the means of the two variables, dividing the plot into four quadrants. Four counties are labeled in color: Arlington VA in the upper right (high education, high Clinton vote), Bronx NY in the upper left (low education, high Clinton vote), McDowell WV in the lower left (low education, low Clinton vote), and Williamson TN in the lower right (high education, low Clinton vote)."}
+library(ggplot2)
+library(dplyr)
+library(ggrepel)
+
+counties_plot <- counties %>%
+  mutate(dem2p_percent = dem2p_vote_share * 100) %>%
+  filter(!is.na(prop_college_grad), !is.na(dem2p_percent))
+
+mean_educ <- mean(counties_plot$prop_college_grad)
+mean_vote <- mean(counties_plot$dem2p_percent)
+
+labeled <- counties_plot %>%
+  filter(
+    (county_name == "Arlington"  & state_name == "Virginia")      |
+    (county_name == "Mcdowell"   & state_name == "West Virginia") |
+    (county_name == "Bronx"      & state_name == "New York")      |
+    (county_name == "Williamson" & state_name == "Tennessee")
+  ) %>%
+  mutate(
+    label = case_when(
+      county_name == "Arlington"  ~ "Arlington, VA",
+      county_name == "Mcdowell"   ~ "McDowell, WV",
+      county_name == "Bronx"      ~ "Bronx, NY",
+      county_name == "Williamson" ~ "Williamson, TN"
+    ),
+    point_color = case_when(
+      county_name == "Arlington"  ~ "#2166ac",
+      county_name == "Mcdowell"   ~ "#d73027",
+      county_name == "Bronx"      ~ "#1a9850",
+      county_name == "Williamson" ~ "#f46d43"
+    )
+  )
+
+ggplot(counties_plot, aes(x = prop_college_grad, y = dem2p_percent)) +
+  geom_point(color = "steelblue", alpha = 0.4, size = 1.2) +
+  geom_vline(xintercept = mean_educ, color = "black", linewidth = 0.6) +
+  geom_hline(yintercept = mean_vote, color = "black", linewidth = 0.6) +
+  geom_point(data = labeled, aes(color = I(point_color)), size = 3) +
+  geom_label_repel(data = labeled,
+                   aes(label = label, color = I(point_color)),
+                   fill = "white", size = 3.2, fontface = "bold",
+                   box.padding = 0.5, point.padding = 0.3,
+                   segment.color = "grey50", show.legend = FALSE) +
+  labs(
+    title    = "Relationship between Education and Vote for Clinton",
+    subtitle = "US Counties in 2016",
+    x        = "Proportion of Adults with a College Degree",
+    y        = "Percent of Two-Party Vote for Clinton",
+    caption  = "Source: Linn, Nagler, and Zilinsky"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title    = element_text(size = 12, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    axis.title    = element_text(size = 10),
+    axis.text     = element_text(size = 9),
+    plot.caption  = element_text(size = 8, hjust = 1)
+  )
 ```
 
-Consider the point labeled Arlington, VA, in the upper right. This county has a value of 0.74 on **prop_college_grad** and 0.82 on **dem2p_vote_share** --- well above the mean on both variables.
+The four labeled counties illustrate the quadrant logic. **Arlington, VA** (blue, upper right) has above-average college graduation and above-average Clinton vote --- above the mean on both variables. **McDowell, WV** (red, lower left) has below-average college graduation and below-average Clinton vote --- below the mean on both. Both counties sit in quadrants consistent with a positive relationship: cases that are high on one variable tend to be high on the other, and cases that are low on one tend to be low on the other.
 
-Points --- like Arlington --- in the upper right quadrant have values of **prop_college_grad** above the mean and values of **dem2p_vote_share** above the mean. Points in the lower left quadrant have values of **prop_college_grad** below the mean and values of **dem2p_vote_share** below the mean. These points show the pattern of a positive relationship because their values on the two variables move together: above average on both variables or below average on both variables.
+The two remaining counties show a different pattern. **Bronx, NY** (green, upper left) has below-average college graduation but above-average Clinton vote. **Williamson, TN** (orange, lower right) has above-average college graduation but below-average Clinton vote. These counties sit in quadrants where the variables move in opposite directions --- which is what a negative relationship looks like. The fact that there are far fewer counties in these two quadrants than in the lower-left and upper-right is consistent with the overall pattern being positive: most counties follow the direction of the relationship, with education and Clinton vote moving together.
 
-A negative relationship would show the opposite pattern. Points would cluster in the upper left and lower right quadrants. In the upper left, counties would have below-average values of **prop_college_grad** but above-average values of **dem2p_vote_share**. In the lower right, counties would have above-average values of **prop_college_grad** but below-average values of **dem2p_vote_share**. Those points show the pattern of a negative relationship because higher values on one variable tend to go with lower values on the other.
+A negative relationship would show the opposite pattern overall --- most points clustering in the upper-left and lower-right quadrants, with above-average values on one variable going with below-average values on the other.
 
 The visual pattern we have been describing has a name: [**correlation**]{.important-text}. Pearson's correlation describes the direction and strength of the **linear relationship** between two interval variables --- how consistently the two variables move together in a straight-line pattern.
 
@@ -92,8 +150,55 @@ The value of $r$ ranges between -1 and +1.
 
 Below is a picture illustrating the relationship between the pattern in a scatter plot and Pearson's $r$. A line is drawn through the cloud of points to summarize the overall linear pattern. If the line slopes downward, as on the left, $r$ is negative. If the line is flat, as in the middle, $r$ is close to zero. If the line slopes upward, as on the right, $r$ is positive. The strength of the relationship depends on how tightly the points cluster around a straight-line pattern: tighter clustering means a stronger relationship, while more scatter means a weaker relationship. Note that the slope of the fitted line tells us the direction of the relationship but not by itself how strong it is --- a steep line does not necessarily mean a strong correlation, because the slope depends on the scales of the two variables. Strength is always about how closely the points follow a linear pattern, not how steep the line appears.
 
-```{r scatterplot-correlation, echo=FALSE, out.width='70%', fig.alt="Three side-by-side scatter plots illustrating different linear relationships between two interval variables. The left panel shows a strong negative relationship, with points clustered around a downward-sloping line and r approximately negative 0.86. The middle panel shows little or no linear relationship, with points scattered randomly around a nearly flat line and r approximately 0. The right panel shows a strong positive relationship, with points clustered around an upward-sloping line and r approximately 0.87. The figure shows that the sign of r gives the direction of the relationship, while the closeness of the points to a straight-line pattern shows its strength."}
-knitr::include_graphics("images/Samplecorrplots.png")
+```{r scatterplot-correlation, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, out.width='80%', fig.alt="Three side-by-side scatter plots illustrating different linear relationships. The left panel shows a strong negative relationship with r = -0.86, points clustered around a downward-sloping line. The middle panel shows no relationship with r = 0.04, points scattered randomly around a nearly flat line. The right panel shows a strong positive relationship with r = 0.86, points clustered around an upward-sloping line."}
+library(patchwork)
+
+set.seed(123)
+n <- 150
+
+neg <- MASS::mvrnorm(n, mu = c(0,0),
+                     Sigma = matrix(c(1, -0.85, -0.85, 1), 2, 2))
+df_neg <- data.frame(x = neg[,1], y = neg[,2])
+
+set.seed(789)
+zero <- MASS::mvrnorm(n, mu = c(0,0),
+                      Sigma = matrix(c(1, 0.05, 0.05, 1), 2, 2))
+df_zero <- data.frame(x = zero[,1], y = zero[,2])
+
+set.seed(123)
+pos <- MASS::mvrnorm(n, mu = c(0,0),
+                     Sigma = matrix(c(1, 0.85, 0.85, 1), 2, 2))
+df_pos <- data.frame(x = pos[,1], y = pos[,2])
+
+r_neg  <- round(cor(df_neg$x,  df_neg$y),  2)
+r_zero <- round(cor(df_zero$x, df_zero$y), 2)
+r_pos  <- round(cor(df_pos$x,  df_pos$y),  2)
+
+panel_theme <- theme_bw() +
+  theme(axis.title = element_blank(), axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        plot.title    = element_text(size = 12, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(size = 11, hjust = 0.5, color = "#444444"))
+
+p_neg <- ggplot(df_neg, aes(x, y)) +
+  geom_point(color = "steelblue", alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#d73027", linewidth = 1) +
+  labs(title = "Negative relationship", subtitle = paste0("r = ", r_neg)) +
+  panel_theme
+
+p_zero <- ggplot(df_zero, aes(x, y)) +
+  geom_point(color = "steelblue", alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#d73027", linewidth = 1) +
+  labs(title = "No linear relationship", subtitle = paste0("r = ", r_zero)) +
+  panel_theme
+
+p_pos <- ggplot(df_pos, aes(x, y)) +
+  geom_point(color = "steelblue", alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#d73027", linewidth = 1) +
+  labs(title = "Positive relationship", subtitle = paste0("r = ", r_pos)) +
+  panel_theme
+
+p_neg + p_zero + p_pos + plot_layout(ncol = 3)
 ```
 
 How do we translate a specific value of $r$ into a description like weak, moderate, or strong? When describing strength, we look at the **absolute value** of $r$, written $|r|$, which means its distance from zero regardless of whether the sign is positive or negative --- a correlation of -.7 is just as strong as one of +.7, just in the opposite direction. There are no sharp cutoffs, but a common rough guide is: values of $|r|$ below about .3 are usually described as weak, values from about .3 to .6 as moderate, and values above about .6 as strong. These thresholds are only a starting point --- what counts as strong can depend on the variables involved and the research question, so we will always describe both the sign and the approximate size of $r$ rather than mechanically applying fixed labels.
@@ -102,7 +207,7 @@ As in Tutorials 7 and 8, this is still descriptive analysis. A scatter plot and 
 
 ### Building a Scatter Plot with `ggplot()`
 
-Building a scatter plot follows the same basic steps as the plots you built in earlier tutorials. As in T4 through T8, always filter out missing values in both variables before passing data to `ggplot()` --- this keeps missing cases out of the display and avoids ggplot dropping observations or producing warnings. Then map the explanatory variable to `x` and the outcome variable to `y` inside `aes()`. Add `geom_point()` to draw one point per case, and `geom_smooth(se = FALSE, method = "lm")` to add a straight fitted line that summarizes the overall pattern. The `method = "lm"` argument draws a straight line; `se = FALSE` removes a shaded band that ggplot would otherwise draw around it. Finish with `labs()` for an informative title and axis labels. You will see this structure in the first run-and-observe below.
+Building a scatter plot follows the same basic steps as the plots you built in earlier tutorials. Always filter out missing values in both variables before passing data to `ggplot()` --- this keeps missing cases out of the display and avoids ggplot dropping observations or producing warnings. Then map the explanatory variable to `x` and the outcome variable to `y` inside `aes()`. Add `geom_point()` to draw one point per case, and `geom_smooth(se = FALSE, method = "lm")` to add a straight fitted line that summarizes the overall pattern. The `method = "lm"` argument draws a straight line; `se = FALSE` removes a shaded band that ggplot would otherwise draw around it. Finish with `labs()` for an informative title and axis labels. You will see this structure in the first run-and-observe below.
 
 When you use `geom_smooth(method = "lm")`, R prints a message saying `geom_smooth() using formula = 'y ~ x'`. That confirms the type of line being fit --- it is not a warning or an error.
 
@@ -114,19 +219,19 @@ We will use this same two-tool structure throughout the tutorial: inspect the sc
 
 ## Do More Effective Governments Have Higher Life Expectancy?
 
-Why do people live longer in some countries than in others? One possibility is that more effective governments are better able to provide the public goods that support health: clean water, sanitation, vaccination programs, reliable health systems, and emergency response. This suggests a research question: do countries with more effective governments have higher life expectancy?
+Why do people live longer in some countries than in others? One possibility is that government effectiveness plays a role --- countries where governments function well may be better positioned to support population health.
 
 ::: {.hypothesis}
 In a comparison of [countries], those with [more effective governments] will tend to have [higher life expectancy] than will those with [less effective governments].
 :::
 
-The causal explanation is that effective governments are better able to provide the public goods and services that help people live longer, including sanitation, healthcare access, disease prevention, and basic infrastructure.
+The causal explanation is that effective governments deliver the public goods that directly sustain population health --- clean water, sanitation, vaccination programs, and reliable healthcare systems --- while less effective governments leave these needs unmet.
 
-The data frame **world** contains the variable **effectiveness**, a measure of government effectiveness where higher values indicate more effective government. It also contains **lifeex_total**, life expectancy at birth. **effectiveness** is our explanatory variable and **lifeex_total** is our outcome, so **effectiveness** goes on the `x`-axis and **lifeex_total** goes on the `y`-axis.
+The data frame **world** contains the variable **effectiveness**, a measure of government effectiveness where higher values indicate more effective government. It is stored as a numeric variable. It also contains **lifeex_total**, life expectancy at birth, also stored as a numeric variable. **effectiveness** is our explanatory variable and **lifeex_total** is our outcome, so **effectiveness** goes on the `x`-axis and **lifeex_total** goes on the `y`-axis.
 
 ### Create the Scatter Plot
 
-We filter out missing values in both variables, then map **effectiveness** to `x` and **lifeex_total** to `y` inside `aes()`. We add `geom_point()` to plot the points and `geom_smooth()` with `method = "lm"` and `se = FALSE` to add a straight fitted line, then `labs()` to add informative labels. We load [dplyr]{.package-name} (for `filter()` and the pipe) and [ggplot2]{.package-name} (for the plot) at the top of the code --- once loaded, you can assume both are available for all subsequent exercises in this tutorial. When you run this code, R may print the message `geom_smooth() using formula = 'y ~ x'` --- that simply confirms the type of line being fit and is not a warning or an error.
+Load [dplyr]{.package-name} and [ggplot2]{.package-name} at the top of the code --- once loaded, both are available for all subsequent exercises in this tutorial.
 
 **Run and observe: Build a scatter plot of government effectiveness and life expectancy**
 
@@ -144,7 +249,27 @@ world %>%
        caption = "Source: World Bank")
 ```
 
-The scatter plot shows a clear upward-sloping pattern: countries with higher government effectiveness tend to have higher life expectancy, and the fitted line captures that trend. The points cluster reasonably closely around the line, suggesting the relationship is not negligible. There is still meaningful variation --- some countries have much higher or lower life expectancy than the line would predict --- but the overall direction is consistent with what the hypothesis predicts. To get a precise summary of direction and strength, we calculate Pearson's $r$.
+### Interpret the Scatter Plot
+
+Look at the direction of the fitted line and how tightly or loosely the points cluster around it before answering.
+
+```{r quiz-interpret-scatterplot-effectiveness-lifeexpectancy, echo=FALSE}
+question("Based on the scatter plot, which statement best describes the relationship between government effectiveness and life expectancy?",
+  correct = "Right.",
+  answer("The points follow a clear upward-sloping pattern with moderate clustering around the fitted line, suggesting a positive relationship of meaningful strength",
+         correct = TRUE,
+         message = "The line slopes upward and the points cluster reasonably closely around it, but there is still meaningful scatter --- some countries have much higher or lower life expectancy than the line would predict. Calculate Pearson's $r$ to get a precise measure of the strength."),
+  answer("The points are widely scattered with no clear pattern, and the fitted line is nearly flat",
+         message = "Look at the direction of the fitted line. It slopes clearly upward, not flat, and the points follow that trend more closely than random scatter would produce."),
+  answer("The points cluster tightly along a steep upward-sloping line, indicating a very strong positive relationship",
+         message = "The direction is positive but the clustering is moderate, not tight. There is meaningful scatter around the line --- some countries have much higher or lower life expectancy than the line predicts."),
+  answer("The fitted line slopes downward, suggesting countries with more effective governments tend to have lower life expectancy",
+         message = "Look at the slope of the fitted line. It rises from left to right, indicating that higher government effectiveness is associated with higher, not lower, life expectancy."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Incorrect. Try again."
+)
+```
 
 ### Calculate Pearson's Correlation
 
@@ -153,10 +278,11 @@ We use the same `cor()` syntax introduced above, with **effectiveness** and **li
 **Run and observe: Calculate Pearson's r for government effectiveness and life expectancy**
 
 ```{r correlation-effectiveness-lifeexpectancy, exercise=TRUE, exercise.cap="Run and observe: Pearson's r for government effectiveness and life expectancy"}
-cor(x = world$effectiveness, y = world$lifeex_total, use = "pairwise.complete.obs", method = "pearson")
+cor(x      = world$effectiveness,
+    y      = world$lifeex_total,
+    use    = "pairwise.complete.obs",
+    method = "pearson")
 ```
-
-Consider both the sign and the size of $r$ together with what you saw in the scatter plot before answering the question below.
 
 ### Is the Pattern Consistent with the Hypothesis?
 
@@ -183,15 +309,15 @@ question("Based on the scatter plot and the correlation coefficient, which state
 
 ## Is Income Inequality Associated with Democracy?
 
-A long tradition in political science argues that economic inequality and democracy are in tension. When wealth is highly concentrated, the argument goes, the wealthy can translate their economic power into political power --- shaping policy, funding campaigns, and capturing institutions --- which crowds out the broad, equal participation that democracy depends on. Highly unequal societies should therefore struggle to sustain strong democratic institutions. This is a widely held expectation, and many people assume the relationship is not just real but strong. This suggests a research question: are countries with higher income inequality less democratic?
+A long tradition in political science argues that economic inequality and democracy are in tension. Highly unequal societies may struggle to sustain strong democratic institutions because concentrated wealth can be converted into concentrated political power.
 
 ::: {.hypothesis}
 In a comparison of [countries], those with [higher income inequality] will have [lower levels of democracy] than will those with [lower income inequality].
 :::
 
-The reasoning is that concentrated economic power tends to translate into concentrated political power, undermining the broad and equal participation that sustains democratic institutions. This hypothesis makes a descriptive prediction: countries with higher inequality should tend to have lower democracy scores --- a negative relationship.
+The causal explanation is that when wealth is highly concentrated, the wealthy can translate their economic power into political power --- shaping policy, funding campaigns, and capturing institutions --- which crowds out the broad and equal participation that democracy depends on.
 
-The data frame **qog**, from the Quality of Government project, contains **wdi_gini**, the World Bank's Gini index of income inequality (higher values mean more unequal), and **vdem_polyarchy**, the V-Dem electoral democracy index, which runs from 0 to 1 with higher values indicating more democratic (more free and fair elections, broader suffrage, and stronger protections for political participation). **wdi_gini** is our explanatory variable and **vdem_polyarchy** is our outcome.
+The data frame **qog**, from the Quality of Government project, contains **wdi_gini**, the World Bank's Gini index of income inequality (higher values mean more unequal), and **vdem_polyarchy**, the V-Dem electoral democracy index, which runs from 0 to 1 with higher values indicating more democratic (more free and fair elections, broader suffrage, and stronger protections for political participation). Both are stored as numeric variables. **wdi_gini** is our explanatory variable and **vdem_polyarchy** is our outcome.
 
 ### Create the Scatter Plot
 
@@ -302,10 +428,13 @@ The scatter plot gave us a visual impression of the relationship. Now we can qua
 
 **Practice: Calculate the correlation between income inequality and democracy**
 
-Use the same `cor()` syntax introduced earlier, with the same explanatory/outcome variable order you used for the scatter plot --- explanatory variable first, outcome variable second. Two hints are available. Click "Submit Answer" to check your work.
+Use **wdi_gini** (explanatory) and **vdem_polyarchy** (outcome) from the **qog** data frame, following the same `cor()` syntax introduced earlier. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r correlation-gini-polyarchy, exercise=TRUE, exercise.cap="Practice: Pearson's r for income inequality and democracy"}
-cor(x = qog$___, y = qog$___, use = ___, method = "pearson")
+cor(x      = qog$___,
+    y      = qog$___,
+    use    = ___,
+    method = "pearson")
 ```
 
 ```{r correlation-gini-polyarchy-hint-1}
@@ -364,22 +493,21 @@ grade_this({
 
 ### Is the Pattern Consistent with the Hypothesis?
 
-Consider both the sign of the correlation and its size, together with what you saw in the scatter plot, before answering.
 
 **Practice: Evaluate the inequality/democracy hypothesis**
 
 ```{r quiz-hypothesis-gini-polyarchy, echo=FALSE}
 question("Based on the scatter plot and the correlation coefficient you just calculated, is this pattern consistent with the hypothesis?",
-  correct = "Right. The correlation is near zero, so the strong relationship the hypothesis assumed does not show up in these data.",
-  answer("No --- the correlation is near zero, so the strong relationship many people assume between inequality and democracy does not appear in these data",
+  correct = "Right. The pattern is directionally consistent but very weak.",
+  answer("The correlation is negative as the hypothesis predicts, but it is so close to zero that the data provide only weak support --- a meaningful negative relationship between inequality and democracy does not appear in these data",
          correct = TRUE,
-         message = "The correlation is about -0.12 --- very weak, and only slightly in the predicted direction. This is worth pausing on: the hypothesis is widely assumed to describe a strong relationship, yet across these countries the pattern is barely present. A near-zero result on a relationship people expect to be strong is a genuinely informative finding. It does not mean inequality and democracy are unrelated in every sense --- other factors may mask the relationship, or it may operate differently in different regions --- but the simple bivariate pattern people often take for granted is not there."),
+         message = "A correlation of -0.12 points in the predicted direction, so the pattern is technically consistent with the hypothesis. But the relationship is so weak that it barely qualifies as support. This is a good example of why direction and strength both matter: a correctly signed but near-zero correlation is very different from a strong negative relationship."),
   answer("Yes --- the correlation is negative and strong, exactly as the hypothesis predicts",
-         message = "The correlation is negative, matching the predicted direction, but at about -0.12 it is very weak, not strong. The points are widely scattered rather than clustered tightly around a steep line."),
-  answer("Yes --- the correlation is negative, so even though it is weak, the pattern strongly supports the hypothesis",
-         message = "The direction does match, but a correlation of about -0.12 is too weak to describe as strong support. The honest summary is that the relationship leans the predicted way but is so weak that the pattern people assume to be strong is essentially absent here."),
-  answer("The correlation is negative, which is the opposite of what the hypothesis predicted",
-         message = "A negative correlation is actually the direction the hypothesis predicted: higher inequality going with lower democracy. The issue is not the direction but the strength --- the relationship is very weak."),
+         message = "The direction is correct, but r = -0.12 is not strong --- it falls well below the rough threshold of .3 for a moderate relationship."),
+  answer("No --- the correlation is negative, which is the opposite of what the hypothesis predicted",
+         message = "The hypothesis predicted a negative relationship --- countries with higher inequality should have lower democracy scores. A negative correlation points in exactly that direction. The issue is not the sign but the strength: r = -0.12 is very close to zero."),
+  answer("Yes --- even though the correlation is weak, any negative correlation fully confirms the hypothesis",
+         message = "A negative correlation is consistent with the hypothesis direction, but 'fully confirms' goes too far. A near-zero correlation means the relationship is barely present. Direction and strength both matter when evaluating descriptive evidence."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Incorrect. Try again."
@@ -387,29 +515,29 @@ question("Based on the scatter plot and the correlation coefficient you just cal
 ```
 
 
-## Is Wage Growth Associated with Democratic Vote Share?
+## Is Wage Growth Associated with Democratic Vote Percentage?
 
-Voters often reward or punish the party in power based on how the economy has performed during their time in office. Wage growth is one concrete sign of how the local economy is doing. This suggests a research question: did counties with stronger wage growth show greater support for the incumbent party's candidate in 2016?
+Voters often reward or punish the party in power based on how the economy has performed. Wage growth is one concrete sign of how the local economy is doing, and counties may differ in how much they benefited during the years leading up to the 2016 election.
 
 ::: {.hypothesis}
-In a comparison of [counties], those with [higher wage growth] will have [a higher Democratic vote share] than will those with [lower wage growth].
+In a comparison of [counties], those with [higher wage growth] will have [a higher Democratic vote percentage] than will those with [lower wage growth].
 :::
 
-The causal explanation is retrospective voting: voters tend to credit the incumbent party for a strong local economy, so counties experiencing stronger wage growth under the incumbent administration should be more likely to reward that party's candidate at the polls.
+The causal explanation is retrospective voting: voters tend to credit the incumbent party for a strong local economy, so counties experiencing stronger wage growth should be more likely to reward that party's candidate at the polls.
 
-The data frame **counties** contains **wage_growth**, the percent change in average wages from 2008 to 2016, and **dem2p_vote_share**, the Democratic candidate's share of the two-party vote in 2016. **wage_growth** is our explanatory variable and **dem2p_vote_share** is our outcome.
+The data frame **counties** contains **wage_growth**, the percent change in average wages from 2008 to 2016, and **dem2p_percent**, the Democratic candidate's percent of the two-party vote in 2016. Both are stored as numeric variables.
 
 ### Create the Scatter Plot
 
-Now build the scatter plot on your own from scratch, using everything practiced in the previous two examples. The question is whether counties that experienced stronger wage growth rewarded the incumbent party's candidate with a higher vote share.
+Now build the scatter plot on your own from scratch, using everything practiced in the previous two examples. The question is whether counties that experienced stronger wage growth rewarded the incumbent party's candidate with a higher Democratic vote percentage.
 
-**Practice: Build a scatter plot of wage growth and Democratic vote share**
+**Practice: Build a scatter plot of wage growth and Democratic vote percentage**
 
 This is the first time you're building a scatter plot from scratch, with no starter code --- but take a breath, because very little here is actually new. You've written `filter()` and `labs()` many times, and the `labs()` layer works exactly as it did for every bar chart, histogram, and box plot you've built. The genuinely new part is mapping your two interval variables inside `aes()` and adding the two scatter plot layers you learned earlier in this tutorial. Focus your attention there, then fill in the parts you already know well.
 
-Filter out missing values in both variables before plotting, and decide which variable is explanatory and which is the outcome. Make the points steelblue and the fitted line darkorange. Give the plot a title, label the x-axis "Wage Growth" and the y-axis "Democratic Vote Share", and add the caption "Source: Linn, Nagler, Zilinsky". Five hints are available. Click "Submit Answer" to check your work.
+Filter out missing values in both variables before plotting. Make the points steelblue and the fitted line darkorange. Use the following labels: title "Wage Growth and Democratic Vote Percentage", axis labels "Wage Growth" and "Percent of Two-Party Vote" (you decide which goes where), and caption "Source: Linn, Nagler, Zilinsky". Five hints are available. Click "Submit Answer" to check your work.
 
-```{r scatterplot-wagegrowth-demvoteshare, exercise=TRUE, exercise.cap="Practice: Scatter plot of wage growth and Democratic vote share", fig.alt="Scatter plot showing wage growth on the x-axis and Democratic vote share on the y-axis across U.S. counties in 2016. Most points form a dense vertical cluster near zero wage growth, spanning nearly the entire range of vote share from close to 0 to close to 1. A smaller number of counties with higher or lower wage growth are more sparsely scattered to the left and right. A fitted line runs from the lower left to the upper right of the plot."}
+```{r scatterplot-wagegrowth-demvoteshare, exercise=TRUE, exercise.cap="Practice: Scatter plot of wage growth and Democratic vote percentage", fig.alt="Scatter plot showing wage growth on the x-axis and Democratic vote percentage on the y-axis across U.S. counties in 2016. Most points form a dense vertical cluster near zero wage growth, spanning nearly the entire range of Democratic vote percentage from close to 0 to close to 100 percent. A smaller number of counties with higher or lower wage growth are more sparsely scattered to the left and right. A fitted line runs from the lower left to the upper right of the plot."}
 
 ```
 
@@ -446,12 +574,11 @@ Filter out missing values in both variables before plotting, and decide which va
 
 ```{r scatterplot-wagegrowth-demvoteshare-hint-5}
 # Hint 5 of 5
-# The hardest piece is getting all four labs() arguments right:
-# title = a title of your choice (any non-empty string)
-# x = "Wage Growth"
-# y = "Democratic Vote Share"
-# caption = "Source: Linn, Nagler, Zilinsky"
-# All four are required --- the grader checks each one.
+# labs() takes title, x, y, and caption.
+# The axis labels are "Wage Growth" and
+# "Percent of Two-Party Vote" --- the hypothesis
+# tells you which variable is explanatory (x)
+# and which is the outcome (y).
 ```
 
 ```{r scatterplot-wagegrowth-demvoteshare-check}
@@ -471,17 +598,22 @@ grade_this({
   if (!grepl("!\\s*is\\.na\\s*\\(\\s*wage_growth\\s*\\)", code_no_comments)) {
     fail("Use filter() to remove rows where wage_growth is missing: !is.na(wage_growth).")
   }
-  if (!grepl("!\\s*is\\.na\\s*\\(\\s*dem2p_vote_share\\s*\\)", code_no_comments)) {
-    fail("Use filter() to remove rows where dem2p_vote_share is missing: !is.na(dem2p_vote_share).")
+  if (!grepl("!\\s*is\\.na\\s*\\(\\s*dem2p_percent\\s*\\)", code_no_comments)) {
+    fail("Use filter() to remove rows where dem2p_percent is missing: !is.na(dem2p_percent).")
   }
   if (!grepl("ggplot\\s*\\(", code_no_comments)) {
     fail("Use ggplot() to build the scatter plot.")
   }
-  if (!grepl("x\\s*=\\s*wage_growth", code_no_comments)) {
+
+  plot_mapping <- .result$mapping
+  x_mapping <- rlang::as_label(plot_mapping$x)
+  y_mapping <- rlang::as_label(plot_mapping$y)
+
+  if (!identical(x_mapping, "wage_growth")) {
     fail("wage_growth is our explanatory variable, so it belongs on the x-axis inside aes().")
   }
-  if (!grepl("y\\s*=\\s*dem2p_vote_share", code_no_comments)) {
-    fail("dem2p_vote_share is our outcome variable, so it belongs on the y-axis inside aes().")
+  if (!identical(y_mapping, "dem2p_percent")) {
+    fail("dem2p_percent is our outcome variable, so it belongs on the y-axis inside aes().")
   }
   if (!grepl("geom_point\\s*\\(", code_no_comments)) {
     fail("Add geom_point() to plot the data as a scatter plot.")
@@ -498,20 +630,22 @@ grade_this({
   if (!grepl("labs\\s*\\(", code_no_comments)) {
     fail("Add labs() to give the plot a title, axis labels, and caption.")
   }
-  if (!grepl("title\\s*=\\s*['\"][^'\"]+['\"]", code_no_comments)) {
-    fail("Add your own informative title inside labs().")
+
+  plot_labels <- .result$labels
+  if (!identical(plot_labels$title, "Wage Growth and Democratic Vote Percentage")) {
+    fail('Use "Wage Growth and Democratic Vote Percentage" as the title inside labs().')
   }
-  if (!grepl("x\\s*=\\s*['\"]Wage Growth['\"]", code_no_comments)) {
-    fail('Label the x-axis "Wage Growth" inside labs().')
+  if (!identical(plot_labels$x, "Wage Growth")) {
+    fail('Set x = "Wage Growth" inside labs().')
   }
-  if (!grepl("y\\s*=\\s*['\"]Democratic Vote Share['\"]", code_no_comments)) {
-    fail('Label the y-axis "Democratic Vote Share" inside labs().')
+  if (!identical(plot_labels$y, "Percent of Two-Party Vote")) {
+    fail('Set y = "Percent of Two-Party Vote" inside labs().')
   }
-  if (!grepl("caption\\s*=\\s*['\"]Source: Linn, Nagler, Zilinsky['\"]", code_no_comments)) {
+  if (!identical(plot_labels$caption, "Source: Linn, Nagler, Zilinsky")) {
     fail('Set caption = "Source: Linn, Nagler, Zilinsky" inside labs().')
   }
 
-  pass("Correct! wage_growth is mapped to x and dem2p_vote_share is mapped to y, with missing values filtered out and the plot properly labeled and cited.")
+  pass("Correct! wage_growth is mapped to x and dem2p_percent is mapped to y, with missing values filtered out and the plot properly labeled and cited.")
 })
 ```
 
@@ -522,17 +656,17 @@ grade_this({
 Look at where most of the points cluster, how tightly they follow the fitted line, and which direction the line slopes before answering.
 
 ```{r quiz-wagegrowth-scatter-read, echo=FALSE}
-question("Based on the scatter plot, which statement best describes the relationship between wage growth and Democratic vote share?",
-  correct = "Right. The points cluster near zero wage growth across a wide range of vote share, and the line slopes upward only modestly.",
+question("Based on the scatter plot, which statement best describes the relationship between wage growth and Democratic vote percentage?",
+  correct = "Right. The points cluster near zero wage growth across a wide range of Democratic vote percentage, and the line slopes upward only modestly.",
   answer("The points cluster tightly along a steep upward-sloping line, indicating a strong positive relationship",
-         message = "Look again at how widely the points are scattered, especially the dense cluster near zero wage growth that spans almost the full range of vote share. A strong relationship would show much tighter clustering around the line."),
-  answer("Most counties cluster near zero wage growth but show a wide range of vote share, and the fitted line slopes upward only modestly",
+         message = "Look again at how widely the points are scattered, especially the dense cluster near zero wage growth that spans almost the full range of Democratic vote percentage. A strong relationship would show much tighter clustering around the line."),
+  answer("Most counties cluster near zero wage growth but show a wide range of Democratic vote percentage, and the fitted line slopes upward only modestly",
          correct = TRUE,
-         message = "Counties with stronger wage growth show, on average, a slightly higher Democratic vote share, but most counties sit close to zero wage growth and vary enormously in vote share --- a sign that wage growth accounts for very little of the variation in vote share in this bivariate relationship."),
+         message = "Counties with stronger wage growth show, on average, a slightly higher Democratic vote percentage, but most counties sit close to zero wage growth and vary enormously in Democratic vote percentage --- a sign that wage growth accounts for very little of the variation in Democratic vote percentage in this bivariate relationship."),
   answer("The handful of counties with the highest and lowest wage growth show a clear, strong pattern, so the relationship is strong overall",
-         message = "Those extreme counties are a small minority of the data. Most counties cluster densely near zero wage growth with a wide spread of vote share, and that dense cluster --- not the few outliers --- is what the correlation mostly reflects."),
-  answer("The points show a clear negative relationship: higher wage growth is associated with lower vote share",
-         message = "The fitted line slopes upward, not downward. Higher wage growth is associated with slightly higher, not lower, vote share."),
+         message = "Those extreme counties are a small minority of the data. Most counties cluster densely near zero wage growth with a wide spread of Democratic vote percentage, and that dense cluster --- not the few outliers --- is what the correlation mostly reflects."),
+  answer("The points show a clear negative relationship: higher wage growth is associated with lower Democratic vote percentage",
+         message = "The fitted line slopes upward, not downward. Higher wage growth is associated with slightly higher, not lower, Democratic vote percentage."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Incorrect. Try again."
@@ -541,13 +675,13 @@ question("Based on the scatter plot, which statement best describes the relation
 
 ### Calculate Pearson's Correlation
 
-Now quantify what you observed. Use the same `cor()` structure from the previous examples.
+Now quantify what you observed. Use **wage_growth** and **dem2p_percent** from the **counties** data frame, following the same `cor()` structure from the previous examples.
 
-**Practice: Calculate the correlation between wage growth and Democratic vote share**
+**Practice: Calculate the correlation between wage growth and Democratic vote percentage**
 
 Calculate Pearson's r on your own, following the same structure as before. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r correlation-wagegrowth-demvoteshare, exercise=TRUE, exercise.cap="Practice: Pearson's r for wage growth and Democratic vote share"}
+```{r correlation-wagegrowth-demvoteshare, exercise=TRUE, exercise.cap="Practice: Pearson's r for wage growth and Democratic vote percentage"}
 
 ```
 
@@ -589,8 +723,8 @@ grade_this({
   if (!grepl("x\\s*=\\s*counties\\$wage_growth", code_no_comments)) {
     fail("The result is the same either way, but our course convention is to list the explanatory variable first. Put wage_growth in x: cor(x = counties$wage_growth, ...).")
   }
-  if (!grepl("y\\s*=\\s*counties\\$dem2p_vote_share", code_no_comments)) {
-    fail("Following our course convention, the outcome goes in y. Put dem2p_vote_share in y: cor(..., y = counties$dem2p_vote_share, ...).")
+  if (!grepl("y\\s*=\\s*counties\\$dem2p_percent", code_no_comments)) {
+    fail("Following our course convention, the outcome goes in y. Put dem2p_percent in y: cor(..., y = counties$dem2p_percent, ...).")
   }
   if (!grepl("use\\s*=\\s*['\"]pairwise\\.complete\\.obs['\"]", code_no_comments)) {
     fail('Set use = "pairwise.complete.obs" so cor() handles missing values correctly.')
@@ -600,30 +734,29 @@ grade_this({
   }
 
   expected <- cor(x = counties$wage_growth,
-                  y = counties$dem2p_vote_share,
+                  y = counties$dem2p_percent,
                   use = "pairwise.complete.obs",
                   method = "pearson")
 
   if (!isTRUE(all.equal(as.numeric(.result), as.numeric(expected), tolerance = 1e-6))) {
-    fail("Check that your cor() call uses counties$wage_growth as x, counties$dem2p_vote_share as y, use = \"pairwise.complete.obs\", and method = \"pearson\".")
+    fail("Check that your cor() call uses counties$wage_growth as x, counties$dem2p_percent as y, use = \"pairwise.complete.obs\", and method = \"pearson\".")
   }
 
-  pass("Correct! wage_growth is assigned to x and dem2p_vote_share is assigned to y, following the course convention of listing the explanatory variable first.")
+  pass("Correct! wage_growth is assigned to x and dem2p_percent is assigned to y, following the course convention of listing the explanatory variable first.")
 })
 ```
 
 ### Is the Pattern Consistent with the Hypothesis?
 
-Consider both the sign of the correlation and its size, together with what you saw in the scatter plot, before answering.
 
-**Practice: Evaluate the wage growth/Democratic vote share hypothesis**
+**Practice: Evaluate the wage growth/Democratic vote percentage hypothesis**
 
 ```{r quiz-hypothesis-wagegrowth-demvoteshare, echo=FALSE}
 question("Based on the scatter plot and the correlation coefficient you just calculated, is this pattern consistent with the hypothesis?",
   correct = "Right. The correlation is positive but weak --- consistent in direction but small in magnitude.",
   answer("Yes --- the correlation is positive, matching the direction predicted by the hypothesis, though it is quite weak",
          correct = TRUE,
-         message = "The positive correlation matches the direction retrospective voting predicts, but the relationship is weak: wage growth accounts for very little of the variation in vote share in this bivariate relationship. Reporting this honestly means saying both things together --- the sign is in the predicted direction, but the descriptive relationship is small. A weak relationship provides much less descriptive evidence for a hypothesis than a strong one, even when the sign is correct. This is a common outcome in the social sciences, where any single variable usually explains only part of what we observe."),
+         message = "The positive correlation matches the direction retrospective voting predicts, but the relationship is weak: wage growth accounts for very little of the variation in Democratic vote percentage in this bivariate relationship. Reporting this honestly means saying both things together --- the sign is in the predicted direction, but the descriptive relationship is small. A weak relationship provides much less descriptive evidence for a hypothesis than a strong one, even when the sign is correct. This is a common outcome in the social sciences, where any single variable usually explains only part of what we observe."),
   answer("No --- the correlation is too weak to be consistent with any hypothesis",
          message = "The correlation is weak, but it does point in the direction the hypothesis predicted, so the pattern is not flatly inconsistent. The honest description is that the sign matches but the relationship is small --- weak descriptive evidence in the predicted direction, rather than none at all."),
   answer("Yes --- the correlation is positive and strong, which strongly supports the hypothesis",
@@ -750,7 +883,7 @@ One important limitation: $r$ only captures linear relationships. If a scatter p
 
 Tutorials 7 through 9 have given you the full toolkit for bivariate description. From here the course moves to inference --- asking not just whether the observed pattern is consistent with a hypothesis, but whether it is large enough to rule out chance. Tutorial 10 introduces the logic of inference. You have the descriptive foundation. The rest builds on it.
 
-In your own R scripts, call `library(ggplot2)` and `library(dplyr)` once at the top of the script before using any functions from those packages. Loading a package once per session is enough --- you do not need to repeat the `library()` call every time you use a function from it.
+In R, load each package once at the top of your script or Quarto document with `library(ggplot2)` and `library(dplyr)` before any code that uses functions from those packages. You do not need to repeat the `library()` call every time you use a function from it.
 
 ## Submit Your Work
 
