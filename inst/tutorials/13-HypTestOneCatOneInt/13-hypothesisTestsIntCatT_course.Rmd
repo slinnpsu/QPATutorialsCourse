@@ -13,7 +13,7 @@ description: >
 
 ## Overview {#main-content}
 
-Tutorial 8 described the relationship between a categorical and an interval variable by comparing group means --- but every example ended with the same caution: a difference in sample means cannot tell us whether that difference is larger than we would expect by chance. In Tutorials 10 and 11, you built the tools a formal test requires: the sampling distribution, the p-value, and the decision rule. This tutorial puts those tools to work on the same examples, testing each relationship formally.
+Tutorial 8 described the relationship between a categorical and an interval variable by comparing group means --- but every example ended with the same caution: a difference in sample means cannot tell us whether that difference is larger than we would expect by chance. In Tutorials 10 and 11, you built the tools a formal test requires: the sampling distribution, the p-value, and the decision rule. This tutorial takes the group-mean relationships from Tutorial 8 and subjects them to formal [**hypothesis tests**]{.important-text} --- using sample data to assess whether observed differences in means are strong enough to rule out chance. Tutorial 13 does the same for the group-mean relationships from Tutorial 8, and Tutorial 14 for the correlations from Tutorial 9.
 
 In this tutorial, you will learn how to test whether a categorical and an interval variable are related in the population. Specifically, we will cover:
 
@@ -35,7 +35,6 @@ library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
 knitr::opts_chunk$set(error = TRUE)
-data("counties", package = "QPATutorialsCourse")
 counties$dem2p_percent <- counties$dem2p_vote_share*100
 counties$rural <- 1
 counties$rural[counties$rural_urban <= 3] <- 0
@@ -187,8 +186,7 @@ Find the p-value in your output and compare it to .05 before answering.
 question("Find the p-value in your output. Which statement best summarizes what this test tells us?",
   correct = "Right. The ANOVA establishes that the population means are not all equal, but its p-value does not directly test whether urban counties specifically have a higher mean than rural counties. We can see that direction in the group means; the t-test evaluates it directly.",
   answer("We reject the null hypothesis --- providing evidence that the means are not all equal across the three rurality categories --- but the ANOVA p-value does not directly test whether urban counties specifically have a higher mean than rural counties",
-         correct = TRUE,
-         message = "A one-way ANOVA provides strong evidence that the population means are not all equal (F = 239.35, p < .001). We can see in the data that urban counties have a higher mean, but the ANOVA p-value does not directly test that specific one-tailed contrast. That is what the t-test does next."),
+         correct = TRUE),
   answer("We reject the null hypothesis, which provides strong evidence that urban counties have a higher mean proportion of college graduates than rural counties",
          message = "Rejecting this null hypothesis only provides evidence that the population means are not all equal across the three categories (F = 239.35, p < .001). It does not, by itself, evaluate the specific direction our hypothesis predicts --- for that we need the t-test that follows."),
   answer("We fail to reject the null hypothesis, so there is no relationship between rural and prop_college_grad",
@@ -220,7 +218,10 @@ $$H_A: \mu_{urban} > \mu_{rural}$$
 
 We set `alternative = "greater"` because the hypothesis predicts that the urban mean is *higher* than the rural mean --- not just different from it. The `%in%` operator checks whether each county's value matches *any* value in the list that follows --- here, keeping only counties where `rural` equals 0 or 2, and dropping those equal to 1. Filtering this way leaves exactly the two groups `t.test()`'s formula notation requires.
 
+Load [dplyr]{.package-name} with `library(dplyr)` before using `filter()` and the pipe. Once loaded, it is available for all subsequent exercises in this tutorial.
+
 ```{r ttest-collegegrad-urban-rural, exercise=TRUE, exercise.cap="Run and observe: One-tailed two-sample t-test for college graduation by rurality"}
+library(dplyr)
 counties_urban_rural <- counties %>%
   filter(rural %in% c(0, 2))
 
@@ -235,8 +236,7 @@ Look at how **rural** is coded and match the numeric labels in the output to the
 question("In the t.test() output above, the alternative hypothesis line refers to 'group 0' and 'group 2', and the sample estimates report 'mean in group 0' and 'mean in group 2'. Which counties do these labels refer to?",
   correct = "Right. Rural is coded 0 for urban and 2 for rural --- R reports those numeric codes directly, not category names. Always translate numeric codes back into substantive labels before interpreting t.test() output.",
   answer("Group 0 refers to urban counties, and group 2 refers to rural counties",
-         correct = TRUE,
-         message = "Recall how rural is coded: 0 for urban counties, 1 for counties that are neither, and 2 for rural counties. R reports the numeric codes directly in this output, not the category names."),
+         correct = TRUE),
   answer("Group 0 refers to rural counties, and group 2 refers to urban counties",
          message = "This reverses the coding. rural is coded 0 for urban counties and 2 for rural counties --- not the other way around."),
   answer("Group 0 and group 2 refer to two different values of prop_college_grad, not to categories of rural",
@@ -259,14 +259,13 @@ Find the p-value and the sample estimates in your output before answering.
 question("Find the p-value in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
   correct = "Right. The p-value is far below .05 --- we reject the null hypothesis. Urban counties have a significantly higher mean proportion of college graduates than rural counties, matching the predicted direction.",
   answer("Yes --- the p-value is far below .05, and the mean proportion of college graduates is significantly higher among urban counties than rural counties, matching the predicted direction",
-         correct = TRUE,
-         message = "Urban counties have a mean proportion of college graduates of 25.5%, compared to 17.7% for rural counties --- a difference that is statistically significant (t = 19.556, p < .001). Combined with the ANOVA's evidence that the means are not all equal, this is statistically significant evidence in support of the hypothesis."),
+         correct = TRUE),
   answer("Yes, but only weakly --- the p-value is small because the sample has over 3,000 counties, not because the effect is meaningful",
          message = "Sample size does affect p-values, but the group means themselves tell the story too: urban counties average 25.5% college graduates compared to 17.7% for rural counties --- a nearly 8-percentage-point gap. Both the statistical significance and the magnitude of the difference support the hypothesis."),
+  answer("No --- the p-value is below .05, so we fail to reject the null hypothesis",
+         message = "This reverses the decision rule. A p-value *below* .05 leads us to *reject* the null hypothesis, not fail to reject it. We fail to reject the null only when the p-value is *above* .05."),
   answer("We cannot conclude anything about direction from this test because the ANOVA already established the relationship",
          message = "The ANOVA established that the means are not all equal across the three groups, but its p-value does not directly test whether urban counties specifically have a higher mean than rural counties. This t-test is what directly evaluates that contrast. The two results answer different questions."),
-  answer("We reject the null hypothesis, but since the ANOVA already provided evidence that the means differ, this test adds nothing new",
-         message = "The ANOVA (F = 239.35, p < .001) could only provide evidence that the means are not all equal somewhere among the three groups; its p-value does not directly test whether urban counties specifically have a higher mean than rural counties. This test is what provides evidence for the hypothesis's specific directional claim --- it is not redundant with the ANOVA."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: Find the p-value and compare it to .05. Then check whether the sample estimates match the direction the hypothesis predicted: which group (0 or 2) has the higher mean?"
@@ -362,8 +361,7 @@ Find the p-value in your output and compare it to .05 before answering.
 question("The ANOVA for Democratic vote share by racial majority produces F = 382.25 with p < .001. Which null hypothesis does this result give us strong evidence to reject?",
   correct = "Right. Rejecting the ANOVA null tells us at least one group mean differs --- not which groups, not the direction, and not whether any specific comparison is significant.",
   answer("That the four racial-majority group means are all equal in the population",
-         correct = TRUE,
-         message = "The one-way ANOVA null hypothesis is μ_Black = μ_White = μ_Hispanic = μ_Other. Rejecting it tells us at least one mean differs from at least one other. It does not identify which comparison is driving the difference or whether the difference runs in the direction the hypothesis predicts --- that is what the t-test addresses next."),
+         correct = TRUE),
   answer("That every racial-majority group mean differs significantly from every other group mean",
          message = "Rejecting the ANOVA null tells us that at least one population mean differs from at least one other --- not that every pairwise difference is statistically significant. A significant overall F is consistent with, say, three groups having similar means while one stands apart, with no significant difference among the three similar groups."),
   answer("That Black Majority counties specifically have a lower mean Democratic vote share than White Majority counties",
@@ -386,10 +384,9 @@ You've seen the null and alternative formalized once. Before building this test,
 
 ```{r quiz-dem2p-alternative, echo=FALSE}
 question("**racial_majority** is a plain character variable. Which value of `alternative` correctly tests the directional claim, and why?",
-  correct = "Right. R sorts character variables alphabetically, putting Black Majority before White Majority --- so `alternative = \"greater\"` tests whether the first group's mean exceeds the second's, matching the predicted direction.",
+  correct = "Right. R sorts character variables alphabetically, putting Black Majority before White Majority --- so `alternative = \"greater\"` tests whether the first group's mean exceeds the second's, matching the predicted direction. With a plain character grouping variable, R sorts alphabetically. \"Black Majority\" sorts before \"White Majority,\" so Black is the first group and White is the second. The hypothesis predicts Black Majority counties have a higher mean Democratic vote share, so `alternative = \"greater\"` tests whether the first group's mean is greater than the second's --- the correct direction.",
   answer('`alternative = "greater"`, because R sorts character variables alphabetically and "Black Majority" comes before "White Majority"',
-         correct = TRUE,
-         message = 'With a plain character grouping variable, R sorts alphabetically. "Black Majority" sorts before "White Majority," so Black is the first group and White is the second. The hypothesis predicts Black Majority counties have a higher mean Democratic vote share, so `alternative = "greater"` tests whether the first group\'s mean is greater than the second\'s --- the correct direction.'),
+         correct = TRUE),
   answer('`alternative = "less"`, because R sorts character variables alphabetically and "Black Majority" comes before "White Majority"',
          message = 'The alphabetical ordering is right --- "Black Majority" does sort first. But the hypothesis predicts Black Majority counties have a *higher* mean Democratic vote share, not a lower one. `alternative = "less"` would test the wrong direction.'),
   answer('`alternative = "greater"`, because Black Majority counties have more Democratic voters and therefore go first in the formula',
@@ -506,8 +503,7 @@ Find the p-value and the sample estimates in your output before answering.
 question("The t-test output reports a 95% confidence interval of (32.09, Inf) for the difference in means (Black Majority minus White Majority). What does this interval tell us?",
   correct = "Right. The calculated lower bound (32.09) excludes 0 --- the interval tells us the difference is at least 32 percentage points in the predicted direction.",
   answer("The mean Democratic vote share in Black Majority counties is at least 32.09 percentage points higher than in White Majority counties, with 95% confidence, and the upper bound is not estimated because the one-tailed test only constrains one side",
-         correct = TRUE,
-         message = "For a one-tailed test, R fixes one bound at the theoretical extreme (Inf here, since a mean difference has no finite upper limit) rather than computing it from the data. The bound that matters is 32.09 --- the entire interval excludes 0, pointing to the same conclusion as the p-value. The interval also communicates effect size: the gap is at least 32 percentage points, which is substantively large."),
+         correct = TRUE),
   answer("The true mean Democratic vote share in Black Majority counties falls between 32.09% and infinity",
          message = "The interval is for the difference in means between the two groups, not for the mean of Black Majority counties alone. A 95% confidence interval for the difference tells us the plausible range of values for μ_Black minus μ_White, not for μ_Black by itself."),
   answer("The interval is unreliable because one bound is Inf --- a valid confidence interval should have two finite bounds",
@@ -622,8 +618,7 @@ Find the p-value in your output and compare it to .05 before answering.
 question("The ANOVA for GDP per capita across four regime types produces F = 45.921 with p < .001. Which conclusion follows directly from this result?",
   correct = "Right. A significant ANOVA establishes that at least one mean differs from at least one other --- nothing more specific than that.",
   answer("At least one regime-type population mean differs from at least one other",
-         correct = TRUE,
-         message = "The ANOVA null hypothesis is that all four population means are equal. Rejecting it provides evidence that at least one mean differs --- but not which groups are driving the difference, not the direction, and not whether the means follow any particular ordering across all four categories. Each of those questions requires a more targeted test."),
+         correct = TRUE),
   answer("All four regime-type population means differ from one another",
          message = "A significant ANOVA tells you that at least one mean differs from at least one other, not that every pair of groups differs. The result is consistent with a single outlying group while three others remain similar."),
   answer("GDP per capita rises monotonically with democracy level",
@@ -648,8 +643,7 @@ This time, identify the complete null and alternative hypothesis pair before bui
 question("The Run and observe above confirmed that R puts Full Democ before Authoritarian. Which pair of hypotheses correctly formalizes the directional claim?",
   correct = "Right. For the tests in this tutorial, the null states that the population means are equal; the alternative matches the predicted direction given which group comes first.",
   answer("$H_0: \\mu_{Full Democ} = \\mu_{Authoritarian}$ and $H_A: \\mu_{Full Democ} > \\mu_{Authoritarian}$",
-         correct = TRUE,
-         message = "The null states that the two population means are equal. Since the hypothesis predicts Full Democracies have higher GDP per capita, and Full Democ is the first group in the formula, the alternative is $H_A: \\mu_{Full Democ} > \\mu_{Authoritarian}$ --- which maps directly to `alternative = \"greater\"` in `t.test()`."),
+         correct = TRUE),
   answer("$H_0: \\mu_{Full Democ} = \\mu_{Authoritarian}$ and $H_A: \\mu_{Full Democ} < \\mu_{Authoritarian}$",
          message = "The null is right, but the alternative points in the wrong direction. The hypothesis predicts Full Democracies have *higher* GDP per capita than Authoritarian regimes, so the alternative should use $>$, not $<$."),
   answer("$H_0: \\mu_{Full Democ} = \\mu_{Authoritarian}$ and $H_A: \\mu_{Full Democ} \\neq \\mu_{Authoritarian}$",
@@ -778,8 +772,7 @@ Find the p-value and the sample estimates in your output before answering.
 question("The t-test result is statistically significant (t = 7.0635, p < .001), with Full Democracies averaging $35,891 in GDP per capita compared to $9,412 for Authoritarian regimes. Which conclusion is best supported by this result combined with the ANOVA?",
   correct = "Right. The ANOVA and t-test together support one focused implication of the broader hypothesis --- not the full four-category ordering prediction.",
   answer("Countries at the most democratic end of the scale have significantly higher mean GDP per capita than those at the least democratic end, supporting a focused implication of the broader hypothesis",
-         correct = TRUE,
-         message = "The hypothesis predicts a full ordering across all four democracy categories. We tested one focused implication: Full Democracies versus Authoritarian regimes. The result strongly supports that implication (t = 7.0635, p < .001), but it is consistent with other orderings among the middle categories. The ANOVA established that the means are not all equal; the t-test pinpointed the endpoint contrast."),
+         correct = TRUE),
   answer("More democratic countries have significantly higher GDP per capita than less democratic countries, fully establishing the hypothesis",
          message = "The t-test compared only the two endpoint categories --- Full Democracies and Authoritarian regimes. That result supports one focused implication of the hypothesis, but it does not establish the complete ordering across all four regime types. For example, it is consistent with Hybrid regimes having higher GDP than Partial Democracies, which would contradict the overall ordering the hypothesis predicts."),
   answer("The result is only meaningful if all four regime-type comparisons are individually significant",
@@ -931,10 +924,9 @@ grade_this({
 
 ```{r cyu-recognize-filtering, echo=FALSE}
 question("Suppose a hypothesis predicts that countries with proportional representation electoral systems have higher voter turnout than countries with majoritarian electoral systems, and electoral system is measured with a 4-category variable: proportional representation, mixed/semi-proportional, majoritarian, and other. To test this hypothesis with a two-sample t-test, what would you need to do first?",
-  correct = "Right. t.test() requires exactly two groups --- with four categories, filter down to the two the hypothesis names before running it.",
+  correct = "Right. t.test() requires exactly two groups --- with four categories, filter down to the two the hypothesis names before running it. Use filter() with %in% to keep only the two categories the hypothesis compares, then run t.test() on that filtered data --- the same approach used in every two-sample t-test in this tutorial.",
   answer("Filter the data down to just the proportional representation and majoritarian categories, dropping the other two, before running t.test()",
-         correct = TRUE,
-         message = "The hypothesis names two specific groups, but the variable has four categories. t.test()'s formula method requires exactly two groups and will error on more. Use filter() with %in% to keep only the two categories the hypothesis compares, then run t.test() on that filtered data --- the same approach used in every two-sample t-test in this tutorial."),
+         correct = TRUE),
   answer("Run t.test() directly on all four categories at once",
          message = "t.test()'s formula method requires exactly two groups. With four categories, R will return an error rather than a result --- you have to narrow the data down to the two categories the hypothesis compares first."),
   answer("Combine all four categories into two groups --- proportional representation and mixed systems in one, majoritarian and other in another --- before running t.test()",
@@ -951,8 +943,7 @@ question("Suppose a hypothesis predicts that countries with proportional represe
 question("A researcher measures political trust in the same 500 survey respondents before and after a national election, and wants to know whether trust changed, on average, between the two measurements. Which test is most appropriate?",
   correct = "Right. The same cases are measured twice --- that is exactly when a paired t-test is appropriate.",
   answer("A paired t-test, because the same respondents are measured at both time points",
-         correct = TRUE,
-         message = "A paired t-test is designed for exactly this situation: the same cases measured twice. For each respondent, R computes the difference between their post-election and pre-election trust scores, then tests whether the mean of those differences differs from zero. Using a two-sample t-test instead would ignore the within-respondent pairing and treat the two measurements as if they came from independent groups --- losing the information that the same person provided both scores."),
+         correct = TRUE),
   answer("A two-sample t-test, because there are two groups of measurements --- before and after",
          message = "The before and after measurements are not two independent groups --- they are two measurements on the same 500 people. A two-sample t-test assumes the two groups are independent, which is not the case here. When the same cases are measured twice, a paired t-test is the appropriate tool."),
   answer("A one-way ANOVA, because the researcher wants to compare means across two time points",
@@ -968,20 +959,19 @@ question("A researcher measures political trust in the same 500 survey responden
 **Apply: Predict the right direction for a new hypothesis**
 
 ```{r cyu-direction-prediction, echo=FALSE}
-question('A hypothesis predicts that countries with high judicial independence have lower rates of corruption than countries with low judicial independence. judicial_independence is a plain character variable (not a factor) with the values "High" and "Low". If you ran t.test(corruption ~ judicial_independence, data = ..., alternative = ...), which value of alternative would test this hypothesis directly?',
-  correct = "Right. High sorts before Low alphabetically, so the High group comes first in the formula --- and the hypothesis predicts it has the lower mean.",
+question('A hypothesis predicts that countries with high judicial independence have lower rates of corruption than countries with low judicial independence. The grouping variable judicial_independence takes the values "High" and "Low". If you ran t.test(corruption ~ judicial_independence, data = ..., alternative = ...), which value of alternative would test this hypothesis directly?',
+  correct = "Right. High sorts before Low alphabetically, so the High group comes first in the formula --- and the hypothesis predicts it has the lower mean. R sorts character variables alphabetically: \"High\" before \"Low\". With High listed first, alternative = \"less\" tests whether the first group's mean is lower than the second's --- exactly matching the predicted direction.",
   answer('alternative = "less"',
-         correct = TRUE,
-         message = 'Since judicial_independence is plain text, R sorts alphabetically: "High" before "Low". The hypothesis predicts the High group has the lower mean corruption rate. With High listed first, alternative = "less" tests whether the first group\'s mean is lower than the second\'s --- exactly matching the predicted direction.'),
+         correct = TRUE),
   answer('alternative = "greater"',
          message = 'With "High" sorted first, alternative = "greater" would test whether the High group\'s mean is higher than the Low group\'s --- the opposite of what this hypothesis predicts.'),
   answer('alternative = "two.sided", since we cannot know the direction in advance',
          message = "We can know the direction in advance --- it is what the hypothesis predicts. A two-sided test would be appropriate if we had no directional prediction, but this hypothesis makes one explicitly."),
-  answer('alternative = "less", but only because judicial_independence happens to have just two categories --- with more categories the ordering would be different',
-         message = 'The number of categories does not change R\'s ordering rule. For a plain character variable, R always sorts alphabetically regardless of how many values the variable has. "High" sorts before "Low" because H comes before L --- that is true whether the variable has 2 categories or 10.'),
+  answer('It depends on whether judicial_independence is stored as a factor or a plain character variable',
+         message = 'For a plain character variable, R always sorts alphabetically. For a factor, R uses the stored factor level order. Since the question does not specify the storage class, you need to check --- but the alphabetical default for a character variable is "High" before "Low", and alternative = "less" would test the predicted direction. Always check how a variable is stored before choosing alternative.'),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: R sorts plain character variables alphabetically. Which value comes first alphabetically --- High or Low? The hypothesis predicts that first group has a lower mean. Which alternative matches?"
+  try_again = "Hint: How does R order groups for a character variable? Which value comes first alphabetically --- High or Low? The hypothesis predicts that first group has a lower mean. Which alternative matches?"
 )
 ```
 

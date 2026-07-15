@@ -13,7 +13,7 @@ description: >
 
 ## Overview {#main-content}
 
-Tutorials 7, 8, and 9 described bivariate relationships --- cross-tabs, group means, scatter plots --- but every example ended with the same caution: a descriptive pattern consistent with a hypothesis is not the same as evidence that the pattern is real. In Tutorials 10 and 11, you built the tools a formal test requires: the sampling distribution, the p-value, and the decision rule for rejecting or failing to reject a null hypothesis. Tutorials 12, 13, and 14 put those tools to work. This tutorial takes the cross-tab relationships from Tutorial 7 and tests them formally. Tutorial 13 does the same for the group-mean relationships from Tutorial 8, and Tutorial 14 for the correlations from Tutorial 9.
+Tutorials 7, 8, and 9 described bivariate relationships --- cross-tabs, group means, scatter plots --- but every example ended with the same caution: a descriptive pattern consistent with a hypothesis is not the same as evidence that the pattern is real. In Tutorials 10 and 11, you built the tools a formal test requires: the sampling distribution, the p-value, and the decision rule for rejecting or failing to reject a null hypothesis. Tutorials 12, 13, and 14 put those tools to work. This tutorial takes the cross-tab relationships from Tutorial 7 and subjects them to formal [**hypothesis tests**]{.important-text} --- using sample data to assess whether an observed relationship is strong enough to rule out chance. Tutorial 13 does the same for the group-mean relationships from Tutorial 8, and Tutorial 14 for the correlations from Tutorial 9.
 
 In this tutorial, you will learn how to test whether two categorical variables are related in the population. Specifically, we will cover:
 
@@ -35,7 +35,6 @@ library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
 knitr::opts_chunk$set(error = TRUE)
-data("counties", package = "QPATutorialsCourse")
 counties$rural <- 1
 counties$rural[counties$rural_urban <= 3] <- 0
 counties$rural[counties$rural_urban >= 8] <- 2
@@ -46,7 +45,7 @@ counties$rural[counties$rural_urban >= 8] <- 2
 
 In Tutorial 7, you read a cross-tab by comparing column proportions across categories of an explanatory variable. If those proportions differed in the direction a hypothesis predicted, the pattern was consistent with the hypothesis. But a sample is just one sample --- if we drew a different sample from the same population, the proportions would differ at least a little, just by chance.
 
-A word about the data frames in this tutorial. Neither **counties** nor **world** is a random sample drawn from some larger population the way a survey draws respondents. What makes a hypothesis test appropriate anyway is that we are not really asking about these specific cases --- we are asking about the data-generating process that produced the pattern we observe, one realization among many the underlying process could have produced. A p-value still answers a meaningful question: if there were truly no relationship in that underlying process, how surprising would a pattern this strong be in this one historical realization?
+A word about the data frames in this tutorial. Neither **counties** nor **world** is a random sample from a larger population the way a survey is. As Tutorial 11 explained, inference is still appropriate when the research question is about a relationship --- a systematic pattern that could have looked different under different conditions. A p-value answers: if there were truly no relationship, how surprising would a pattern this strong be in these data?
 
 We test whether two categorical variables are related using two complementary tools. The [**chi-square test of independence**]{.important-text} considers every category at once and asks whether the variables are related at all. A [**difference-of-proportions test**]{.important-text} asks a narrower but sharper question: comparing exactly two specific groups, it can test a specific directional prediction in a way the chi-square test cannot. Since building a cross-tab already gives us everything the chi-square test needs, we test the general claim first, then sharpen to a directional two-group test when the hypothesis supports one. We also look at a related but different question: whether a single sample proportion differs from some fixed hypothesized value.
 
@@ -172,10 +171,9 @@ Look at the output carefully before moving on. Each cell now shows three numbers
 
 ```{r quiz-rural-expectedcounts, echo=FALSE}
 question("Using the row total, column total, and grand total from your output, what is the expected count for the Clinton-majority/urban cell, and how does it compare to the observed count?",
-  correct = "Right. The observed count is well above the expected count --- urban counties were more likely to be Clinton-majority than independence would predict.",
+  correct = "Right. The observed count exceeds the expected count --- urban counties were more Clinton-leaning than statistical independence would predict. The expected count formula gives (row total)(column total)/n. With a Clinton-majority row total of 490, an urban column total of 1162, and n = 3112: (490)(1162)/3112 = 183.0. The observed count of 303 is well above that --- this is exactly the kind of departure from independence that produces a large chi-square statistic.",
   answer("The expected count is below the observed count, meaning urban counties were more likely to be Clinton-majority than independence would predict",
-         correct = TRUE,
-         message = "The expected count formula gives (row total)(column total)/n. With a Clinton-majority row total of 490, an urban column total of 1162, and n = 3112: (490)(1162)/3112 = 183.0. The observed count of 303 is well above that gap --- this is exactly the kind of departure from independence that produces a large chi-square statistic."),
+         correct = TRUE),
   answer("(490)(1162)/3112 = 183.0, but this cannot be compared to the observed count directly since they measure different things",
          message = "They can be compared directly --- that comparison is the entire logic behind the chi-square test. Observed well above expected, as it is here, means urban counties were more likely to be Clinton-majority than independence would predict."),
   answer("The expected count cannot be found from the output alone and would require re-running the model with different settings",
@@ -194,10 +192,9 @@ Now that you can see how far the observed counts stray from what independence wo
 
 ```{r quiz-rural-general-result, echo=FALSE}
 question("Find the p-value in your output. Which statement best summarizes what this test tells us?",
-  correct = "Right. The chi-square establishes that rural and TrumpMajority are related, but its p-value does not directly test the specific direction the hypothesis predicts.",
+  correct = "Right. The chi-square establishes a relationship exists, but its p-value does not test the specific direction the hypothesis predicts.",
   answer("We reject the null hypothesis --- rural and TrumpMajority are related in the population --- but the chi-square p-value does not directly test the specific directional contrast our hypothesis predicts",
-         correct = TRUE,
-         message = "The chi-square test provides strong evidence a relationship exists (χ² = 239.35, p < .001). We can see the direction in the cross-tab column proportions. But the chi-square p-value does not directly test whether Trump support specifically rises with rurality --- that requires the one-tailed proportions test that follows."),
+         correct = TRUE),
   answer("We reject the null hypothesis, which provides evidence consistent with the hypothesis that more rural counties are more likely to support Trump",
          message = "Rejecting this null hypothesis only provides evidence that some relationship exists between rural and TrumpMajority (p < .001). It does not, by itself, evaluate the specific direction our hypothesis predicts --- for that we need the proportions test that follows."),
   answer("We fail to reject the null hypothesis, so there is no relationship between rural and TrumpMajority",
@@ -244,16 +241,15 @@ The output reports a 95% confidence interval of (-1.0000000, -0.1640333) for the
 
 ```{r quiz-rural-directional-result, echo=FALSE}
 question("Find the p-value in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
-  correct = "Right. The p-value is far below .05 and the direction matches --- Trump support was significantly higher in rural counties than urban counties.",
+  correct = "Right. The p-value is far below .05 and the direction matches the hypothesis. Trump won a majority in 73.9% of urban counties compared to 93.1% of rural counties (p < .001). The confidence interval excludes 0, consistent with the p-value. Combined with the chi-square test, this is statistically significant evidence in support of the hypothesis.",
   answer("Yes --- the p-value is far below .05, and the proportion of Trump-majority counties is significantly lower among urban counties than rural counties, matching the predicted direction",
-         correct = TRUE,
-         message = "Trump won a majority in 73.9% of urban counties compared to 93.1% of rural counties (p < .001). The one-tailed confidence interval of (-1.000, -0.164) excludes 0, consistent with the p-value. Combined with the chi-square test establishing that a relationship exists, this is statistically significant evidence in support of the hypothesis."),
+         correct = TRUE),
   answer("Yes, but only weakly --- the p-value is small because the sample is large, not because the effect is meaningful",
          message = "Sample size does affect the p-value, but that does not make this result meaningless. The proportions themselves --- 73.9% versus 93.1% --- represent a 19-percentage-point difference between urban and rural counties. Both the statistical significance and the magnitude of the difference are relevant to evaluating the hypothesis."),
   answer("We cannot conclude anything about direction from this test alone --- prop.test() only tells us whether the proportions differ, not which is higher",
          message = "prop.test() does tell you which proportion is higher --- the sample proportions appear in the output, and alternative = \"less\" specifically tests whether the first group's proportion is lower. The direction is right there in the output."),
-  answer("We reject the null hypothesis, but since the chi-square test already established a relationship, this test adds nothing new",
-         message = "The chi-square test (p < .001) could only provide evidence that a relationship exists, not which direction it runs. This test is what actually provides evidence for the hypothesis's specific directional claim --- it is not redundant with the chi-square test."),
+  answer("No --- the p-value is below .05, so we fail to reject the null hypothesis",
+         message = "This reverses the decision rule. A p-value *below* the significance threshold (.05) leads us to *reject* the null hypothesis, not fail to reject it. We fail to reject the null only when the p-value is *above* .05 --- meaning the observed pattern would not be surprising if the null were true."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: Find the p-value and check whether it is above or below .05. Then check whether the sample proportions in the output match the direction the hypothesis predicted."
@@ -262,13 +258,13 @@ question("Find the p-value in your output. Does this result provide statisticall
 
 ## Are Majority-White Counties More Likely to Support Trump?
 
-The racial majority example from Tutorial 7 produced one of the sharpest contrasts in the whole tutorial: White Majority counties gave Trump a majority at a dramatically higher rate than any other category. The argument was that racial composition connects to local political context, party coalitions, and the social environments in which campaigns are received. Formally testing that hypothesis introduces a new challenge: the comparison group --- all non-white-majority counties combined --- does not exist as a single column in the cross-tab. We have to build it.
+The racial majority example from Tutorial 7 produced one of the sharpest contrasts in the whole tutorial: White Majority counties gave Trump a majority at a dramatically higher rate than any other category. The argument was that racial composition connects to local political context, party coalitions, and the social environments in which campaigns are received.
 
 ::: {.hypothesis}
 In a comparison of [counties], those that are [majority-white] will be more likely to [give a majority of their support to Trump] than will those that are [not majority-white].
 :::
 
-The data frame **counties** contains **TrumpMajority** and **racial_majority**, a nominal variable that takes the values "Black Majority," "Hispanic Majority," "Other/No Majority," and "White Majority."
+The data frame **counties** contains **TrumpMajority** and **racial_majority**, a nominal variable stored as a character variable that takes the values "Black Majority," "Hispanic Majority," "Other/No Majority," and "White Majority."
 
 As in the previous example, we start with the general claim that the cross-tab can answer for free, then sharpen to the directional claim the hypothesis actually makes.
 
@@ -359,10 +355,9 @@ The p-value appears at the bottom of the CrossTable output, in the Pearson's Chi
 
 ```{r quiz-racialmajority-general-result, echo=FALSE}
 question("A student reads the chi-square output and says: 'p < .001, so we have strong evidence that majority-white counties are more likely to support Trump.' What is wrong with this conclusion?",
-  correct = "Right. The chi-square p-value does not directly test whether White Majority counties specifically stand out --- it tests all four categories at once.",
+  correct = "Right. A significant chi-square only tells us some relationship exists across all four categories --- it does not identify which specific groups drive it.",
   answer("The chi-square test is significant, but because its p-value tests all four racial majority categories simultaneously, it does not directly test the specific claim that White Majority counties are more likely to support Trump",
-         correct = TRUE,
-         message = "We can see in the cross-tab that White Majority counties have a much higher Trump-majority proportion than the others --- the direction is visible. But the chi-square p-value does not directly test that specific contrast. A targeted proportions test evaluates the White Majority versus all others comparison directly."),
+         correct = TRUE),
   answer("Nothing is wrong --- a p-value below .001 is strong enough to support any specific claim about the variables",
          message = "A small p-value tells you that some relationship exists across the four categories, but it does not directly test which specific groups drive it. The proportions test is what evaluates the White Majority comparison specifically."),
   answer("The conclusion is wrong because the chi-square test has not yet been confirmed by a proportions test",
@@ -377,42 +372,28 @@ question("A student reads the chi-square output and says: 'p < .001, so we have 
 
 ### Testing the Directional Claim
 
-Our hypothesis is specifically about majority-white counties compared to *all other* counties combined --- not about comparing White Majority counties to just one other category, and not about the four categories generally. To test that directly, we need two numbers for each of two groups: the number of Trump-majority counties, and the total number of counties.
+Our hypothesis is specifically about majority-white counties compared to *all other* counties combined --- not about comparing White Majority counties to just one other category, and not about the four categories generally. This comparison group does not exist as a single column in the cross-tab --- we have to build it by adding across the three non-white-majority categories.
 
-Reading from the cross-tab you just produced above, White Majority counties gave Trump a majority in 2549 of 2866 cases. The other three categories do not give us a usable number directly --- we have to build one, by adding across the table. Find the Trump-majority count and the total for each of the three non-white-majority categories and add them separately to get the two numbers the second group needs.
+`prop.test()` needs four numbers: the Trump-majority count and the total for each of the two groups. Both come from your cross-tab, but from different rows:
 
-**Practice: Build the combined group**
+- **x** takes the Trump-majority counts --- these come from the row where **TrumpMajority** = 1. For White Majority counties, read that cell directly: 2549. For the combined non-white-majority group, find the **TrumpMajority** = 1 cell for each of the three non-white columns and add them: 4 + 55 + 14.
+- **n** takes the column totals --- these come from the Total row at the bottom. For White Majority counties, read the column total directly: 2866. For the combined group, find the Total cell for each of the three non-white columns and add them: 102 + 96 + 48.
 
-Before writing the `prop.test()` call, work out the counts for the combined non-white-majority group from your cross-tab.
-
-```{r quiz-racialmajority-addition, echo=FALSE}
-question("Reading from your cross-tab, what are the Trump-majority count and the total for all non-white-majority counties combined?",
-  correct = "Right. Adding across the three non-white-majority categories gives 4 + 55 + 14 = 73 Trump-majority counties and 102 + 96 + 48 = 246 total counties. You now have all four numbers for the prop.test() call.",
-  answer("73 Trump-majority counties and 246 total, built by adding across the three non-white-majority categories",
-         correct = TRUE,
-         message = "Adding Trump-majority counts: 4 (Black Majority) + 55 (Hispanic Majority) + 14 (Other/No Majority) = 73. Adding totals: 102 + 96 + 48 = 246. Neither number appears anywhere in the table on its own --- both are sums across three columns, because our hypothesis defines the second group as all counties that are not White Majority."),
-  answer("73 total non-white-majority counties and 246 Trump-majority counties among them",
-         message = "Those numbers are reversed. The 73 is the Trump-majority count for the combined group, and 246 is the total --- not the other way around."),
-  answer("55 Trump-majority counties and 96 total --- the Hispanic Majority category alone",
-         message = "The hypothesis compares White Majority counties to all other counties combined, not to Hispanic Majority alone. You need to add across all three non-white-majority categories to build the comparison group."),
-  answer("The numbers can be read directly from the table without any addition",
-         message = "Neither number appears in the table on its own. The combined non-white-majority group does not exist as a single column --- you have to add across the three separate columns to build it."),
-  allow_retry = TRUE,
-  random_answer_order = TRUE,
-  try_again = "Hint: The hypothesis compares White Majority counties to all other counties combined. Find the Trump-majority count and total for each of the three non-white-majority categories, then add them separately."
-)
-```
+Rather than computing the sums in your head, write the addition directly inside the `prop.test()` call --- R evaluates arithmetic expressions anywhere you can pass a number, so `4 + 55 + 14` inside `c()` works exactly like typing `73`. The calculation stays visible and checkable in your code. Pass both pairs of numbers as vectors using `c()`: `x = c(White_count, combined_count)` and `n = c(White_total, combined_total)`, with the White Majority group listed first in both.
 
 #### Steps 1 and 2: State the Hypotheses
 
-You have the counts --- now identify the correct test direction before building it.
+$H_0: \pi_{White}=\pi_{NotWhite}$, where $\pi$ is the proportion of counties with a Trump majority in the population.
+
+$H_A: \pi_{White} > \pi_{NotWhite}$
+
+Before building the test, identify the correct `alternative` argument.
 
 ```{r quiz-racialmajority-alternative, echo=FALSE}
 question("White Majority counties are listed first in `x` and `n`. Which value of `alternative` correctly tests the directional claim?",
-  correct = "Right. The hypothesis predicts a higher proportion in the first group, so `alternative = \"greater\"` tests that direction.",
+  correct = "Right. With White Majority listed first and the hypothesis predicting it has the higher proportion, `alternative = \"greater\"` tests that direction. `alternative = \"greater\"` tests whether the first group's proportion exceeds the second's --- exactly the direction the hypothesis predicts.",
   answer('`alternative = "greater"`',
-         correct = TRUE,
-         message = 'The hypothesis predicts White Majority counties have a higher Trump-majority proportion than all other counties combined. With White Majority listed first, `alternative = "greater"` tests whether the first group\'s proportion exceeds the second\'s --- exactly the direction the hypothesis predicts.'),
+         correct = TRUE),
   answer('`alternative = "less"`',
          message = 'This would test whether the White Majority proportion is lower than the combined-other proportion --- the opposite of what the hypothesis predicts. Check the direction again.'),
   answer('`alternative = "two.sided"`',
@@ -421,44 +402,38 @@ question("White Majority counties are listed first in `x` and `n`. Which value o
          message = 'The choice of `alternative` depends on both the direction the hypothesis predicts and which group is listed first. With White Majority first and a hypothesis predicting it has the higher proportion, `alternative = "greater"` is correct as written --- it would need to change to `"less"` only if the groups were swapped.'),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: The hypothesis predicts one group has a higher proportion than the other. With that group listed first in x and n, does alternative = \"greater\" or \"less\" test that direction?"
+  try_again = "Hint: The hypothesis predicts White Majority counties have a higher Trump-majority proportion. With that group listed first in x and n, does alternative = \"greater\" or \"less\" test that direction?"
 )
 ```
 
-The null and alternative hypotheses follow from what you just identified:
-
-$H_0: \pi_{White}=\pi_{NotWhite}$, where $\pi$ is the proportion of counties with a Trump majority in the population.
-
-$H_A: \pi_{White} > \pi_{NotWhite}$
-
 #### Step 3: Run the Test
 
-The chi-square test established that a relationship exists across the four racial majority categories. Now we test the specific directional claim: that White Majority counties have a higher Trump-majority proportion than all other counties combined. You have just worked out the counts for the combined non-white-majority group --- use them to fill in the `prop.test()` call below.
+**Practice: Build the prop.test() call for racial majority**
 
-**Practice: Build the difference-of-proportions test**
-
-Fill in `x`, `n`, and `alternative` using the counts from your cross-tab and the addition you just completed. Two hints are available. Click Submit Answer to check your work.
+Write the `prop.test()` call using inline addition for the three non-white-majority categories, with White Majority listed first. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r proptest-trumpmajority-white-other, exercise=TRUE, exercise.cap="Practice: Difference-of-proportions test for White Majority vs. other counties"}
-prop.test(x = c(___, ___), n = c(___, ___), alternative = ___)
+
 ```
 
 ```{r proptest-trumpmajority-white-other-hint-1}
 # Hint 1 of 2
-# The hypothesis predicts White Majority counties have a higher
-# Trump-majority proportion than all other counties combined.
-# With White Majority listed first in x and n, does "higher"
-# mean the first group's proportion is greater or less than
-# the second's?
+# prop.test() compares two proportions. Each group needs
+# a success count (x) and a total (n). For the combined
+# non-white-majority group, neither number appears as a
+# single cell in the cross-tab --- you have to build both
+# by adding across the three non-white columns.
+# Which row gives you the success counts, and which gives
+# you the totals?
 ```
 
 ```{r proptest-trumpmajority-white-other-hint-2}
 # Hint 2 of 2
-# When the first group's proportion is predicted to be higher,
-# alternative = "greater" tests that direction. For the counts,
-# x takes the Trump-majority count for each group and n takes
-# the total --- both from the cross-tab and the addition you
-# just completed above.
+# x = c(White_success, non-white_success added across 3 columns)
+# n = c(White_total, non-white_total added across 3 columns)
+# The hypothesis predicts White Majority has the higher
+# proportion --- with White Majority listed first, which
+# value of alternative tests that direction?
 ```
 
 ```{r proptest-trumpmajority-white-other-check}
@@ -489,7 +464,7 @@ grade_this({
     fail("Check your counts. x should give c(2549, 73) --- Trump-majority counties among White Majority, then among the other three categories combined (4 + 55 + 14). n should give c(2866, 246) --- totals for those same two groups (102 + 96 + 48 for the combined group).")
   }
 
-  pass("Right! White Majority counties are compared to all other counties combined, with alternative = \"greater\" matching the direction the hypothesis predicts.")
+  pass("Right! White Majority counties are compared to all other counties combined, with alternative = \"greater\" matching the direction the hypothesis predicts. Using inline addition inside c() keeps your calculation transparent and checkable.")
 })
 ```
 
@@ -497,16 +472,15 @@ grade_this({
 
 ```{r quiz-racialmajority-directional-result, echo=FALSE}
 question("Find the p-value in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
-  correct = "Right. The p-value is far below .05 and the direction matches --- White Majority counties were significantly more likely to support Trump than all other counties combined.",
-  answer("Yes --- the p-value is far below .05, and the proportion of Trump-majority counties is significantly higher among White Majority counties than among all other counties combined, matching the predicted direction",
-         correct = TRUE,
-         message = "Trump won a majority in 88.9% of White Majority counties compared to 29.7% of all other counties combined (p < .001). The 95% confidence interval of (0.542, 1.000) excludes 0, consistent with the p-value. Combined with the chi-square test, this is statistically significant evidence in support of the hypothesis."),
+  correct = "Right. The p-value is far below .05 and the direction matches the hypothesis. Trump won a majority in 88.9% of White Majority counties compared to 29.7% of all other counties combined (p < .001). The confidence interval excludes 0, consistent with the p-value. Combined with the chi-square test, this is statistically significant evidence in support of the hypothesis.",
+  answer("Yes --- the p-value is far below .05, and the proportion of Trump-majority counties is higher among White Majority counties than among all other counties combined, matching the predicted direction",
+         correct = TRUE),
   answer("Yes, but the result may be driven by the very small number of non-white-majority counties --- with only 246 counties in that group, the p-value could be unreliable",
-         message = "246 counties is not a particularly small comparison group for this test, and both the Trump-majority and non-Trump-majority counts within that group are large enough for the large-sample approximation used by prop.test() to be reasonable. The 29.7% versus 88.9% difference is both statistically significant and substantively large."),
+         message = "246 counties is not a particularly small comparison group for this test, and both the Trump-majority and non-Trump-majority counts within that group are large enough for the large-sample approximation to be reasonable. The difference is both statistically significant and substantively large."),
+  answer("No --- the p-value is below .05, so we fail to reject the null hypothesis",
+         message = "This reverses the decision rule. A p-value *below* .05 leads us to *reject* the null hypothesis, not fail to reject it. We fail to reject the null only when the p-value is *above* .05."),
   answer("We cannot tell from the output which direction the difference runs --- prop.test() only reports whether the proportions differ",
-         message = "The sample proportions appear in the output --- 88.9% for White Majority counties and 29.7% for all others. The direction is visible there, and alternative = \"greater\" specifically tested whether the White Majority proportion was higher."),
-  answer("We reject the null hypothesis, but since the chi-square test already established a relationship, this test adds nothing new",
-         message = "The chi-square test (p < .001) could only provide evidence a relationship exists across all four categories, not whether White Majority counties specifically stand out. This test is what actually provides evidence for the hypothesis's specific comparison --- it is not redundant with the chi-square test."),
+         message = "The sample proportions appear in the output. The direction is visible there, and alternative = \"greater\" specifically tested whether the White Majority proportion was higher."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: Find the p-value. Then check whether the sample proportions in the output match the direction the hypothesis predicted: which group has the higher Trump-majority proportion?"
@@ -521,7 +495,7 @@ The regime type and gender equality example from Tutorial 7 involved a small dat
 In a comparison of [countries], those that are [dictatorships] will be less likely to [have high gender equality] than will those that are [democracies].
 :::
 
-The data frame **world** contains **gender_equal3**, a 3-category variable with values "Low," "Medium," and "High," and **regime_type3**, a 3-category variable with values "Dictatorship," "Parliamentary Democracy," and "Presidential Democracy." Note that in the actual data, the regime type labels are abbreviated --- "Parliamentary democ" and "Presidential democ" --- so those abbreviations will appear in your cross-tab output. This tutorial uses the fuller names for clarity.
+The data frame **world** contains **gender_equal3**, a 3-category factor variable with values "Low," "Medium," and "High," and **regime_type3**, a 3-category factor variable with values "Dictatorship," "Parliamentary Democracy," and "Presidential Democracy." Note that in the actual data, the regime type labels are abbreviated --- "Parliamentary democ" and "Presidential democ" --- so those abbreviations will appear in your cross-tab output. This tutorial uses the fuller names for clarity.
 
 As in the previous two examples, we start with the general claim the cross-tab can answer for free, then sharpen to the directional claim the hypothesis actually makes.
 
@@ -600,29 +574,9 @@ grade_this({
 })
 ```
 
-You should see a warning: "Chi-squared approximation may be incorrect." This warning appears because one or more cells have a small expected count --- conventionally, below 5 --- which can make the standard chi-square approximation less reliable. Recall the formula from earlier in this tutorial: expected count = (row total)(column total)/n. With only 61 countries spread across nine cells, some cells inevitably end up with very few expected cases.
+You should see a warning: "Chi-squared approximation may be incorrect." Two cells fall below the conventional threshold of 5 for expected counts --- **Dictatorship/Low** and **Presidential Democracy/Low**, both with an expected count of 4.7. This happens because both the Low gender equality row (only 18 countries) and the Dictatorship and Presidential Democracy columns (16 countries each) have small totals: (18)(16)/61 = 4.7. When row and column totals are both small, the expected count in that cell will be small too. With only 61 countries spread across nine cells, this is hard to avoid.
 
-**Practice: Identify the problem cells**
-
-```{r quiz-genderequality-smallcells, echo=FALSE}
-question("Looking at the expected counts in your output, which cell(s) fall below 5?",
-  correct = "Right. Two cells fall below the threshold of 5 --- Dictatorship/Low and Presidential Democracy/Low, both with expected counts of 4.72 --- which is what triggers R's warning and the simulation fix.",
-  answer("Dictatorship/Low and Presidential Democracy/Low, both with an expected count of 4.72",
-         correct = TRUE,
-         message = "The expected count formula gives (row total)(column total)/n. The Low gender equality row total is 18 and the grand total is 61. The Dictatorship column total is 16, giving (18)(16)/61 = 4.72. The Presidential Democracy column total is also 16, giving (18)(16)/61 = 4.72 as well. Both fall below 5, which is what triggers R's warning."),
-  answer("The High/Parliamentary Democracy cell, because parliamentary democracies are overrepresented in the high gender equality category",
-         message = "Overrepresentation in the observed counts does not mean low expected counts. Expected counts depend on row and column totals, not on observed patterns. The Parliamentary Democracy column has 29 countries --- large enough that its expected counts are well above 5 across all rows."),
-  answer("Parliamentary Democracy/Medium, with an expected count of about 10.5",
-         message = "That cell's expected count is comfortably above 5. Look for cells where both the row and column totals are relatively small --- that is where the expected count drops."),
-  answer("None of the cells --- the warning refers to the sample size as a whole, not individual cells",
-         message = "The warning is specifically about individual cells with small expected counts, not the overall sample size. Two cells here fall below the conventional threshold of 5."),
-  allow_retry = TRUE,
-  random_answer_order = TRUE,
-  try_again = "Hint: Apply the expected count formula (row total)(column total)/n to the cells with small row or column totals. Which cells involve the Low gender equality row and a small column?"
-)
-```
-
-When this happens, the standard chi-square approximation can be less reliable --- with only 61 countries spread across nine cells, some expected counts fall below the conventional threshold. This is not a sign of a bad hypothesis or bad data; it is just a situation where the standard tool needs a small adjustment. The fix is to ask R to calculate the p-value by simulation rather than by approximation, using `simulate.p.value = TRUE`.
+This is not a sign of a bad hypothesis or bad data --- it is just a situation where the standard tool needs a small adjustment. The fix is to ask R to calculate the p-value by simulation rather than by approximation, using `simulate.p.value = TRUE`.
 
 **Run and observe: Re-run the test with a simulated p-value**
 
@@ -650,27 +604,20 @@ This time, identify the complete null and alternative hypothesis pair before bui
 
 ```{r quiz-genderequality-hypotheses, echo=FALSE}
 question("Which pair of hypotheses correctly formalizes the directional claim, with dictatorships listed first?",
-  correct = "Right. The null is always that the two proportions are equal; the alternative matches the predicted direction with the correct group subscripts.",
+  correct = "Right. The null is always equal proportions stated in terms of the population parameter $\\pi$; the alternative encodes the directional prediction. $H_0: \\pi_{Dictatorship} = \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} < \\pi_{Democracy}$, where $\\pi$ is the proportion of countries with high gender equality in the population.",
   answer("$H_0: \\pi_{Dictatorship} = \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} < \\pi_{Democracy}$",
-         correct = TRUE,
-         message = "The null hypothesis states that the population proportions are equal --- no difference. The hypothesis predicts dictatorships have a lower proportion of high gender equality, so the alternative is $H_A: \\pi_{Dictatorship} < \\pi_{Democracy}$. With dictatorships listed first in `x` and `n`, this maps directly to `alternative = \"less\"`."),
-  answer("$H_0: \\pi_{Dictatorship} = \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} > \\pi_{Democracy}$",
-         message = "The null is right, but the alternative points in the wrong direction. The hypothesis predicts dictatorships have a lower proportion of high gender equality than democracies, not a higher one."),
+         correct = TRUE),
+  answer("$H_0: p_{Dictatorship} = p_{Democracy}$ and $H_A: p_{Dictatorship} < p_{Democracy}$",
+         message = "The direction is right, but hypothesis tests are always stated in terms of population parameters, denoted with Greek letters. $\\pi$ (pi) is the population proportion --- the quantity the hypothesis is actually about. $p$ is the sample proportion that estimates it. The null and alternative describe what we believe about the population, not what we observe in the sample."),
   answer("$H_0: \\pi_{Dictatorship} = \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} \\neq \\pi_{Democracy}$",
          message = "The null is right, but a two-sided alternative does not capture the directional prediction the hypothesis makes. The hypothesis specifically predicts dictatorships lag behind --- that is a one-tailed claim."),
   answer("$H_0: \\pi_{Dictatorship} < \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} = \\pi_{Democracy}$",
          message = "The null and alternative are reversed. The null hypothesis is always the no-difference baseline --- equal proportions --- and the alternative is the directional claim we are testing. A null hypothesis never contains an inequality."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: What does the null hypothesis always say about the two population proportions? Then check which direction the hypothesis predicts."
+  try_again = "Hint: What does the null hypothesis always say about the two population proportions? Then check which direction the hypothesis predicts --- and which letter denotes a population parameter."
 )
 ```
-
-The null and alternative hypotheses follow from what you just identified:
-
-$H_0: \pi_{Dictatorship}=\pi_{Democracy}$, where $\pi$ is the proportion of countries with high gender equality in the population.
-
-$H_A: \pi_{Dictatorship} < \pi_{Democracy}$
 
 #### Step 3: Run the Test
 
@@ -731,7 +678,7 @@ grade_this({
     fail("Check your counts. x should be c(1, 20) --- 1 dictatorship with high gender equality, and 16 + 4 = 20 democracies with high gender equality. n should be c(16, 45) --- 16 dictatorships total, and 29 + 16 = 45 democracies total.")
   }
 
-  pass("Right! Dictatorships are compared to all democracies combined, with alternative = \"less\" matching the direction the hypothesis predicts.")
+  pass("Right! Dictatorships are compared to all democracies combined, with alternative = \"less\" matching the direction the hypothesis predicts. The sample proportions are 6.3% for dictatorships and 44.4% for all democracies combined.")
 })
 ```
 
@@ -740,20 +687,19 @@ grade_this({
 **Practice: Evaluate the result**
 
 ```{r quiz-genderequality-directional-result, echo=FALSE}
-question("Find the p-value in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
-  correct = "Right. The p-value is below .05 and the direction matches --- dictatorships have significantly lower high-gender-equality rates than all democracies combined.",
-  answer("Yes --- the p-value is below .05, and the proportion of countries with high gender equality is significantly lower among dictatorships than among all democracies combined, matching the predicted direction",
-         correct = TRUE,
-         message = "Only 6.3% of dictatorships have high gender equality compared to 44.4% of all democracies combined (p = .0018). Combined with the chi-square test, this is statistically significant evidence in support of the hypothesis. Notice that combining both democratic categories is not just a technical step --- it is what the hypothesis actually requires, just as combining non-white-majority counties was in the second example."),
-  answer("Yes, but with only 16 dictatorships in the sample, the result may not be stable enough to trust",
-         message = "Small samples do increase uncertainty, reflected in the standard error and confidence interval. But the evidence against the null is strong enough to reject it, and the confidence interval excludes 0 by a meaningful margin."),
-  answer("We cannot conclude anything about the direction because combining the two democratic categories creates an artificial group",
-         message = "Combining parliamentary and presidential democracies is not artificial --- it is what the hypothesis requires. The hypothesis predicts dictatorships will lag behind democracies generally, so all democracies belong in the comparison group. Choosing only parliamentary democracies because they contrast most sharply would be data-driven, not hypothesis-driven."),
-  answer("We reject the null hypothesis, but since the chi-square test already established a relationship, this test adds nothing new",
-         message = "The chi-square test could only provide evidence that a relationship exists across all three categories of each variable, not whether dictatorships specifically lag behind democracies on high gender equality. This test is what actually provides evidence for the hypothesis's specific directional claim --- it is not redundant with the chi-square test."),
+question("Find the p-value and the sample proportions in your output. Which statement best describes what this result tells us?",
+  correct = "Right. The result is statistically significant, in the predicted direction, and the gap is substantively large. Only 6.3% of dictatorships have high gender equality compared to 44.4% of all democracies combined (p = .007). The confidence interval excludes 0, consistent with the p-value. Combined with the chi-square test, this is statistically significant evidence in support of the hypothesis.",
+  answer("The p-value is below .05 and the proportion of countries with high gender equality is lower among dictatorships than among all democracies combined, matching the predicted direction --- and the gap between the two groups is substantively large",
+         correct = TRUE),
+  answer("The p-value is below .05 and the direction matches, but the gap between 6.3% and 44.4% is too small to be substantively meaningful",
+         message = "A gap of over 38 percentage points between dictatorships and democracies on high gender equality is substantively large, not trivial. Statistical significance and substantive size point in the same direction here."),
+  answer("No --- the p-value is below .05, so we fail to reject the null hypothesis",
+         message = "This reverses the decision rule. A p-value *below* .05 leads us to *reject* the null hypothesis, not fail to reject it. We fail to reject the null only when the p-value is *above* .05."),
+  answer("The p-value is below .05 but the direction is wrong --- dictatorships have a higher proportion of high gender equality than democracies",
+         message = "Look at the sample proportions in your output: prop 1 (dictatorships) = 0.063 and prop 2 (democracies combined) = 0.444. Dictatorships have the lower proportion, which is exactly what the hypothesis predicted."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Find the p-value and compare it to .05. Then check whether the sample proportions match the direction the hypothesis predicted."
+  try_again = "Hint: Find the p-value and compare it to .05. Then look at the sample proportions --- which group has the higher proportion of high gender equality, and does that match the predicted direction?"
 )
 ```
 
@@ -763,13 +709,15 @@ The three examples above all tested whether two variables are related --- the ge
 
 We use the same `prop.test()` function, but with different arguments: `x` is the number of "successes," `n` is the total sample size, and `p` is the hypothesized population proportion we are comparing against --- R's name for this argument, unrelated to the p-value despite sharing a letter.
 
+The numbers 2622 and 3112 come from the first example's cross-tab --- 2622 Trump-majority counties out of 3112 total counties. The hypothesized value of 0.80 is chosen as an example to illustrate the test.
+
 **Run and observe: Run a one-sample proportion test**
 
 ```{r proptest-onesample-trumpmajority, exercise=TRUE, exercise.cap="Run and observe: One-sample proportion test"}
 prop.test(x = 2622, n = 3112, p = 0.80)
 ```
 
-The numbers 2622 and 3112 come from the same cross-tab we used in the first example --- 2622 Trump-majority counties out of 3112 total. The logic of the five steps still applies here: a null hypothesis ($H_0: \pi=0.80$), an alternative ($H_A: \pi \ne 0.80$), a test statistic, a p-value, and a decision --- but with only one sample proportion involved, not a comparison between two groups or a relationship between two variables.
+The logic of the five steps still applies here: a null hypothesis ($H_0: \pi=0.80$), an alternative ($H_A: \pi \ne 0.80$), a test statistic, a p-value, and a decision --- but with only one sample proportion involved, not a comparison between two groups or a relationship between two variables.
 
 The sample proportion, $p=0.843$ (2622/3112), is compared to the hypothesized value of 0.80. (This $p$ is the Roman-letter sample statistic from Tutorial 10's table, not the p-value reported just below --- the two are unrelated quantities that happen to share a letter. Similarly, the `p =` argument in `prop.test()` sets the hypothesized population proportion, which is also unrelated to the p-value in the output.) The test statistic is reported as a chi-squared value ($\chi^2 = 34.941$, df = 1) rather than a t- or z-statistic --- `prop.test()` uses a chi-square approximation by default, with a continuity correction applied automatically for a one-sample test --- but the conclusion follows the same logic as every other test in this tutorial. Because p < .001, we reject the null hypothesis: the proportion of Trump-majority counties in our data differs significantly from the hypothesized value of 0.80.
 
@@ -777,95 +725,24 @@ The output's 95% confidence interval, (0.829, 0.855), gives the same answer a di
 
 ## Check Your Understanding
 
-The exercises below give you a new hypothesis, new variables, and a new data frame --- but the same test structure you used throughout this tutorial. The first exercise asks you to build a difference-of-proportions test from a cross-tab you are given. The remaining questions test whether you have internalized the key ideas: when cell-adding is needed, what a significant chi-square result can and cannot tell you, and how to translate a hypothesis into the correct `alternative` argument.
+The exercises below test whether you have internalized the key ideas from this tutorial: when cell-adding is needed, what a significant chi-square result can and cannot tell you, and how to translate a hypothesis into the correct `alternative` argument.
 
-Political scientists have hypothesized that people who get their news primarily from social media are less likely to trust government institutions than people who get their news primarily from television.
-
-::: {.hypothesis}
-In a comparison of [survey respondents], those who [get their news primarily from social media] will be less likely to [trust government institutions] than will those who [get their news primarily from television].
-:::
-
-Suppose a survey of 400 respondents produced the following cross-tab:
-
-| | Social Media | Television | Total |
-|:--|:--:|:--:|:--:|
-| **Trusts government** | 45 | 130 | 175 |
-| **Does not trust** | 155 | 70 | 225 |
-| **Total** | 200 | 200 | 400 |
-
-The hypothesis predicts that social media news consumers are less likely to trust government than television news consumers. The table above gives you all the counts you need --- no cross-tab required.
-
-**Apply: Build a difference-of-proportions test from given output**
-
-List the social media group first in both `x` and `n`, and choose `alternative` to match the direction the hypothesis predicts. Two hints are available. Click Submit Answer to check your work.
-
-```{r cyu-proptest-newsmedia, exercise=TRUE, exercise.cap="Apply: Difference-of-proportions test for news media and trust in government"}
-
-```
-
-```{r cyu-proptest-newsmedia-hint-1}
-# Hint 1 of 2
-# The hypothesis predicts that social media users trust government
-# less than television viewers. With social media listed first in
-# x and n, ask: does "less likely to trust" mean the first group's
-# proportion is lower or higher than the second's?
-```
-
-```{r cyu-proptest-newsmedia-hint-2}
-# Hint 2 of 2
-# When the first group's proportion is predicted to be lower,
-# alternative = "less" tests that direction. For the counts:
-# x takes the number who trust government in each group;
-# n takes the total respondents. Both come from the table above.
-```
-
-```{r cyu-proptest-newsmedia-check}
-grade_this({
-  code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
-
-  if (is.null(.result)) {
-    fail("Your code did not produce a result. Check for unmatched parentheses, values in the wrong order, or a missing argument.")
-  }
-  if (!inherits(.result, "htest")) {
-    fail("Your code should return the prop.test() output. Check for unmatched parentheses, values in the wrong order, or a missing argument.")
-  }
-  if (!grepl("prop\\.test\\s*\\(", code_no_comments)) {
-    fail("Use prop.test() to run the difference-of-proportions test.")
-  }
-  if (!grepl("alternative\\s*=\\s*['\"]less['\"]", code_no_comments)) {
-    fail('The hypothesis predicts social media users are less likely to trust government. Set alternative = "less" to test that specific direction.')
-  }
-
-  expected <- prop.test(x = c(45, 130),
-                        n = c(200, 200),
-                        alternative = "less")
-
-  if (!isTRUE(all.equal(as.numeric(.result$p.value),
-                        as.numeric(expected$p.value),
-                        tolerance = 1e-6))) {
-    fail("Check your counts. x should be c(45, 130) --- the number who trust government among social media users, then among television viewers. n should be c(200, 200) --- the total respondents in each group.")
-  }
-
-  pass('Right! Social media users are compared to television viewers, with alternative = "less" matching the direction the hypothesis predicts.')
-})
-```
-
-**Apply: Recognize when cell-adding is needed**
+**Apply: Choose and set up the right test**
 
 ```{r cyu-recognize-celladding, echo=FALSE}
-question("Suppose a hypothesis predicts that people with a college degree are more likely to support a policy than people without one, and education is measured with a 5-category variable (less than high school, high school, some college, bachelor's degree, graduate degree). To test this hypothesis with a difference-of-proportions test, what would you need to do first?",
-  correct = "Right. With five categories and a hypothesis that defines two groups, no single category maps to either group --- you have to build them by adding cells.",
-  answer("Add together the counts (and separately the totals) for bachelor's degree and graduate degree, and do the same for the three categories without a college degree, to build two groups that match the hypothesis",
-         correct = TRUE,
-         message = "The hypothesis compares college degree vs. no college degree, but no single category maps to either group. The key discipline is letting the hypothesis define the groups --- not convenience, not sample size, not which categories happen to exist in the variable. Here the hypothesis draws the line at having a college degree, so bachelor's + graduate go in one group and the remaining three in the other."),
-  answer("Run prop.test() directly on all five categories at once",
-         message = "prop.test() compares exactly two groups. With five categories, we first have to decide which categories belong in which of the two groups the hypothesis describes, and combine cells accordingly."),
-  answer("Pick the two categories with the largest sample sizes and compare just those",
-         message = "Sample size is not what determines which categories to compare --- the hypothesis is. Here, the hypothesis specifically describes college degree vs. no college degree, which requires combining categories on both sides, not picking the two largest groups."),
+question("A hypothesis predicts that people with a college degree are more likely to support a policy than people without one, and education is measured with a 5-category variable (less than high school, high school, some college, bachelor's degree, graduate degree). Which approach correctly tests this hypothesis?",
+  correct = "Right. The hypothesis defines two groups that require adding cells --- bachelor's degree and graduate degree on one side, the remaining three categories on the other --- and predicts the college degree group has the higher proportion, so alternative = \"greater\" with the college degree group listed first.",
+  answer("Add the counts for bachelor's degree and graduate degree into one group and the remaining three categories into another, then run a one-tailed difference-of-proportions test with the college degree group predicted to have the higher proportion",
+         correct = TRUE),
+  answer("Run a chi-square test of independence between education category and policy support",
+         message = "A chi-square test would tell you whether education and policy support are related across all five categories, but its p-value does not directly test whether the college degree group specifically has a higher proportion of support than the non-college group. The hypothesis makes a specific directional comparison between two defined groups --- that requires a difference-of-proportions test."),
+  answer("Run a one-tailed difference-of-proportions test comparing bachelor's degree holders to those with some college, since those are the two most comparable adjacent categories",
+         message = "The hypothesis defines the comparison: college degree vs. no college degree. Choosing categories based on comparability rather than what the hypothesis predicts would change the question being asked. Both sides of the comparison require combining categories to match what the hypothesis actually predicts."),
+  answer("Run a one-tailed difference-of-proportions test comparing the college degree group to the non-college group, with the non-college group predicted to have the higher proportion",
+         message = "The direction is reversed. The hypothesis predicts that people with a college degree are more likely to support the policy --- so the college degree group should have the higher proportion, not the non-college group."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: prop.test() compares exactly two groups. Does a 5-category variable give you two groups directly, or do you need to build them?"
+  try_again = "Hint: The hypothesis defines two groups that don't exist as single categories in the variable. It also predicts a specific direction. Both matter for choosing and setting up the right test."
 )
 ```
 
@@ -873,10 +750,9 @@ question("Suppose a hypothesis predicts that people with a college degree are mo
 
 ```{r cyu-general-vs-directional, echo=FALSE}
 question("A researcher hypothesizes that military regimes are less likely than civilian regimes to hold competitive elections. A chi-square test comparing four regime categories and three election-competitiveness categories produces p < .001. Which conclusion is justified by that test alone?",
-  correct = "Right. A significant chi-square result establishes that some relationship exists across all categories. It does not directly test whether military regimes specifically lag behind civilian ones.",
+  correct = "Right. A significant chi-square establishes that some relationship exists, not which specific contrast drives it.",
   answer("That regime type and election competitiveness are related in the population, but the chi-square p-value does not directly test whether military regimes specifically have less competitive elections",
-         correct = TRUE,
-         message = "The chi-square test considers all four regime categories and all three election-competitiveness categories simultaneously, with no direction built in. A significant result tells us a relationship exists somewhere in the table. It does not tell us whether the particular military-versus-civilian contrast the hypothesis predicts is what is driving that result --- evaluating that specific claim requires a targeted, directional test."),
+         correct = TRUE),
   answer("That military regimes have significantly less competitive elections than civilian regimes, since p < .001 is very strong evidence",
          message = "A p-value below .001 tells us the relationship is very unlikely to be due to chance, but it does not tell us which specific groups are driving it. The chi-square test considers all four regime categories at once --- the significant result could come from any combination of differences, not necessarily the military-versus-civilian contrast the hypothesis predicts."),
   answer("That the hypothesis is fully supported, since the test is highly statistically significant",
@@ -893,10 +769,9 @@ question("A researcher hypothesizes that military regimes are less likely than c
 
 ```{r cyu-direction-prediction, echo=FALSE}
 question('A hypothesis predicts that countries with lower levels of press freedom have a higher rate of high government corruption. You list the high-press-freedom group first in `x` and `n`. Which value of `alternative` tests the hypothesis directly?',
-  correct = "Right. The hypothesis predicts the low-press-freedom group has a higher proportion of corruption --- but that group is listed second, so the first group's proportion is predicted to be lower. `alternative = \"less\"` tests that.",
+  correct = "Right. With the high-press-freedom group listed first and the hypothesis predicting it has less corruption, `alternative = \"less\"` is correct. The hypothesis predicts that low-press-freedom countries have a higher proportion of high corruption. With the high-press-freedom group listed first, the question becomes: is the first group's proportion lower than the second's? Yes --- the hypothesis predicts exactly that. `alternative = \"less\"` tests whether the first group's proportion is lower than the second's, which matches the hypothesis.",
   answer('`alternative = "less"`',
-         correct = TRUE,
-         message = 'The hypothesis predicts that low-press-freedom countries have a higher proportion of high corruption. But the high-press-freedom group is listed first in x and n, so the question becomes: is the first group\'s proportion lower than the second\'s? Yes --- the hypothesis predicts exactly that. `alternative = "less"` tests whether the first group\'s proportion is lower than the second\'s, which matches the hypothesis.'),
+         correct = TRUE),
   answer('`alternative = "greater"`',
          message = 'This would test whether the high-press-freedom group\'s proportion of high corruption is greater than the low-press-freedom group\'s --- the opposite of what the hypothesis predicts. The hypothesis says low-press-freedom countries have more corruption, which means high-press-freedom countries have less. With the high-press-freedom group listed first, `alternative = "less"` is the correct direction.'),
   answer('`alternative = "two.sided"`, because the test should account for uncertainty about which direction the relationship runs',
@@ -911,7 +786,7 @@ question('A hypothesis predicts that countries with lower levels of press freedo
 
 ## The Takeaways
 
-This tutorial turned the cross-tab comparisons from Tutorial 7 into formal hypothesis tests. Finding that column proportions differed in the direction a hypothesis predicted was a useful first look, but it could not tell us whether that difference was bigger than we would expect to see by chance alone. The two tests in this tutorial let us ask related but different questions: first whether the variables are related across all categories, and then whether a particular two-group contrast runs in the direction the hypothesis predicts.
+This tutorial turned the cross-tab comparisons from Tutorial 7 into formal [**hypothesis tests**]{.important-text}. Finding that column proportions differed in the direction a hypothesis predicted was a useful first look, but it could not tell us whether that difference was bigger than we would expect to see by chance alone. The two tests in this tutorial let us ask related but different questions: first whether the variables are related across all categories, and then whether a particular two-group contrast runs in the direction the hypothesis predicts.
 
 This tutorial introduced three tests for categorical variables:
 
@@ -922,6 +797,8 @@ This tutorial introduced three tests for categorical variables:
 - The [**one-sample proportion test**]{.important-text} asks a different question entirely: whether a single sample proportion differs from a fixed hypothesized value, with no second variable and no relationship involved. Use the same `prop.test()` function with `p =` set to the hypothesized value instead of a second group's counts.
 
 Our approach throughout was to begin with the general question and then sharpen the analysis to the specific directional comparison in the hypothesis. The chi-square test evaluates whether the variables are related across all categories; the proportions test directly evaluates the particular two-group directional contrast the hypothesis predicts.
+
+The categorical variables in this tutorial were stored in three different ways: **TrumpMajority** as numeric (0 and 1), **racial_majority** as a character variable, and **gender_equal3** and **regime_type3** as factor variables. `CrossTable()` handles all three storage types without any special treatment. `prop.test()` works with counts you supply directly, so storage class does not affect it. Always check how a variable is stored before building a cross-tab or choosing an `alternative` --- factor variables sort by level order, character variables sort alphabetically, and numeric variables sort by value.
 
 Every test follows the same [**five-step procedure**]{.important-text}: state $H_0$, state $H_A$, run the test, find the p-value, and decide whether to reject or fail to reject --- then report what that decision means substantively.
 
