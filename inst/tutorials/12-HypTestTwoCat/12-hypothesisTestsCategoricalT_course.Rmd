@@ -13,15 +13,14 @@ description: >
 
 ## Overview {#main-content}
 
-Tutorials 7, 8, and 9 described bivariate relationships --- cross-tabs, group means, scatter plots --- but every example ended with the same caution: a descriptive pattern consistent with a hypothesis is not the same as evidence that the pattern is real. In Tutorials 10 and 11, you built the tools a formal test requires: the sampling distribution, the p-value, and the decision rule for rejecting or failing to reject a null hypothesis. Tutorials 12, 13, and 14 put those tools to work. This tutorial takes the cross-tab relationships from Tutorial 7 and subjects them to formal [**hypothesis tests**]{.important-text} --- using sample data to assess whether an observed relationship is strong enough to rule out chance. Tutorial 13 does the same for the group-mean relationships from Tutorial 8, and Tutorial 14 for the correlations from Tutorial 9.
+Tutorials 7, 8, and 9 described bivariate relationships --- cross-tabs, group means, scatter plots --- but every example ended with the same caution: a descriptive pattern consistent with a hypothesis is not the same as evidence that the pattern is real. In Tutorials 10 and 11, you built the tools a formal test requires: the sampling distribution, the p-value, and the decision rule for rejecting or failing to reject a null hypothesis. Tutorials 12, 13, and 14 put those tools to work. This tutorial takes the cross-tab relationships from Tutorial 7 and subjects them to formal [**hypothesis tests**]{.important-text} --- using sample data to assess whether an observed relationship would be unlikely if there were truly no relationship in the population. Tutorial 13 does the same for the group-mean relationships from Tutorial 8, and Tutorial 14 for the correlations from Tutorial 9.
 
 In this tutorial, you will learn how to test whether two categorical variables are related in the population. Specifically, we will cover:
 
 * How to test whether two categorical variables are related using a chi-square test of independence, with the `CrossTable()` function in the [descr]{.package-name} package
-* How to decide when a chi-square test is the right tool, when a difference-of-proportions test is, and how building a cross-tab lets you ask the general question before deciding whether to sharpen to a specific one
-* How to organize a hypothesis test into five explicit steps, building on the null hypothesis, alternative hypothesis, p-value, and decision rule from Tutorial 11
-* How to interpret a p-value and apply the decision rule to determine whether a relationship is statistically significant
-* How to test whether a single sample proportion differs from a hypothesized population value
+* How to sharpen a general chi-square result into a directional difference-of-proportions test using `prop.test()`, when a hypothesis predicts which of two specific groups will have the higher proportion
+* How to organize every hypothesis test into five explicit steps: stating the null and alternative hypotheses, running the test, finding the p-value, and deciding whether to reject or fail to reject the null
+* How to test a different kind of question --- whether a single sample proportion differs from a fixed hypothesized value --- using the same `prop.test()` function with no second group involved
 
 
 ```{r setup, include=FALSE}
@@ -48,6 +47,28 @@ In Tutorial 7, you read a cross-tab by comparing column proportions across categ
 A word about the data frames in this tutorial. Neither **counties** nor **world** is a random sample from a larger population the way a survey is. As Tutorial 11 explained, inference is still appropriate when the research question is about a relationship --- a systematic pattern that could have looked different under different conditions. A p-value answers: if there were truly no relationship, how surprising would a pattern this strong be in these data?
 
 We test whether two categorical variables are related using two complementary tools. The [**chi-square test of independence**]{.important-text} considers every category at once and asks whether the variables are related at all. A [**difference-of-proportions test**]{.important-text} asks a narrower but sharper question: comparing exactly two specific groups, it can test a specific directional prediction in a way the chi-square test cannot. Since building a cross-tab already gives us everything the chi-square test needs, we test the general claim first, then sharpen to a directional two-group test when the hypothesis supports one. We also look at a related but different question: whether a single sample proportion differs from some fixed hypothesized value.
+
+### Applying the Five-Step Hypothesis Testing Procedure
+
+In Tutorial 11, you learned the building blocks of a hypothesis test: a null and alternative hypothesis, a test statistic, a p-value, and the decision rule for rejecting or failing to reject the null hypothesis. Here, we organize those same building blocks into five explicit steps, which we will follow for every hypothesis test in this tutorial and in those that follow:
+
+::: {.tip}
+**Hypotheses are always about the population.** A hypothesis test asks whether a pattern in your sample reflects something real in the population. For this reason, $H_0$ and $H_A$ are always stated in terms of population parameters, not sample statistics. The specific parameter depends on the test; the principle is the same throughout Tutorials 12, 13, and 14.
+:::
+
+1. State the null hypothesis, $H_0$. For the proportions tests in this tutorial, the population parameter is $\pi$ (pi), the population proportion --- the same Greek-letter notation from Tutorial 10's table of population parameters and their Roman-letter sample counterparts. The chi-square test is stated differently: its null is that the two variables are independent in the population, rather than a claim about a specific parameter value. But the logic is the same --- we are always making a claim about what is true in the population, not in the sample.
+
+2. State the alternative hypothesis, $H_A$. Like the null, the alternative is a claim about the population. For the proportions tests, it is stated in terms of $\pi$.
+
+3. Run the test and obtain a test statistic.
+
+4. Find the p-value associated with that test statistic.
+
+5. Decide whether to reject or fail to reject $H_0$, and report what that means substantively.
+
+We will follow these same five steps to test relationships between two categorical variables, and we will follow them again in later tutorials for other kinds of hypothesis tests.
+
+## The Chi-Square Test of Independence
 
 The logic starts with a question: what would the cross-tab look like if the two variables had no relationship at all --- if they were completely independent? We can calculate exactly that. For any cell in the table, the [**expected count**]{.important-text} under independence is:
 
@@ -95,11 +116,15 @@ We already know how to build a cross-tab with the `CrossTable()` function in the
 
 We will also set `expected = TRUE`, which adds the expected count --- calculated with the formula above --- to every cell. Each cell will now print three numbers, in order: the observed count, the expected count, and the column proportion you already know how to read.
 
+## The Difference-of-Proportions Test
+
+### The Logic of the Test
+
 There is a second way to ask a related question. A [**difference-of-proportions test**]{.important-text}, run with `prop.test()`, compares the proportion of "successes" in one group to the proportion of "successes" in another. It compares exactly two groups at a time. Unlike the chi-square test, it can test a specific direction --- a one-tailed test, when a hypothesis predicts which group should have the higher proportion. Because building a cross-tab already gives us the counts a chi-square test needs, our usual approach will be to test the general claim first --- are these two variables related at all --- and then, when the hypothesis makes a specific, directional prediction about two groups, sharpen to a difference-of-proportions test as well.
 
 ### Running the Test with `prop.test()`
 
-To run a difference-of-proportions test, we use the `prop.test()` function in base R. Unlike `CrossTable()`, this function does not work directly with the raw data --- instead, we supply the counts ourselves, using the cross-tab we already built.
+Unlike `CrossTable()`, `prop.test()` does not work directly with the raw data --- instead, we supply the counts ourselves, using the cross-tab we already built.
 
 `prop.test()` compares exactly two groups. Think of `x` and `n` as two parallel lists, one entry per group: `x = c(successes in Group 1, successes in Group 2)` and `n = c(total in Group 1, total in Group 2)`. Group 1's count must appear first in *both* vectors; Group 2's count must appear second in *both*. If you mismatch the order in one vector but not the other, R will not give an error --- it will just silently compare the wrong numbers.
 
@@ -111,21 +136,9 @@ Alongside the p-value, `prop.test()` also reports a confidence interval. For a t
 between the two proportions. For a one-sample proportion test, it is
 for the population proportion itself. When the confidence interval and hypothesis test are matched --- same significance level and same one-tailed or two-tailed specification --- they should point to the same conclusion. For the two-group tests in this tutorial, the hypothesized difference is usually 0. If the interval excludes 0, that matches a p-value small enough to reject the null. For a one-tailed test, one side of the interval may appear as the theoretical extreme (-1 or 1, since a difference in proportions cannot go beyond that range). That is expected, not an error. The bound that matters is the calculated one: does the interval exclude 0? Note that the fixed bound at ±1 does not guarantee this --- if the calculated bound were, say, 0.05, the interval would be (-1, 0.05) and would *include* 0, meaning the test would fail to reject the null despite one bound being fixed. We will rely on the p-value and decision rule throughout this tutorial, but the interval is worth a glance as a cross-check.
 
-### Applying the Five-Step Hypothesis Testing Procedure
-
-In Tutorial 11, you learned the building blocks of a hypothesis test: a null and alternative hypothesis, a test statistic, a p-value, and the decision rule for rejecting or failing to reject the null hypothesis. Here, we organize those same building blocks into five explicit steps, which we will follow for every hypothesis test in this tutorial and in those that follow:
-
-1. State the null hypothesis, $H_0$.
-2. State the alternative hypothesis, $H_A$.
-3. Run the test and obtain a test statistic.
-4. Find the p-value associated with that test statistic.
-5. Decide whether to reject or fail to reject $H_0$, and report what that means substantively.
-
-We will follow these same five steps to test relationships between two categorical variables, and we will follow them again in later tutorials for other kinds of hypothesis tests.
-
 ## Are Rural Counties More Likely to Support Trump?
 
-The rural/Trump relationship was one of the cleaner patterns in Tutorial 7 --- the column proportions rose steadily with rurality, and the difference between urban and rural counties was nearly 20 percentage points. The argument behind the hypothesis is intuitive: rural and urban communities differ in their economic conditions, social composition, and the political messages that resonate locally, and those differences shaped how receptive voters were to Trump's 2016 campaign. The cross-tab already showed a pattern consistent with that argument. Now we ask whether the pattern is strong enough to rule out chance.
+The rural/Trump relationship was one of the cleaner patterns in Tutorial 7 --- the column proportions rose steadily with rurality, and the difference between urban and rural counties was nearly 20 percentage points. The argument behind the hypothesis is intuitive: rural and urban communities differ in their economic conditions, social composition, and the political messages that resonate locally, and those differences shaped how receptive voters were to Trump's 2016 campaign. The cross-tab already showed a pattern consistent with that argument. Now we ask whether the pattern would be surprising if the two variables were truly unrelated.
 
 ::: {.hypothesis}
 In a comparison of [counties], those that are [more rural] will be more likely to [give a majority of their support to Trump] than will those that are [less rural (more urban)].
@@ -184,7 +197,7 @@ question("Using the row total, column total, and grand total from your output, w
 )
 ```
 
-Now that you can see how far the observed counts stray from what independence would predict, let's look at what the test statistic and p-value tell us about whether that gap is larger than chance would produce.
+Now that you can see how far the observed counts stray from what independence would predict, let's look at what the test statistic and p-value tell us about whether that gap would be surprising if the two variables were truly unrelated.
 
 #### Steps 4 and 5: Find the P-value, Decide, and Report the Result
 
@@ -195,8 +208,8 @@ question("Find the p-value in your output. Which statement best summarizes what 
   correct = "Right. The chi-square establishes a relationship exists, but its p-value does not test the specific direction the hypothesis predicts.",
   answer("We reject the null hypothesis --- rural and TrumpMajority are related in the population --- but the chi-square p-value does not directly test the specific directional contrast our hypothesis predicts",
          correct = TRUE),
-  answer("We reject the null hypothesis, which provides evidence consistent with the hypothesis that more rural counties are more likely to support Trump",
-         message = "Rejecting this null hypothesis only provides evidence that some relationship exists between rural and TrumpMajority (p < .001). It does not, by itself, evaluate the specific direction our hypothesis predicts --- for that we need the proportions test that follows."),
+  answer("We reject the null hypothesis, which proves that more rural counties are significantly more likely to support Trump than more urban counties",
+         message = "The chi-square test establishes that a relationship exists across all three rurality categories, but it does not directly test the rural-versus-urban directional contrast. Rejecting an omnibus null hypothesis is not the same as proving a specific pairwise directional claim --- that requires the targeted proportions test that follows."),
   answer("We fail to reject the null hypothesis, so there is no relationship between rural and TrumpMajority",
          message = "A p-value this small (p < .001) leads us to reject the null hypothesis, not fail to reject it. Failing to reject would require a p-value above .05."),
   answer("We reject the null hypothesis, and since the relationship runs across all three rurality categories, the directional claim is also established",
@@ -604,7 +617,7 @@ This time, identify the complete null and alternative hypothesis pair before bui
 
 ```{r quiz-genderequality-hypotheses, echo=FALSE}
 question("Which pair of hypotheses correctly formalizes the directional claim, with dictatorships listed first?",
-  correct = "Right. The null is always equal proportions stated in terms of the population parameter $\\pi$; the alternative encodes the directional prediction. $H_0: \\pi_{Dictatorship} = \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} < \\pi_{Democracy}$, where $\\pi$ is the proportion of countries with high gender equality in the population.",
+  correct = "Right. For the tests in this tutorial, the null states equal population proportions using the population parameter $\\pi$, while the alternative encodes the directional prediction. $H_0: \\pi_{Dictatorship} = \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} < \\pi_{Democracy}$, where $\\pi$ is the proportion of countries with high gender equality in the population.",
   answer("$H_0: \\pi_{Dictatorship} = \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} < \\pi_{Democracy}$",
          correct = TRUE),
   answer("$H_0: p_{Dictatorship} = p_{Democracy}$ and $H_A: p_{Dictatorship} < p_{Democracy}$",
@@ -612,7 +625,7 @@ question("Which pair of hypotheses correctly formalizes the directional claim, w
   answer("$H_0: \\pi_{Dictatorship} = \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} \\neq \\pi_{Democracy}$",
          message = "The null is right, but a two-sided alternative does not capture the directional prediction the hypothesis makes. The hypothesis specifically predicts dictatorships lag behind --- that is a one-tailed claim."),
   answer("$H_0: \\pi_{Dictatorship} < \\pi_{Democracy}$ and $H_A: \\pi_{Dictatorship} = \\pi_{Democracy}$",
-         message = "The null and alternative are reversed. The null hypothesis is always the no-difference baseline --- equal proportions --- and the alternative is the directional claim we are testing. A null hypothesis never contains an inequality."),
+         message = "In the hypothesis-testing framework used in this course, we state the null as the no-difference baseline --- equal population proportions --- and the alternative expresses the directional prediction we are testing. Swapping them here puts the directional claim in the null, which is not how the framework works."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: What does the null hypothesis always say about the two population proportions? Then check which direction the hypothesis predicts --- and which letter denotes a population parameter."
@@ -643,10 +656,10 @@ Read the counts for each group from the cross-tab you just produced, combining t
 # Hint 2 of 2
 # The hypothesis predicts dictatorships have a LOWER proportion
 # of high gender equality than democracies combined. With
-# Dictatorship listed first in x and n, alternative = "less"
-# tests that direction. For the counts, x takes the high
-# gender equality count for each group and n takes the total
-# --- use the values from your cross-tab and the addition
+# Dictatorship listed first in x and n, use the hypothesis
+# to determine the correct alternative. For the counts, x takes
+# the high gender equality count for each group and n takes the
+# total --- use the values from your cross-tab and the addition
 # described in Hint 1.
 ```
 
@@ -705,23 +718,21 @@ question("Find the p-value and the sample proportions in your output. Which stat
 
 ## Testing a Single Proportion
 
-The three examples above all tested whether two variables are related --- the general-then-directional procedure we used throughout. This section introduces a separate use of `prop.test()` that is not part of that procedure: testing whether a single sample proportion differs from some fixed, hypothesized value, with no second variable and no relationship involved at all. For example, we might ask whether the proportion of Trump-majority counties in our data is consistent with a hypothesized value of 0.80.
+The three examples above all tested whether two variables are related --- the general-then-directional procedure we used throughout. This section introduces a separate use of `prop.test()` that is not part of that procedure: testing whether a single sample proportion differs from a fixed, hypothesized value, with no second variable and no relationship involved at all.
 
-We use the same `prop.test()` function, but with different arguments: `x` is the number of "successes," `n` is the total sample size, and `p` is the hypothesized population proportion we are comparing against --- R's name for this argument, unrelated to the p-value despite sharing a letter.
+The cross-tab from the first example showed that Trump won a majority in most counties --- but "most" is imprecise. A more exact question: does Trump win a *majority of counties* in the statistical sense? That is, can we reject the null hypothesis that exactly half of all counties give Trump a majority? The hypothesized value is 0.50 --- not an arbitrary benchmark, but the threshold that separates "more counties than not" from "fewer counties than not." The research question is whether Trump's county-level dominance clears that bar by more than chance alone would produce.
 
-The numbers 2622 and 3112 come from the first example's cross-tab --- 2622 Trump-majority counties out of 3112 total counties. The hypothesized value of 0.80 is chosen as an example to illustrate the test.
+We use the same `prop.test()` function, but with different arguments: `x` is the number of successes, `n` is the total sample size, and `p` is the hypothesized population proportion we are comparing against --- R's name for this argument, unrelated to the p-value despite sharing a letter. The numbers 2622 and 3112 come from the first example's cross-tab.
 
 **Run and observe: Run a one-sample proportion test**
 
 ```{r proptest-onesample-trumpmajority, exercise=TRUE, exercise.cap="Run and observe: One-sample proportion test"}
-prop.test(x = 2622, n = 3112, p = 0.80)
+prop.test(x = 2622, n = 3112, p = 0.50)
 ```
 
-The logic of the five steps still applies here: a null hypothesis ($H_0: \pi=0.80$), an alternative ($H_A: \pi \ne 0.80$), a test statistic, a p-value, and a decision --- but with only one sample proportion involved, not a comparison between two groups or a relationship between two variables.
+The sample proportion is $p = 0.843$ --- Trump won a majority in 84.3% of counties. The test compares that to the null value of 0.50. With $\chi^2 = 1459.2$ and p < .001, we reject the null hypothesis: the proportion of Trump-majority counties is significantly greater than half. The 95% confidence interval (0.829, 0.855) excludes 0.50 entirely, pointing to the same conclusion. Trump's county-level support clears the majority threshold by a wide and statistically significant margin.
 
-The sample proportion, $p=0.843$ (2622/3112), is compared to the hypothesized value of 0.80. (This $p$ is the Roman-letter sample statistic from Tutorial 10's table, not the p-value reported just below --- the two are unrelated quantities that happen to share a letter. Similarly, the `p =` argument in `prop.test()` sets the hypothesized population proportion, which is also unrelated to the p-value in the output.) The test statistic is reported as a chi-squared value ($\chi^2 = 34.941$, df = 1) rather than a t- or z-statistic --- `prop.test()` uses a chi-square approximation by default, with a continuity correction applied automatically for a one-sample test --- but the conclusion follows the same logic as every other test in this tutorial. Because p < .001, we reject the null hypothesis: the proportion of Trump-majority counties in our data differs significantly from the hypothesized value of 0.80.
-
-The output's 95% confidence interval, (0.829, 0.855), gives the same answer a different way: since it excludes the hypothesized value of 0.80 entirely, it points to the same conclusion as the p-value --- and unlike the directional tests earlier in this tutorial, this one is two-tailed, so both bounds here are calculated from the data rather than fixed at a theoretical extreme.
+The logic of the five steps still applies: a null hypothesis ($H_0: \pi = 0.50$), an alternative ($H_A: \pi \ne 0.50$), a test statistic, a p-value, and a decision --- but with only one sample proportion involved, not a comparison between two groups or a relationship between two variables. Note that the test statistic here is reported as a chi-squared value rather than a z- or t-statistic --- `prop.test()` uses a chi-square approximation by default --- but the decision rule is identical: a p-value below .05 leads us to reject the null.
 
 ## Check Your Understanding
 
@@ -794,7 +805,7 @@ This tutorial introduced three tests for categorical variables:
 
 - The [**difference-of-proportions test**]{.important-text} asks the sharper, directional question: is the proportion of successes higher (or lower) in one specific group than in another? Run it with `prop.test(x = c(successes1, successes2), n = c(total1, total2), alternative = ...)`. The first entries in `x` and `n` must describe the same group; so must the second entries. Use `alternative = "less"` or `"greater"` when a hypothesis predicts a specific direction. When a hypothesis compares a group to all other categories combined, read the counts from the cross-tab and add across the cells you need before passing them to `prop.test()`.
 
-- The [**one-sample proportion test**]{.important-text} asks a different question entirely: whether a single sample proportion differs from a fixed hypothesized value, with no second variable and no relationship involved. Use the same `prop.test()` function with `p =` set to the hypothesized value instead of a second group's counts.
+- The [**one-sample proportion test**]{.important-text} asks a different question entirely: whether a single sample proportion differs from a fixed hypothesized value, with no second variable and no relationship involved. A natural use is testing whether a proportion clears a substantively meaningful threshold --- such as whether Trump won a majority of counties in the statistical sense, tested against a null of 0.50. Use the same `prop.test()` function with `p =` set to the hypothesized value instead of a second group's counts.
 
 Our approach throughout was to begin with the general question and then sharpen the analysis to the specific directional comparison in the hypothesis. The chi-square test evaluates whether the variables are related across all categories; the proportions test directly evaluates the particular two-group directional contrast the hypothesis predicts.
 

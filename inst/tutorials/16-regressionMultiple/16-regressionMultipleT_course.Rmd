@@ -13,20 +13,17 @@ description: >
 
 ## Overview {#main-content}
 
-In Tutorial 15 you estimated simple regression models --- one dependent variable, one independent variable. That is the right place to start, but every model left most of the variation in the outcome unexplained. That is not a bug. It is a reminder that most outcomes in political and social life have many causes, not one.
-
-Multiple regression is the natural next step. It extends the same `lm()` framework to models with more than one independent variable. This lets you do two things that simple regression cannot. First, you can ask whether a relationship holds up once you account for other factors that might be driving it. Second, you can get a much better fit to the data by modeling several causes at once. The mechanics are almost identical to Tutorial 15 --- the interpretation is where new thinking is required.
+Tutorial 15 introduced linear regression in the simplest case: one explanatory variable and one outcome. But most outcomes in political and social life have many causes, not one, and a model with a single explanatory variable leaves most of that variation unexplained. Multiple regression extends the same `lm()` framework to models with more than one explanatory variable. This lets you do two things that simple regression cannot. First, you can ask whether a relationship holds up once you account for other factors that might be driving it. Second, you can model several explanatory variables at once and get a much better picture of what shapes the outcome. The mechanics are almost identical to Tutorial 15 --- the interpretation is where new thinking is required.
 
 The data frames **counties** and **qog** each cover close to a complete population for their unit of analysis --- US counties and countries of the world, respectively. Neither is a random sample the way a public opinion survey is. What makes hypothesis tests appropriate is that our questions are not really about these specific counties and countries; they are about the political and social processes that generate outcomes like the ones we observe.
 
 In this tutorial, you will extend your regression toolkit to models with multiple independent variables. Specifically, we will cover:
 
-* How to estimate a multiple regression model using `lm()` by adding independent variables with `+` in the formula
+* How to estimate a multiple regression model using `lm()` by adding explanatory variables with `+` in the formula
 * How to interpret coefficients in a multiple regression, including the "all else equal" qualifier that changes meaning compared to simple regression
 * How to choose which variables to include and why, including the logic of controlling for competing explanations
 * How to interpret the slope on a nominal variable with three or more categories, using `factor()` and `relevel()`
-* How to assess model fit using the Adjusted $R^2$ and the residual standard error
-* How to decide when to use the Adjusted $R^2$ rather than the Multiple $R^2$
+* How to assess model fit using two statistics: the Adjusted $R^2$ and the residual standard error, and when to prefer the Adjusted $R^2$ over the Multiple $R^2$
 
 ```{r setup, include=FALSE}
 library(learnr)
@@ -46,9 +43,11 @@ counties$white_percent <- counties$prop_white * 100
 counties$hispanic_percent <- counties$prop_hispanic * 100
 counties$college_grad_percent <- counties$prop_college_grad * 100
 data("qog", package = "QPATutorialsCourse")
-qog$democ[qog$fh_ipolity2 < 4] <- 0
-qog$democ[qog$fh_ipolity2 > 6] <- 2
-qog$democ[qog$fh_ipolity2 >= 4 & qog$fh_ipolity2 <= 6] <- 1
+qog$democ <- dplyr::case_when(
+  qog$fh_ipolity2 < 4  ~ 0,
+  qog$fh_ipolity2 > 6  ~ 2,
+  TRUE                  ~ 1
+)
 qog$democ_f <- factor(qog$democ, labels = c("Autocracy", "Partial Democracy", "Democracy"))
 model_gov <- lm(iiag_gov ~ wdi_fertility + bti_eo + democ_f, data = qog)
 model_gov_dem <- lm(iiag_gov ~ wdi_fertility + bti_eo + relevel(democ_f, ref = "Democracy"), data = qog)
@@ -66,6 +65,10 @@ Before running a model, it is worth being clear about why multiple regression ex
 [**Conditional relationships.**]{.important-text} Sometimes the effect of one variable depends on the level of another. We will address this case in Tutorial 17.
 
 The remedy in the first two cases is the same: include the relevant variables in the model. Once you do, each coefficient is estimated holding the other variables constant. That is the meaning of the phrase you will see throughout this tutorial: [**controlling for all other variables in the model**]{.important-text}, or equivalently, [**all else equal**]{.important-text}.
+
+::: {.caution}
+**Controlling for variables reduces confounding but does not eliminate it.** Multiple regression estimates conditional associations --- the relationship between an explanatory variable and an outcome after holding other variables in the model constant. This is more informative than a simple bivariate relationship, but it is not the same as a causal effect. Variables not included in the model may still confound the relationships we estimate, and observational data cannot rule that out entirely. Establishing causation requires either a research design that rules out confounding by construction --- a randomized experiment, a natural experiment, an instrumental variable --- or a theoretical argument strong enough to defend the assumption that no important confounders remain. Regression alone cannot do that work. Throughout this tutorial, we describe our estimates as relationships and associations, not causes.
+:::
 
 ## Does Wage Growth Predict Clinton's Vote, Controlling for Other County Characteristics?
 
@@ -93,8 +96,6 @@ model1 <- lm(dem2p_percent ~ mortality_risk_25_45 + wage_growth + college_grad_p
 summary(model1)
 ```
 
-`lm()` and `summary()` are part of base R --- no `library()` call is needed for any regression estimation or summary exercise in this tutorial.
-
 Take a moment to look at the output before moving on. Find the `Coefficients` table and locate each variable by name. Notice that the output structure is identical to what you saw in Tutorial 15 --- there is one row per variable plus a row for the intercept, each with an estimate, standard error, t-statistic, and p-value. The only thing that has changed is the number of rows.
 
 
@@ -106,7 +107,7 @@ That qualifier matters more than it might seem. Without controls, the simple reg
 
 **Practice: Interpret the slope on wage_growth**
 
-Look at the **wage_growth** row in your Coefficients table and note that each coefficient is now a partial slope before answering.
+Look at your Coefficients table and note that each coefficient is now a partial slope before answering.
 
 ```{r quiz-interpret-wagegrowth, echo=FALSE}
 question("Look at the slope on wage_growth in your output. Which statement correctly gives its value and what it means?",
@@ -132,7 +133,7 @@ The calculation is straightforward: to find the expected change in the outcome f
 
 **Practice: Apply a meaningful unit change to mortality risk**
 
-Look at the **mortality_risk_25_45** slope in your output and think about what a half-point change means before answering.
+Look at the slope for mortality risk in your output and think about what a half-point change means before answering.
 
 ```{r quiz-interpret-mortality, echo=FALSE}
 question("The slope on mortality_risk_25_45 is -3.117. What is the expected change in Clinton's percent of the two-party vote for a 0.5 percentage point increase in mortality risk, controlling for all other variables in the model?",
@@ -144,6 +145,8 @@ question("The slope on mortality_risk_25_45 is -3.117. What is the expected chan
          message = "That would be the change for a full one-percentage-point increase. The slope is -3.117 per point, so a half-point change is half that: (-3.117)(0.5) = -1.559."),
   answer("An increase of about 1.56 percentage points",
          message = "The slope on mortality_risk_25_45 is negative, so higher mortality risk is associated with lower Clinton two-party vote percent, not higher."),
+  answer("A decrease of about 0.78 percentage points",
+         message = "Check the multiplication: the slope is -3.117, so a half-point change is (-3.117)(0.5) = -1.559, not (-3.117)(0.25)."),
   allow_retry = TRUE,
   random_answer_order = TRUE
 )
@@ -155,7 +158,7 @@ The coefficients tell us the direction and size of each effect; hypothesis tests
 
 **Practice: Test and interpret the wage_growth coefficient**
 
-Find the t-statistic and p-value in the **wage_growth** row of your output before answering.
+Find the t-statistic and p-value for the slope on **wage_growth** in your output before answering.
 
 ```{r quiz-hypothesistesting-clintonvote, echo=FALSE}
 question("Find the t-statistic and p-value for wage_growth in your output. Which statements are true? Select all that apply.",
@@ -186,7 +189,7 @@ With multiple independent variables, we use the [**Adjusted $R^2$**]{.important-
 
 **Practice: Assess the fit of the model**
 
-Find the Adjusted R-squared and Residual standard error at the bottom of your output before answering.
+Find the Adjusted R-squared and residual standard error in your output before answering.
 
 ```{r quiz-modelfit-clintonvote, echo=FALSE}
 question("Look at the Adjusted R-squared and the residual standard error in your output. Which statements are true?",
@@ -446,6 +449,8 @@ question("Find the t-statistic and p-value for the Democracy vs. Autocracy coeff
          message = "These are two separate coefficients with separate tests. The Democracy coefficient is significant; the Partial Democracy coefficient is not. Look at them separately."),
   answer("The significant result proves that democracy causes better governance",
          message = "A significant coefficient is evidence of a relationship in the population. It does not establish causation --- more democratic countries may also differ in other ways (historical, geographic, economic) that contribute to governance quality."),
+  answer("A p-value below .05 means there is less than a 5% probability that the null hypothesis is true",
+         message = "This is a common misreading of the p-value. The p-value gives the probability of observing a t-statistic this large *if the null hypothesis were true* --- it does not give the probability that the null hypothesis is true. A small p-value means the data would be surprising under the null, not that the null is probably false."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: look at the p-value for the Democracy coefficient. Is it above or below .05?"
@@ -458,7 +463,7 @@ The coefficients and tests tell us whether the relationships are statistically d
 
 **Practice: Assess the fit of the governance model**
 
-Find the Adjusted R-squared and Residual standard error at the bottom of your output before answering.
+Find the Adjusted R-squared and residual standard error in your output before answering.
 
 ```{r quiz-modelfit-governance, echo=FALSE}
 question("Look at the Adjusted R-squared and the residual standard error. Which statements are true? Select all that apply.",
@@ -471,6 +476,8 @@ question("Look at the Adjusted R-squared and the residual standard error. Which 
          message = "With four predictors (two interval variables plus two factor dummies), the adjusted R-squared penalizes for the additional complexity and is the appropriate measure."),
   answer("An adjusted R-squared of 0.693 and a residual standard error of 7.49 cannot both be correct for the same model, since R-squared must always equal the squared residual standard error",
          message = "These two statistics are measuring completely different things and there is no mathematical relationship between them. R-squared is a proportion of variance explained (bounded between 0 and 1); the residual standard error is a standard deviation measured in the units of the outcome. They are independent summaries of model fit."),
+  answer("The Multiple R-squared of 0.718 is the right statistic to report here since it is always larger than the Adjusted R-squared",
+         message = "Being larger is not a virtue --- the Multiple R-squared increases mechanically whenever you add predictors, even useless ones. The Adjusted R-squared penalizes for additional predictors and is the appropriate measure when comparing models with different numbers of variables."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: make sure to select all true statements."
@@ -499,14 +506,14 @@ The data frame **qog** contains **fh_rol**, the Freedom House Rule of Law score.
 
 **Practice: Regress rule of law on fertility rate and democracy level**
 
-Write the code from scratch to estimate the model, assigning it to **my.model**, then display the results. Three hints are available. Click Submit Answer to check your work.
+Write the code from scratch to estimate the model, assigning it to **model3**, then display the results. Two hints are available. Click Submit Answer to check your work.
 
 ```{r exercise-multipleregression-fhrol, exercise=TRUE, exercise.cap="Practice: Regress rule of law on fertility rate and democracy level"}
 
 ```
 
 ```{r exercise-multipleregression-fhrol-hint-1}
-# Hint 1 of 3
+# Hint 1 of 2
 # Look back at the hypothesis. Which variable is the outcome
 # you are trying to explain? Which variables do we think
 # predict it? The outcome goes on the left of ~; predictors
@@ -514,17 +521,11 @@ Write the code from scratch to estimate the model, assigning it to **my.model**,
 ```
 
 ```{r exercise-multipleregression-fhrol-hint-2}
-# Hint 2 of 3
+# Hint 2 of 2
 # The structure is the same as Examples 1 and 2: lm() with
 # a formula and a data argument, assigned to a named object,
 # then passed to summary(). Use the same data frame as
 # Example 2. democ_f is already in the environment.
-```
-
-```{r exercise-multipleregression-fhrol-hint-3}
-# Hint 3 of 3: fill in the blanks
-my.model <- lm(___ ~ ___ + ___, data = qog)
-summary(my.model)
 ```
 
 ```{r exercise-multipleregression-fhrol-check}
@@ -534,8 +535,8 @@ grade_this({
   if (!grepl("lm\\s*\\(", code_no_comments)) {
     fail("Use lm() to estimate the regression.")
   }
-  if (!grepl("my\\.model\\s*(<-|=)", code_no_comments)) {
-    fail("Assign your model to an object called my.model.")
+  if (!grepl("model3\\s*(<-|=)", code_no_comments)) {
+    fail("Assign your model to an object called model3.")
   }
   if (!grepl("fh_rol\\s*~", code_no_comments)) {
     fail("The dependent variable should be fh_rol --- rule of law is what we are trying to explain.")
@@ -577,7 +578,7 @@ With your model estimated, the Coefficients table now tells us how fertility rat
 
 **Practice: Interpret the coefficients**
 
-Look at each row of the Coefficients table in your output, paying particular attention to the Partial Democracy row before answering.
+Look at your Coefficients table, paying particular attention to the Partial Democracy row before answering.
 
 ```{r quiz-interpret-fhrol, echo=FALSE}
 question("Which statements correctly describe what the output tells us? Select all that apply.",
@@ -629,7 +630,7 @@ With the coefficients interpreted and tested, how well does this two-predictor m
 
 **Practice: Assess the fit of the rule of law model**
 
-Find the Adjusted R-squared and Residual standard error at the bottom of your output before answering.
+Find the Adjusted R-squared and residual standard error in your output before answering.
 
 ```{r quiz-modelfit-fhrol, echo=FALSE}
 question("Look at the Adjusted R-squared and the residual standard error in your output. Which statements are true? Select all that apply.",
@@ -777,73 +778,7 @@ You have now produced a regression table in the format that appears in published
 
 You have now done the full workflow of a quantitative political scientist: formulated a hypothesis, estimated a model that controls for competing explanations, interpreted each coefficient with the "all else equal" qualifier, tested it for significance, and presented the results in a professional regression table. The three examples also showed something more substantive --- that what you conclude about a relationship depends on what you control for, which outcome you measure, and which comparison your reference category makes possible. That is the real payoff of multiple regression: not just more predictors, but more honest answers to more specific questions.
 
-The exercises below ask you to bring together everything from Examples 1 through 3. Work through them without looking back --- the goal is to see how much of this you can do on your own.
-
-**Apply: Build a model from scratch using new variables**
-
-The **qog** dataset also contains **ti_cpi**, the Transparency International Corruption Perceptions Index, where higher values indicate lower perceived corruption (0 = highly corrupt, 100 = very clean). Countries with greater political rights and civil liberties should face stronger accountability for corruption. Estimate a regression predicting **ti_cpi** as a function of **wdi_fertility** and **democ_f**. Assign your model to a named object and display the results. Two hints are available. Click Submit Answer to check your work.
-
-```{r exercise-cyu-corruption, exercise=TRUE, exercise.cap="Apply: Regress corruption perception on fertility rate and democracy level"}
-
-```
-
-```{r exercise-cyu-corruption-hint-1}
-# Hint 1 of 2
-# Which variable is the outcome here? Which variables do you
-# think predict it? Think about the hypothesis and look at
-# the variable descriptions above.
-```
-
-```{r exercise-cyu-corruption-hint-2}
-# Hint 2 of 2
-# The structure is the same as Examples 2 and 3:
-# lm() with a formula and data = qog, assigned to a named
-# object, then passed to summary().
-```
-
-```{r exercise-cyu-corruption-check}
-grade_this({
-  code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
-  if (!grepl("lm\\s*\\(", code_no_comments)) {
-    fail("Use lm() to estimate the regression.")
-  }
-  if (!grepl("[A-Za-z.][A-Za-z0-9.]*\\s*(<-|=)\\s*lm\\s*\\(", code_no_comments)) {
-    fail("Assign your model to a named object using <- before calling summary().")
-  }
-  if (!grepl("ti_cpi\\s*~", code_no_comments)) {
-    fail("The dependent variable should be ti_cpi.")
-  }
-  if (!grepl("wdi_fertility", code_no_comments)) {
-    fail("Include wdi_fertility as an independent variable.")
-  }
-  if (!grepl("democ_f", code_no_comments)) {
-    fail("Include democ_f as an independent variable.")
-  }
-  if (!grepl("data\\s*=\\s*qog", code_no_comments)) {
-    fail("Set data = qog so R knows where to find the variables.")
-  }
-  if (!grepl("summary\\s*\\(", code_no_comments)) {
-    fail("Call summary() on your saved model object to display the results.")
-  }
-  expected <- lm(ti_cpi ~ wdi_fertility + democ_f, data = qog)
-  result_coef <- if (inherits(.result, "summary.lm")) {
-    setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
-  } else {
-    coef(.result)
-  }
-  if (is.null(result_coef)) {
-    fail("Make sure you display the results by calling summary() on your model object.")
-  }
-  if (!isTRUE(all.equal(
-    as.numeric(result_coef[order(names(result_coef))]),
-    as.numeric(coef(expected)[order(names(coef(expected)))]),
-    tolerance = 1e-6))) {
-    fail("Check that your model includes ti_cpi as the outcome and wdi_fertility and democ_f as predictors.")
-  }
-  pass("Correct! Look at which predictors are significant. Does the pattern match what you found for rule of law? What might explain any differences?")
-})
-```
+The exercise below asks you to bring together everything from Examples 1 through 3. Work through it without looking back --- the goal is to see how much of this you can do on your own.
 
 **Apply: Connect the findings across examples**
 
@@ -859,13 +794,15 @@ question("Across Examples 1, 2, and 3, which statement best captures what multip
          message = "R-squared does mechanically increase when you add variables, which is exactly why we use the Adjusted R-squared to compare models. An increase in R-squared alone does not prove the added variables matter --- they need significant coefficients too."),
   answer("Multiple regression lets us include more variables, which always makes the results more trustworthy",
          message = "Adding more variables can actually make results less trustworthy if those variables are highly correlated with each other (multicollinearity) or if they are themselves caused by the outcome. More variables are not always better --- the right variables are what matter."),
+  answer("Multiple regression always produces larger R-squared values than simple regression, which proves the added variables matter",
+         message = "R-squared does mechanically increase when you add variables, which is exactly why we use the Adjusted R-squared to compare models. An increase in R-squared alone does not prove the added variables matter --- they need significant coefficients too."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: think about how the wage growth slope changed from Tutorial 15 to Example 1, and how the partial democracy finding changed between Examples 2 and 3."
 )
 ```
 
-Multiple regression extends simple regression to models with more than one independent variable. The formula syntax extends naturally: list each independent variable after the `~`, separated by `+`. The `summary()` output is identical in structure to simple regression, just with more rows in the coefficient table.
+[**Multiple regression**]{.important-text} extends simple regression to models with more than one independent variable. The formula syntax extends naturally: list each independent variable after the `~`, separated by `+`. The `summary()` output is identical in structure to simple regression, just with more rows in the coefficient table.
 
 The key additions this tutorial introduces:
 
