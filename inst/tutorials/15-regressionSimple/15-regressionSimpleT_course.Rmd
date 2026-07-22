@@ -13,7 +13,7 @@ description: >
 
 ## Overview {#main-content}
 
-In Tutorials 7, 8, and 9, you described relationships between variables --- cross-tabulations, group means, and scatter plots. In Tutorials 12, 13, and 14, you tested those relationships formally. Both sets of tutorials left something on the table: a chi-square test, a difference-of-means test, or a correlation tells you whether a relationship exists and how strong it is, but not how much the outcome actually changes for a given change in the explanatory variable, and none of them gives you a way to account for other variables that might be driving what you observe. Regression addresses both of those limitations --- but it requires an interval-level outcome variable. When the outcome variable is categorical, as in Tutorials 7 and 12, a different class of model is needed; you will encounter that in Tutorials 19 and 20. For now, the outcome is interval, and the explanatory variable can be anything.
+In Tutorials 7, 8, and 9, you described relationships between variables --- cross-tabulations, group means, and scatter plots. In Tutorials 12, 13, and 14, you tested those relationships formally. Both sets of tutorials left something on the table: they did not provide a single unified framework for estimating how the outcome is associated with different kinds of predictors, or for accounting for other variables that may be confounding what you observe. Regression addresses both of those limitations --- but it requires an interval-level outcome variable. When the outcome variable is categorical, as in Tutorials 7 and 12, a different class of model is needed; you will encounter that in Tutorials 19 and 20. For now, the outcome is interval, and the explanatory variable can be anything.
 
 This is the first of four tutorials on linear regression. Here we start with the simplest case: one explanatory variable predicting one outcome. Specifically, we will cover:
 
@@ -79,7 +79,7 @@ The `lm()` function in base R estimates a linear regression model. It takes two 
 
 R also prints significance stars next to each p-value as a visual shorthand: `***` for p < .001, `**` for p < .01, `*` for p < .05, and `.` for p < .1. A key at the bottom of the output defines them. The stars are a quick visual cue, but we always rely on the actual p-value rather than the stars alone --- the stars tell you which threshold a p-value clears, not its exact value.
 
-Below the coefficients table, `Residual standard error` gives the typical size of the residuals in the units of $Y$ --- the typical gap between what the model predicts and what we actually observe. `Multiple R-squared` gives the proportion of the variance in $Y$ the model explains; a value of 0.20 means the model accounts for 20% of the variation in the outcome. Finally, there is an `F-statistic` at the very bottom; with only one independent variable it tests the same thing as the slope's t-statistic, so we will return to it in Tutorial 16 when it becomes more useful.
+Below the coefficients table, `Residual standard error` gives the estimated standard deviation of the residuals --- the approximate typical distance between observed outcomes and the fitted regression line. `Multiple R-squared` gives the proportion of the variance in $Y$ the model explains; a value of 0.20 means the model accounts for 20% of the variation in the outcome. Finally, there is an `F-statistic` at the very bottom; with only one independent variable it tests the same thing as the slope's t-statistic, so we will return to it in Tutorial 16 when it becomes more useful.
 
 The three examples that follow put all of this to work. Examples 1 and 2 use an interval explanatory variable --- one from American electoral politics, one from a cross-national survey --- and Example 3 introduces a two-category factor variable, connecting regression back to the difference-of-means framework you used in Tutorial 13.
 
@@ -162,6 +162,8 @@ question("Look at the Coefficients table in your output. Which statement correct
 The regression line isn't just a summary of the data --- it's a prediction machine. Substituting any value of **wage_growth** into the fitted line gives us the expected percent of the two-party vote for Clinton in a county with that level of wage growth. At the average value of **wage_growth**, 4.3:
 
 $$\widehat{\text{dem2p_percent}} = \hat{\alpha} + \hat{\beta}\,\text{wage_growth} = 31.3521 + 0.45582\times(4.3) = 33.31213.$$
+
+Notice what this arithmetic reveals about the slope. If wage growth were 5.3 instead --- one percentage point higher --- the prediction would be $31.3521 + 0.45582 \times 5.3 = 33.768$. The difference between the two predictions is exactly 0.456 --- the slope. That is not a coincidence: the slope *is* the expected change in $\hat{Y}$ for a one-unit increase in X, by definition. For any other change of size $c$, the expected change in $\hat{Y}$ is $\hat{\beta} \times c$ --- the same multiplication, scaled to the size of the change you care about. You will use this directly in Tutorial 16 when interpreting coefficients whose natural unit of change is not one.
 
 **Practice: Calculate a predicted value**
 
@@ -267,7 +269,7 @@ question("Which of the following statements about model fit are correct? Select 
          correct = TRUE,
          message = "The residual standard error is 15.99 percentage points --- roughly the size of a substantial swing in a county's vote percent. That is a large typical error, consistent with the near-zero R-squared. The model detects a real relationship but predicts individual counties poorly."),
   answer("The residual standard error shows that the model explains about 16% of the variation in Clinton's percent of the two-party vote",
-         message = "The residual standard error is not a proportion --- it is measured in the same units as the outcome, here percentage points. It tells us the typical size of a prediction error, not how much variation the model explains. That is what R-squared does."),
+         message = "The residual standard error is not a proportion --- it is measured in the same units as the outcome, here percentage points. It gives the approximate typical distance between observed outcomes and the fitted regression line, not the share of variation explained. That is what R-squared does."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: there are two correct statements --- one about R-squared and one about the residual standard error. Both point to very poor model fit."
@@ -278,11 +280,11 @@ question("Which of the following statements about model fit are correct? Select 
 
 So does wage growth predict support for Hillary Clinton? The short answer is yes, but the longer answer is more interesting.
 
-Wage growth had a positive relationship with the percent of the two party vote Clinton received in 2016 --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. The slope is highly significant: with over 3,100 counties, we are very confident the positive relationship is statistically distinguishable from zero. But the model fit is very poor. The R-squared of 0.017 means wage growth accounts for less than 2% of the county-to-county variation in Clinton's vote, and the residual standard error of about 16 percentage points means our predictions are typically off by a substantial margin. A significant slope and poor fit are not in tension --- they are answering different questions. The slope tells us the relationship is statistically distinguishable from zero; R-squared tells us how much of the variation it explains. In political science, where outcomes have many causes, a single predictor almost never explains most of the variation, and that is not a sign that something went wrong.
+Wage growth had a positive relationship with the percent of the two party vote Clinton received in 2016 --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. The slope is highly significant: with over 3,100 counties, we are very confident the positive relationship is statistically distinguishable from zero. But the model fit is very poor. The R-squared of 0.017 means wage growth accounts for less than 2% of the county-to-county variation in Clinton's vote, and the residual standard error of about 16 percentage points --- the approximate typical distance between observed vote shares and the fitted regression line --- is large. A significant slope and poor fit are not in tension --- they are answering different questions. The slope tells us the relationship is statistically distinguishable from zero; R-squared tells us how much of the variation it explains. In political science, where outcomes have many causes, a single predictor almost never explains most of the variation, and that is not a sign that something went wrong.
 
 ## Does National Freedom Predict Approval of a Strong Leader?
 
-The wage growth example showed regression at work on a question about US counties. The same logic applies to any research question with an interval dependent variable --- different data, different variables, different part of the world, same tool. Here we ask whether a country's level of political freedom shapes its citizens' appetite for concentrated executive power.
+The wage growth example showed regression at work on a question about US counties. The same logic applies to any research question with an interval dependent variable --- different data, different variables, different part of the world, same tool. Here we ask whether a country's level of political freedom is associated with its citizens' appetite for concentrated executive power.
 
 Does how free a country is predict whether its citizens approve of an unconstrained strong leader --- one who doesn't have to bother with elections or a legislature? The theoretical argument is that living under genuinely free institutions builds support for the constraints those institutions impose. Citizens who experience functioning elections, civil liberties, and checks on executive power develop both an appreciation for what those constraints protect and a wariness of leaders who would dismantle them. Countries with lower levels of freedom, conversely, may have populations more accustomed to --- or more open to --- concentrated executive power.
 
@@ -302,7 +304,7 @@ The hypothesis makes a clear prediction --- freer countries should show less app
 
 **Practice: Estimate a regression of strong leader approval on national freedom**
 
-Fill in the blanks to estimate the model, assigning it to **model2**, then display the results. Two hints are available. Click Submit Answer to check your work.
+Fill in the blanks to estimate the model, assigning it to **model2**, then display the results. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-regression-strongleader-freedom, exercise=TRUE, exercise.cap="Practice: Estimate a regression of strong leader approval on national freedom"}
 model2 <- ___(___ ~ ___, data = ___)
@@ -472,7 +474,7 @@ question("Which of the following statements about model fit are correct? Select 
          correct = TRUE,
          message = "The residual standard error is 20.71 percentage points. Given that approval rates range from roughly 20% to 80% across countries, a typical error of 21 points is very large. Poor fit and a significant slope coexist here because significance answers a different question than fit."),
   answer("The residual standard error of about 21 means the model explains about 21% of the variation in approval",
-         message = "The residual standard error is not a proportion --- it is measured in the same units as the outcome, here percentage points. It gives the typical size of a prediction error, not the share of variation explained. R-squared does that, and here it is 0.08, not 0.21."),
+         message = "The residual standard error is not a proportion --- it is measured in the same units as the outcome, here percentage points. It gives the approximate typical distance between observed outcomes and the fitted regression line, not the share of variation explained. R-squared does that, and here it is 0.08, not 0.21."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: there are two correct statements --- one about R-squared and one about the residual standard error."
@@ -481,9 +483,9 @@ question("Which of the following statements about model fit are correct? Select 
 
 ### What We Learned About National Freedom and Support for Strong Leaders
 
-So does political freedom shape citizens' appetite for unconstrained leadership? The data say yes --- but as in Example 1, the full picture is more nuanced than a significant slope alone suggests.
+So is political freedom associated with citizens' appetite for unconstrained leadership? The data say yes --- but as in Example 1, the full picture is more nuanced than a significant slope alone suggests.
 
-Countries with higher levels of political freedom show meaningfully lower public support for an unconstrained strong leader --- a negative relationship that is statistically significant even with only 78 countries in the sample. But the fit is poor: R-squared is 0.08, meaning freedom accounts for only about 8% of the cross-national variation in approval, and the residual standard error of about 21 percentage points means our country-level predictions are often far off. That combination --- a significant slope alongside poor fit --- is not a contradiction. The hypothesis test asks whether the relationship between freedom and approval is reliably non-zero in the population, and the evidence says yes. R-squared asks how much of the variation in approval freedom alone can account for, and the honest answer is: not much. That is not surprising once you consider everything else that shapes whether someone wants an unconstrained leader --- economic security, generational experience, media environment, recent political history --- nearly all of which a single national freedom score cannot capture. What the model tells us is that institutional environment matters; it does not tell us it is all that matters.
+Countries with higher levels of political freedom show meaningfully lower public support for an unconstrained strong leader --- a negative relationship that is statistically significant even with only 78 countries in the sample. But the fit is poor: R-squared is 0.08, meaning freedom accounts for only about 8% of the cross-national variation in approval, and the residual standard error of about 21 percentage points means the estimated standard deviation of the residuals is large --- country-level fitted values are often far from the observed values. That combination --- a significant slope alongside poor fit --- is not a contradiction. The hypothesis test asks whether the relationship between freedom and approval is reliably non-zero in the population, and the evidence says yes. R-squared asks how much of the variation in approval freedom alone can account for, and the honest answer is: not much. That is not surprising once you consider everything else associated with whether someone wants an unconstrained leader --- economic security, generational experience, media environment, recent political history --- nearly all of which a single national freedom score cannot capture. What the model tells us is that political freedom is associated with lower appetite for unconstrained leadership; it does not tell us it is all that is relevant.
 
 ## Do Majority-White Counties Differ in Their Support for Hillary Clinton?
 
@@ -518,7 +520,7 @@ With **White_f** created and its levels confirmed, estimate the regression.
 
 **Practice: Estimate a regression of Clinton's two-party vote percent on majority-white status**
 
-Write the code to estimate the model, assigning it to **model3**, then display the results. One hint is available. Click Submit Answer to check your work.
+Write the code to estimate the model, assigning it to **model3**, then display the results. One hint is available. Click "Submit Answer" to check your work.
 
 ```{r exercise-regression-voteclinton-majoritywhite, exercise=TRUE, exercise.cap="Practice: Estimate a regression of Clinton's two-party vote percent on majority-white status"}
 
@@ -651,7 +653,7 @@ question("Which of the following statements about model fit are correct? Select 
          correct = TRUE,
          message = "The residual standard error is about 14.64 percentage points. That is a large typical error, consistent with an R-squared of only 0.18. The two-category majority-white split captures a real and large difference between groups but still leaves most individual variation unaccounted for."),
   answer("The residual standard error of about 15 means the model explains about 15% of the variation in Clinton's percent of the two-party vote",
-         message = "The residual standard error is not a proportion --- it is in the same units as the outcome, percentage points. It gives the typical size of a prediction error. R-squared gives the proportion of variance explained, and here that is 0.18."),
+         message = "The residual standard error is not a proportion --- it is in the same units as the outcome, percentage points. It gives the approximate typical distance between observed outcomes and the fitted regression line. R-squared gives the proportion of variance explained, and here that is 0.18."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: there are two correct statements --- one about R-squared and one about the residual standard error."

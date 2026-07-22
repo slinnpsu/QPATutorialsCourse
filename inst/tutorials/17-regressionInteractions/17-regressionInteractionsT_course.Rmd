@@ -15,13 +15,17 @@ description: >
 
 Every regression model in Tutorials 15 and 16 made a quiet assumption: the effect of each independent variable on the outcome is the same regardless of the values taken by any other variable. That is often a reasonable starting point, but it is frequently wrong. In many political and social relationships, the effect of one variable depends on the level of another --- and a model that ignores this will misrepresent what is actually going on.
 
-When the effect of one variable depends on the value of another, we say the relationship is [**conditional**]{.important-text} or [**interactive**]{.important-text}. Estimating a conditional relationship in R requires adding one new ingredient to the model: a term multiplying the two variables together, created with the `*` operator. Everything else --- `lm()`, `summary()`, the interpretation logic --- works exactly as before. The challenge is interpreting the output, which is what this tutorial focuses on.
+When the effect of one variable depends on the value of another, we say the relationship is [**conditional**]{.important-text} or [**interactive**]{.important-text}. Estimating a conditional relationship in R requires adding one new ingredient to the model: a term multiplying the two variables together, created with the `*` operator. The estimation commands --- `lm()`, `summary()` --- work exactly as before, but the coefficients must now be interpreted conditionally rather than as fixed effects. That change in interpretation is what this tutorial focuses on.
+
+::: {.tip}
+**A note on language.** As in the previous regression tutorials, we use *effect* and *conditional effect* to refer to the model's estimated conditional relationship between a predictor and an outcome. These observational regressions do not by themselves establish causation. In substantive conclusions, we use *associated with*, *predicts*, or *relationship* to describe what the data show.
+:::
 
 ::: {.tip}
 **Plots are coming.** Conditional relationships are most vividly communicated with a prediction plot showing how one variable's effect changes across values of the other. We will build those in Tutorial 18. In this tutorial we focus on interpreting the coefficients numerically first, which is the foundation you need to read those plots meaningfully.
 :::
 
-These tutorials work with three datasets --- **counties**, **qog**, and **world** --- that are close to complete populations for their unit of analysis. None is a random sample in the survey sense. The justification for hypothesis testing is that we are asking not about these specific counties or countries, but about the underlying processes that generate political outcomes. That logic holds across all three datasets and does not need restating in each example.
+These tutorials work with three datasets --- **counties**, **qog**, and **world**. None is a random sample in the survey sense. The justification for hypothesis testing is that we are asking not about these specific counties or countries, but about the underlying processes that generate political outcomes. That logic holds across all three datasets and does not need restating in each example. Note that missingness varies substantially across examples --- Example 3 has only 116 complete cases, so results should be interpreted with particular caution.
 
 In this tutorial, you will learn to estimate and interpret conditional relationships in multiple regression. Specifically, we will cover:
 
@@ -50,9 +54,11 @@ counties$college_grad_percent <- counties$prop_college_grad * 100
 data("qog", package = "QPATutorialsCourse")
 qog$rights[qog$fh_pr <= 2] <- 0
 qog$rights[qog$fh_pr > 2] <- 1
-qog$democ[qog$fh_ipolity2 < 4] <- 0
-qog$democ[qog$fh_ipolity2 > 6] <- 2
-qog$democ[qog$fh_ipolity2 >= 4 & qog$fh_ipolity2 <= 6] <- 1
+qog$democ <- dplyr::case_when(
+  qog$fh_ipolity2 < 4  ~ 0,
+  qog$fh_ipolity2 > 6  ~ 2,
+  TRUE                  ~ 1
+)
 qog$democ_f <- factor(qog$democ, labels = c("Autocracy", "Partial Democracy", "Democracy"))
 ```
 
@@ -136,7 +142,7 @@ In a comparison of counties, the effect of mortality risk on Hillary Clinton's p
 In R, the `*` operator between two variables in a formula tells `lm()` to include both main effects and the interaction term automatically. Writing `X1 * X2` is exactly equivalent to writing `X1 + X2 + X1:X2`. The output will include a row labeled `X1:X2` for the interaction coefficient.
 
 ::: {.tip}
-**You must always include the constituent terms --- $X_1$ and $X_2$ separately --- alongside the interaction term $X_1 \times X_2$.** The interaction term measures the *additional* effect above and beyond what each variable contributes on its own. If you drop $X_1$ or $X_2$ from the model while keeping their product, the product term will absorb those main effects into itself, and the coefficients will no longer mean what the interpretation rules above describe. The `*` operator handles this automatically in R, but if you ever write an interaction formula by hand using `X1:X2`, you must add `+ X1 + X2` yourself.
+**As a general rule, always include the constituent terms --- $X_1$ and $X_2$ separately --- alongside the interaction term $X_1 \times X_2$.** The interaction term measures the *additional* effect above and beyond what each variable contributes on its own. If you drop $X_1$ or $X_2$ from the model while keeping their product, the product term will absorb those main effects into itself, and the coefficients will no longer mean what the interpretation rules above describe. The `*` operator handles this automatically in R, but if you ever write an interaction formula by hand using `X1:X2`, you must add `+ X1 + X2` yourself.
 :::
 
 **Run and observe: Estimate the interaction model**
@@ -152,9 +158,7 @@ Find the row labeled `mortality_risk_25_45:wage_growth` in the Coefficients tabl
 
 ### Interpret the Interaction Term
 
-`lm()` and `summary()` are part of base R --- no `library()` call is needed for any exercise in this tutorial.
-
-The interaction term is the new element. Its row in the Coefficients table — labeled `mortality_risk_25_45:wage_growth` — tells you whether and how the two variables condition each other's effect. Look at its sign and think about what direction you expected before answering.
+The interaction term is the new element. Its row in the Coefficients table — labeled `mortality_risk_25_45:wage_growth` — tells you whether and how the two variables condition each other's estimated relationship with the outcome. Look at its sign and think about what direction you expected before answering.
 
 **Practice: Interpret the interaction coefficient**
 
@@ -162,7 +166,7 @@ Look at the row labeled `mortality_risk_25_45:wage_growth` in your output before
 
 ```{r quiz-interaction-sign, echo=FALSE}
 question("Look at the row labeled mortality_risk_25_45:wage_growth in your output. Which statement correctly identifies what the interaction coefficient means for the relationship between mortality risk and Clinton's percent of the two-party vote?",
-  correct = "Right. The interaction is negative and significant --- economic gains amplify rather than cushion the political effect of health distress.",
+  correct = "Right. The interaction is negative and significant --- in counties with stronger wage growth, higher mortality risk is associated with an even larger drop in Clinton's vote.",
   answer("In counties where wages are growing more strongly, higher mortality risk is associated with an even larger drop in Clinton's vote --- economic gains do not cushion the political effect of health distress, they appear to amplify it",
          correct = TRUE,
          message = "The interaction coefficient is -0.139. The simple additive model in Tutorial 16 missed this: there, mortality risk and wage growth each had a fixed effect regardless of the other's value. Here, we see that the two variables are not independent --- the political meaning of health distress changes depending on the economic context in which it occurs."),
@@ -186,7 +190,7 @@ Look at the **mortality_risk_25_45** and **wage_growth** rows in your Coefficien
 
 ```{r quiz-interpret-maineffects, echo=FALSE}
 question("Which statements correctly describe what the coefficients on mortality_risk_25_45 and wage_growth tell us in this model? Select all that apply.",
-  correct = "Right. Both main-effect coefficients describe effects at zero, which is either outside or at the edge of the observed range.",
+  correct = "Right. Both main-effect coefficients describe conditional relationships at zero --- for wage_growth, zero is within the observed range but unrepresentative; for mortality_risk_25_45, zero is outside the observed range entirely.",
   answer("The coefficient on mortality_risk_25_45 is the effect of mortality risk on Clinton's percent of the two-party vote when wage growth is zero --- not its effect in a typical county",
          correct = TRUE,
          message = "The coefficient is -2.494. In a county with flat wages, each additional percentage point of mortality risk is associated with about 2.5 fewer percentage points of Clinton's percent of the two-party vote. This is the starting point for understanding the conditional effect, not the full story."),
@@ -261,10 +265,10 @@ Set the conditional effect of **wage_growth** equal to zero and solve for **mort
 
 ```{r quiz-crossover, echo=FALSE}
 question("Solve the equation above for mortality_risk. At what mortality risk level does wage growth's effect cross zero, and what does it mean?",
-  correct = "Right. The crossover occurs at about 5.4% --- in the most distressed counties, wage growth works against rather than for the incumbent.",
+  correct = "Right. The estimated crossover occurs at about 5.4% --- in the most distressed counties, wage growth is associated with lower rather than higher Clinton vote.",
   answer("About 5.4% --- in counties where mortality risk exceeds 5.4%, wage growth is predicted to be associated with lower Clinton two-party vote percent, not higher",
          correct = TRUE,
-         message = "Solving: 0.753 / 0.139 ≈ 5.4. This is where the conditional effect flips from positive to negative. In the most health-distressed counties --- where more than 1 in 18 adults aged 25-45 is at risk of dying --- even rising wages are associated with a shift away from the incumbent party. Economic gains no longer translate into incumbent support when distress reaches this level. Notice that about 5% of counties in the data have mortality risk above 5.4."),
+         message = "Solving: 0.753 / 0.139 ≈ 5.4. This is the crossover implied by the point estimates --- in the most health-distressed counties, wage growth is associated with a shift away from the incumbent party rather than toward it. Notice that about 5% of counties in the data have mortality risk above 5.4. In applied research, we would also want to calculate uncertainty around this estimated crossover; Tutorial 18's prediction plots will help show that uncertainty."),
   answer("About 4.3% --- the crossover happens at the mean of mortality risk",
          message = "The mean of mortality_risk_25_45 is about 3.1, not 4.3. Set the conditional effect equal to zero and solve: mortality_risk = 0.753 / 0.139 ≈ 5.4."),
   answer("About 0.753% --- the crossover equals the main effect of wage_growth",
@@ -290,12 +294,12 @@ question("Look at the Adjusted R-squared and the residual standard error in your
   correct = "Right. The interaction adds a significant conditional relationship without dramatically changing overall fit.",
   answer("The Adjusted R-squared tells us the model explains about 60.7% of the variation in Clinton's vote across counties",
          correct = TRUE,
-         message = "The same model without the interaction term has an Adjusted R-squared of 0.606 --- adding the interaction barely changes the overall fit. That is not surprising: one additional term among seven predictors rarely moves the fit dramatically. The p-value on the interaction term (0.004) is the primary evidence that the conditional relationship is real; the small R-squared change is simply consistent with what we expect when a significant but narrow effect is added to a model that already explains most of the variance."),
+         message = "The same model without the interaction term has an Adjusted R-squared of 0.606 --- adding the interaction barely changes the overall fit. That is expected: one additional term among seven predictors rarely moves overall fit dramatically. The evidence that the conditional relationship exists comes from the p-value on the interaction term (0.004), not from the R-squared change, which answers a separate question about overall model fit."),
   answer("Because the Adjusted R-squared is about 0.607, the interaction term should be dropped --- it is not adding much",
-         message = "The size of the Adjusted R-squared is not a reason to drop the interaction term. If theory and evidence suggest a conditional relationship exists --- and here both the p-value (0.004) and the crossover at mortality_risk ≈ 5.4 suggest it does --- the interaction belongs in the model regardless of how much variance it adds."),
-  answer("The residual standard error tells us that under roughly normal errors, about two-thirds of counties have a predicted percent of the two-party vote within about 10 percentage points of their actual one",
+         message = "The size of the Adjusted R-squared change is not a reason to drop the interaction term. The evidence for whether the interaction exists comes from the interaction term's p-value (0.004), which is the appropriate test. R-squared answers a different question --- how much overall variation the model explains --- and a significant but narrow interaction is not expected to move that much."),
+  answer("The residual standard error tells us that the approximate typical distance between observed county vote shares and the fitted regression line is about 10 percentage points",
          correct = TRUE,
-         message = "Adding the interaction term does not meaningfully change the prediction error relative to the additive model --- the improvement is in understanding the conditional nature of the relationship, not in reducing prediction error overall."),
+         message = "Adding the interaction term does not meaningfully change this relative to the additive model --- the improvement is in understanding the conditional nature of the relationship, not in reducing the overall spread of residuals."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: make sure to select all true statements."
@@ -305,7 +309,7 @@ question("Look at the Adjusted R-squared and the residual standard error in your
 
 ### What We Learned About Mortality Risk, Wage Growth, and Clinton's Vote
 
-The interaction is statistically significant and substantively important. Mortality risk does more damage to Clinton's vote in economically growing counties, not less. In places where wages are rising, the contrast between economic progress and poor health outcomes appears to amplify voter dissatisfaction with the incumbent party — economic gains do not buffer the political consequences of health distress, they make those consequences more visible. This finding was invisible in Tutorial 16's additive model, which assumed the effect of each variable was fixed regardless of the other. The crossover at about 5.4% mortality risk is also worth noting: in the most distressed counties, even wage growth works against the incumbent. The additive model would have reported wage growth as uniformly positive for Clinton — the interaction model reveals that is only true in counties that have not crossed a threshold of health distress.
+The interaction is statistically significant and substantively important. Mortality risk is more strongly associated with lower Clinton vote in economically growing counties, not less. In places where wages are rising, the contrast between economic progress and poor health outcomes appears to amplify the negative association between mortality risk and incumbent support --- economic gains do not appear to buffer the political consequences of health distress. One possible interpretation is that visible health distress stands out more against a backdrop of economic progress, making voters more likely to shift away from the incumbent. But the regression establishes the conditional association, not the mechanism producing it. This finding was invisible in Tutorial 16's additive model, which assumed the relationship of each variable was fixed regardless of the other. The estimated crossover at about 5.4% mortality risk is also worth noting: in the most distressed counties, the association between wage growth and Clinton's vote is negative rather than positive --- though this is the crossover implied by the point estimates, and uncertainty around it is real.
 
 ## Interpreting Categorical × Interval Interactions
 
@@ -325,13 +329,13 @@ $$Y = \hat{\alpha} + \hat{\beta}_1 X_1 + \hat{\beta}_2 X_2 + \hat{\beta}_3 X_1 X
 
 ## Do Political Rights Condition the Effect of Trade Openness on Environmental Performance?
 
-Let's consider a second example. Countries that are open to international trade may face both economic pressures and global norms that encourage environmental regulation. But does trade openness matter equally in all political contexts? In countries where citizens have political rights to vote, organize, and hold governments accountable, environmental standards may be maintained regardless of trade. In countries where political rights are limited, trade openness may be one of the few forces capable of pushing governments toward better environmental performance.
+Let's consider a second example. Countries that are open to international trade may face both economic pressures and global norms that encourage environmental regulation. But does trade openness matter equally in all political contexts? In countries where citizens have political rights to vote, organize, and hold governments accountable, environmental standards may be maintained regardless of trade. In countries where political rights are limited, trade openness may be one of the few external channels through which international environmental norms reach domestic policy.
 
 Before looking at the data, let's apply the two questions.
 
 1. **Direction:** Trade openness is probably positive for both groups --- more economic integration correlates with access to international environmental standards and the resources to meet them. Political rights are also probably positive --- accountable governments face electoral pressure to protect public goods like clean air and water. The signs are likely the same direction for both groups, but the magnitudes may differ substantially.
 
-2. **Strength:** This is where the conditional logic gets interesting. In countries where citizens already have broad political rights, governments face ongoing accountability for environmental outcomes regardless of trade. Trade openness may add relatively little to environmental performance in that context. In countries where political rights are limited, trade openness may be one of the few external channels through which international environmental norms reach domestic policy --- making its effect potentially much stronger there. We expect the trade openness slope to be larger for Few Rights countries than for Many Rights countries.
+2. **Strength:** This is where the conditional logic gets interesting. In countries where citizens already have broad political rights, governments face ongoing accountability for environmental outcomes regardless of trade. Trade openness may add relatively little to environmental performance in that context. In countries where political rights are limited, trade openness may be one of the few external channels through which international environmental norms reach domestic policy --- making its association with environmental performance potentially much stronger there. We expect the trade openness slope to be larger for Few Rights countries than for Many Rights countries.
 
 ::: {.hypothesis}
 In a comparison of countries, the effect of trade openness on environmental performance depends on the extent of citizens' political rights, and the effect of political rights depends on trade openness.
@@ -362,7 +366,7 @@ levels(qog$rights_f)
 
 **Practice: Estimate the interaction model**
 
-Fill in the blanks to estimate the model, assigning it to **model_env**, then display the results. Two hints are available. Click Submit Answer to check your work.
+Fill in the blanks to estimate the model, assigning it to **model_env**, then display the results. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-regression-env-interaction, exercise=TRUE, exercise.cap="Practice: Estimate the environmental performance interaction model"}
 model_env <- lm(___ ~ rights_f * ___ + ___, data = qog)
@@ -510,12 +514,16 @@ Find the t-statistic and p-value for the `rights_fMany Rights:ipi_tradeopen` row
 
 ```{r quiz-env-hypothesistest, echo=FALSE}
 question("Based on the t-statistic and p-value for the interaction term rights_fMany Rights:ipi_tradeopen in your output, what conclusion do we draw?",
-  correct = "Right. The evidence strongly supports rejecting the null hypothesis --- the effect of trade openness on environmental performance differs significantly between Few Rights and Many Rights countries.",
-  answer("We reject the null hypothesis --- the effect of trade openness on environmental performance differs significantly between Few Rights and Many Rights countries",
+  correct = "Right. The evidence strongly supports rejecting the null hypothesis --- the conditional relationship between trade openness and environmental performance differs significantly between Few Rights and Many Rights countries.",
+  answer("We reject the null hypothesis --- the conditional relationship between trade openness and environmental performance differs significantly between Few Rights and Many Rights countries",
          correct = TRUE,
-         message = "The t-statistic is -4.533 and the p-value is 1.48e-05 --- strong evidence against a zero difference in slopes. We can be confident the slope for Many Rights countries is substantially lower than for Few Rights countries."),
+         message = "The t-statistic is -4.533 and the p-value is 1.48e-05 --- strong evidence against a zero difference in slopes. The data provide strong evidence that the trade openness slope differs between Few Rights and Many Rights countries."),
   answer("We fail to reject the null hypothesis --- the interaction is not statistically significant",
          message = "Look at the t-statistic and p-value in the rights_fMany Rights:ipi_tradeopen row. A p-value well below 0.05 means we reject the null hypothesis."),
+  answer("The significant interaction proves that political rights cause trade openness to have less association with environmental performance",
+         message = "A significant interaction tells us the two slopes differ in a way unlikely to be due to chance. It does not establish causation --- countries with many rights may differ from those with few rights in other ways that also affect how trade relates to environmental outcomes."),
+  answer("A p-value this small means there is essentially zero probability the null hypothesis is true",
+         message = "The p-value gives the probability of observing a difference in slopes this large if the null were true --- not the probability that the null is true. A very small p-value means the data would be highly surprising under the null, not that the null is certainly false."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: apply the decision rule --- if the p-value for the interaction term is below 0.05, we reject the null hypothesis that the two slopes are equal."
@@ -549,7 +557,7 @@ question("Look at the Adjusted R-squared and the residual standard error in your
 
 ### What We Learned About Trade Openness, Political Rights, and Environmental Performance
 
-The interaction is striking. Trade openness is a strong predictor of environmental performance in countries with few political rights — each additional point of trade openness predicts about 4.75 more points on the EPI. In countries with many political rights, trade openness barely matters — the slope collapses to nearly zero. The pattern suggests that trade openness functions as a substitute for political accountability, not a complement to it. Where citizens already have the rights to organize, vote, and hold governments accountable for environmental outcomes, trade adds little. Where those rights are absent, exposure to international markets and norms may be one of the few external forces capable of pushing governments toward better environmental performance. An additive model with both variables as separate predictors would have reported average slopes that masked this completely.
+The interaction is striking. Trade openness is strongly associated with environmental performance in countries with few political rights --- each additional point of trade openness predicts about 4.75 more points on the EPI. In countries with many political rights, the association between trade openness and environmental performance is nearly flat. One possible interpretation is that trade openness substitutes for political accountability where rights are absent: where citizens already have the rights to organize, vote, and hold governments accountable for environmental outcomes, trade adds little to environmental performance; where those rights are absent, exposure to international markets and standards may be associated with better environmental outcomes. The regression establishes this conditional pattern, however, not the mechanism producing it. An additive model with both variables as separate predictors would have reported average slopes that masked this pattern entirely.
 
 ## Does the Effect of Fertility on Rule of Law Depend on Regime Type?
 
@@ -577,7 +585,7 @@ The data frame **qog** contains **fh_rol** (Freedom House Rule of Law, 0--16) an
 
 **Practice: Estimate the interaction model**
 
-Write the code from scratch to estimate the model, assigning it to **model_fhrol**, then display the results. Three hints are available. Click Submit Answer to check your work.
+Write the code from scratch to estimate the model, assigning it to **model_fhrol**, then display the results. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-regression-fhrol-interaction, exercise=TRUE, exercise.cap="Practice: Estimate the rule of law interaction model"}
 
@@ -700,11 +708,11 @@ question("Using the coefficients in your output, which set of conditional slopes
 Find the p-values for both interaction terms and the Adjusted R-squared in your output before answering.
 
 ```{r quiz-fhrol-evidence, echo=FALSE}
-question("Based on the p-values for both interaction terms and the change in Adjusted R-squared compared to the additive model from Tutorial 16 (0.640 vs. about 0.647 here), which statement best describes what the data tell us?",
-  correct = "Right. Neither interaction term is significant and the R-squared barely moves --- both signals point the same direction.",
-  answer("The data provide weak evidence for a conditional relationship: neither interaction term is significant at the conventional 0.05 level, and the small change in Adjusted R-squared corroborates that picture --- the theoretical expectation is not clearly supported",
+question("Based on the p-values for both interaction terms and the change in Adjusted R-squared compared to the additive model from Tutorial 16 (about 0.640 vs. about 0.647 here), which statement best describes what the data tell us?",
+  correct = "Right. Neither interaction term reaches conventional significance, and the model's overall fit barely changes.",
+  answer("Neither interaction coefficient is statistically significant at the .05 level --- the theoretical expectation is not clearly supported in this sample. The model's Adjusted R-squared is also nearly unchanged, so adding the interactions contributes little to overall in-sample fit.",
          correct = TRUE,
-         message = "This is a common and instructive outcome. We had a plausible theoretical reason to expect the interaction, and the three slopes do show a pattern --- but the pattern is not strong enough to distinguish reliably from chance variation with this sample. Note the distinction from Example 1: there, a significant interaction also produced a small R-squared change, which was simply expected given one new term among many. Here, the R-squared barely moves because the interaction terms themselves are not significant --- both signals point the same direction. A null or ambiguous interaction finding tells us something real: regime type does not appear to dramatically reshape the demographic constraints on rule of law."),
+         message = "This is a common and instructive outcome. We had a plausible theoretical reason to expect the interaction, and the point estimates actually run opposite to that expectation --- the democracy slope is the steepest, not the shallowest. But the interaction terms are not statistically distinguishable from zero at conventional levels, so the narrow conclusion is that neither category-specific difference in slopes is clearly supported. The near-unchanged R-squared tells us separately that the interaction terms add little to overall fit. Note that these are two different pieces of information: the p-values address whether the slopes differ; the R-squared addresses overall model fit."),
   answer("The interaction is confirmed because all three conditional slopes are negative and in the expected direction",
          message = "Slopes going in the expected direction is a necessary but not sufficient condition for confirming an interaction. The question is whether the slopes differ significantly across categories --- and neither interaction term reaches the conventional significance threshold."),
   answer("The interaction should be dropped entirely because the p-values are above 0.05",
@@ -717,7 +725,7 @@ question("Based on the p-values for both interaction terms and the change in Adj
 
 ### What We Learned About Fertility, Regime Type, and Rule of Law
 
-The theoretically motivated interaction is not clearly supported by the data — and that absence is itself informative. We had a plausible reason to expect that the demographic constraints on rule of law would look different across regime types: that democracies, with stronger accountability mechanisms, might sustain rule of law better under fertility pressure than autocracies. The three conditional slopes do show a gradient — the democracy slope is steepest at -1.25 — but neither interaction term reaches conventional significance, and the R-squared barely moves relative to the additive model from Tutorial 16. The honest interpretation is that regime type does not appear to dramatically reshape the relationship between fertility and rule of law with this data. That is a real finding: demographic constraints on legal institutions may operate similarly regardless of political context, at least at the level of variation captured here. A null or weak interaction is not a failure of the analysis — it is an answer to the research question.
+The theoretically motivated interaction is not clearly supported by the data --- and that absence is itself informative. We had a plausible reason to expect that the demographic constraints on rule of law would look different across regime types: that democracies, with stronger accountability mechanisms, might sustain rule of law better under fertility pressure than autocracies. The point estimates do not merely provide weak support for this expectation; they run in the opposite direction. The estimated fertility slope is most negative in full democracies (-1.25), not in autocracies (-0.54) as the theory predicted --- though the interaction terms producing this pattern are not statistically significant and the estimates are imprecise. Neither interaction coefficient reaches the conventional .05 threshold, and adding the interaction terms produces little change in the model's Adjusted R-squared relative to the additive model from Tutorial 16. The narrow conclusion is that neither category-specific difference in slopes is clearly distinguishable from zero at conventional significance levels in this sample. That is a real finding: demographic constraints on legal institutions may operate similarly regardless of political context, at least at the level of variation captured here. A null or weak interaction is not a failure of the analysis --- it is an answer to the research question.
 
 
 ## Check Your Understanding
@@ -799,21 +807,19 @@ question("A researcher estimates a model with two predictors and finds both are 
 
 ## The Takeaways
 
-Conditional relationships add one new element to multiple regression: a term multiplying two predictors together, created with the `*` operator in R. That operator also includes the constituent main effects automatically --- you must never include the interaction term without them, because the interaction measures an *additional* effect above what the main effects already capture.
+Conditional relationships add one new element to multiple regression: a term multiplying two predictors together, created with the `*` operator in R. That operator also includes the constituent main effects automatically --- as a general rule, always include both constituent terms alongside the interaction term, because the interaction measures an *additional* conditional relationship above what the main effects already capture.
 
 The interpretation rules differ depending on the level of measurement:
 
-For [**interval × interval**]{.important-text} interactions, each main-effect coefficient is the slope of that variable *when the other equals zero*. Use the conditional effect formula --- $\hat{\beta}_1 + \hat{\beta}_3 X_2$ --- to find the slope at any substantive value of $X_2$.
+For [**interval × interval**]{.important-text} interactions, each main-effect coefficient is the conditional relationship of that variable *when the other equals zero*. Use the conditional effect formula --- $\hat{\beta}_1 + \hat{\beta}_3 X_2$ --- to find the slope at any substantive value of $X_2$.
 
 For [**categorical × interval**]{.important-text} interactions, the interval main-effect coefficient is the slope for the *reference category*. The non-reference slope is that coefficient plus the interaction term. The categorical main-effect coefficient is the gap between categories *when the interval variable equals zero* --- often not a substantively meaningful value.
 
-In both cases, $\hat{\beta}_3$ measures the difference in slopes between conditions, and you should always ask two questions before specifying an interaction: does the effect always run in the same direction across conditions? When should it be strongest and weakest?
+In both cases, $\hat{\beta}_3$ measures the difference in slopes between conditions, and you should always ask two questions before specifying an interaction: does the relationship always run in the same direction across conditions? When should it be strongest and weakest?
 
-[**A significant interaction does not always produce a large improvement in fit**]{.important-text}, as Example 1 showed. And [**an interaction that theory predicts may not be statistically supported**]{.important-text}, as Example 3 showed. Both are informative findings. The R² change from adding an interaction is expected to be small when a significant but narrow effect joins a model that already explains most of the variance; a genuinely absent interaction will show both non-significant terms and a small R² change together.
+[**A significant interaction does not always produce a large improvement in fit**]{.important-text}, as Example 1 showed. And [**an interaction that theory predicts may not be statistically supported**]{.important-text}, as Example 3 showed. Both are informative findings. The R² change from adding an interaction answers a separate question from the interaction term's p-value: the p-value addresses whether the slopes differ; the R² addresses overall model fit. An interaction that is not clearly supported in the sample may show both non-significant terms and little change in R², but those are independent signals, not two ways of measuring the same thing.
 
-For [**categorical × categorical**]{.important-text} interactions, the same `*` syntax applies. The output will have $(k_1 - 1) \times (k_2 - 1)$ interaction rows, where $k_1$ and $k_2$ are the number of categories in each factor. Interpretation follows the same logic as categorical × interval, but with category differences on both sides rather than slopes. These models can become complex quickly, and prediction plots --- introduced in Tutorial 18 --- are especially useful for communicating their results.
-
-Tutorial 18 introduces `plot_model()` from the **sjPlot** package, which visualizes all types of conditional effects as prediction plots --- a much more intuitive way to communicate what the slopes and crossover points mean to an audience.
+Tutorial 18 introduces `plot_model()` from the **sjPlot** package, which visualizes all types of conditional effects as prediction plots --- a much more intuitive way to communicate what the slopes and crossover points mean to an audience, and a natural way to show uncertainty around estimated conditional effects.
 
 
 ## Submit Your Work
