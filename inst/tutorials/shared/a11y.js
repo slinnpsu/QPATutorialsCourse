@@ -102,6 +102,32 @@
   }
 
   /* ------------------------------
+     MathJax Re-typeset
+     ------------------------------ */
+
+  function retypeset() {
+    safe(function () {
+      if (window.MathJax && window.MathJax.Hub) {
+        // MathJax v2 HTML-CSS renderer
+        window.MathJax.Hub.Queue(["Typeset", window.MathJax.Hub], function() {
+          // Fix inline math sizing after typesetting
+          document.querySelectorAll('span.MathJax:not(.MathJax_Display)').forEach(function(el) {
+            el.style.fontSize = '0.85em';
+          });
+        });
+      } else if (window.MathJax && window.MathJax.typesetPromise) {
+        // MathJax v3 fallback
+        window.MathJax.typesetPromise().then(function() {
+          document.querySelectorAll('mjx-container:not([display="true"])').forEach(function(el) {
+            el.style.fontSize = '0.85em';
+            el.style.verticalAlign = 'middle';
+          });
+        });
+      }
+    });
+  }
+
+  /* ------------------------------
      Enhance Success / Error Messages
      ------------------------------ */
 
@@ -133,6 +159,7 @@
     startA11yInsertionPolling();
     safe(enhanceMessages);
     setInterval(function () { safe(enhanceMessages); }, 1500);
+    setTimeout(retypeset, 1000); // initial render
 
     // Override Safari's native blue focus ring with amber
     document.addEventListener("focusin", function(e) {
@@ -164,6 +191,7 @@
     $(document).on("shiny:connected", function () {
       startA11yInsertionPolling();
       safe(enhanceMessages);
+      setTimeout(retypeset, 500);
     });
 
     // Fires when learnr updates tutorial content (section navigation)
@@ -172,6 +200,7 @@
         setTimeout(function () {
           safe(insertA11yBlock);
           safe(enhanceMessages);
+          retypeset();
         }, 300);
       }
     });

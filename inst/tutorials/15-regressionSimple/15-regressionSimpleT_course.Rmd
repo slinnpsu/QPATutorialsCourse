@@ -13,9 +13,9 @@ description: >
 
 ## Overview {#main-content}
 
-In Tutorials 7, 8, and 9, you described relationships between variables --- cross-tabulations, group means, and scatter plots. In Tutorials 12, 13, and 14, you tested those relationships formally. Both sets of tutorials left something on the table: they did not provide a single unified framework for estimating how the outcome is associated with different kinds of predictors, or for accounting for other variables that may be confounding what you observe. Regression addresses both of those limitations --- but it requires an interval-level outcome variable. When the outcome variable is categorical, as in Tutorials 7 and 12, a different class of model is needed; you will encounter that in Tutorials 19 and 20. For now, the outcome is interval, and the explanatory variable can be anything.
+In Tutorials 7, 8, and 9, you described relationships between variables --- cross-tabulations, group means, and scatter plots. In Tutorials 12, 13, and 14, you tested those relationships formally. Both sets of tutorials left something on the table: they did not provide a single unified framework for estimating how the outcome is associated with different kinds of predictors, or for accounting for other variables that may be confounding what you observe. Regression addresses both of those limitations --- but it requires an interval-level outcome variable. When the outcome variable is categorical, as in Tutorials 7 and 12, a different class of model is needed; you will encounter that in Tutorials 20 and 21. For now, the outcome is interval, and the explanatory variable can be anything.
 
-This is the first of four tutorials on linear regression. Here we start with the simplest case: one explanatory variable predicting one outcome. Specifically, we will cover:
+This is the first of three core tutorials on linear regression, followed by an optional two-tutorial module on interactions. Here we start with the simplest case: one explanatory variable predicting one outcome. Specifically, we will cover:
 
 * How to use the `lm()` function to estimate a regression model and the `summary()` function to display the results
 * How to interpret the intercept and slope when the independent variable is measured at the interval level
@@ -24,6 +24,10 @@ This is the first of four tutorials on linear regression. Here we start with the
 * How to use the regression output to test hypotheses about the intercept and slope, interpreting the t-statistic and p-value for each coefficient
 * How to assess model fit using two statistics: $R^2$ and the residual standard error
 * How to create a labeled factor variable with the `factor()` function and use it as a dichotomous independent variable in a regression
+
+::: {.tip}
+**A note on language throughout the regression tutorials.** We use *effect*, *slope*, and *conditional effect* to describe the model's estimated relationship between a predictor and an outcome. These observational regressions do not by themselves establish causation. In substantive conclusions, we prefer *associated with*, *predicts*, or *relationship* rather than causal language. This convention applies in this tutorial and all remaining tutorials in the course.
+:::
 
 ```{r setup, include=FALSE}
 library(learnr)
@@ -124,7 +128,7 @@ question("Look at the Coefficients table in your output. Which statement correct
   answer("The intercept gives the expected percent of the two-party vote for Clinton in a county where wage growth is zero",
          correct = TRUE,
          message = "The estimate is 31.3521 --- in counties where wage growth was flat, we expect about 31.4% of the two-party vote to go to Hillary Clinton, the Democratic candidate. Because zero is a value wage_growth actually takes in the data, this is a substantively meaningful prediction, not just a mathematical formality."),
-  answer("The intercept gives the expected change in Clinton's percent of the two-party vote for each one-percentage-point increase in wage growth",
+  answer("The intercept gives the expected difference in Clinton's percent of the two-party vote associated with a one-percentage-point difference in wage growth",
          message = "That is the slope's job, not the intercept's. The intercept is the predicted value of the outcome when the explanatory variable equals zero --- it is the starting point of the regression line. Look at the wage_growth row for the rate of change."),
   answer("The intercept gives the expected percent of the two-party vote for Clinton in a county with one percentage point of wage growth",
          message = "The intercept is the predicted value when the explanatory variable is zero, not one. A county with one percentage point of wage growth would have a predicted percent of the two-party vote for Hillary Clinton higher than the intercept by the amount of the slope --- that is the fitted line evaluated at X = 1, not the intercept."),
@@ -142,8 +146,8 @@ Look at your Coefficients table before answering.
 
 ```{r quiz-interpret-slope-voteclinton-wagegrowth, echo=FALSE}
 question("Look at the Coefficients table in your output. Which statement correctly describes what the slope tells us?",
-  correct = "Right. The slope gives the expected change in Clinton's percent of the two-party vote for each one-percentage-point increase in wage growth.",
-  answer("The slope gives the expected change in Clinton's percent of the two-party vote for each one-percentage-point increase in wage growth",
+  correct = "Right. The slope gives the expected difference in Clinton's percent of the two-party vote associated with a one-percentage-point difference in wage growth.",
+  answer("The slope gives the expected difference in Clinton's percent of the two-party vote associated with a one-percentage-point difference in wage growth",
          correct = TRUE,
          message = "The estimate is 0.45582 --- in counties where wages grew one percentage point faster, Hillary Clinton received about 0.46 percentage points more of the two-party vote, on average. The positive sign matches the hypothesis, though the effect is modest."),
   answer("The slope gives the expected change in Clinton's percent of the two-party vote for each one-percent increase in wage growth",
@@ -164,7 +168,7 @@ The regression line isn't just a summary of the data --- it's a prediction machi
 
 $$\widehat{\text{dem2p_percent}} = \hat{\alpha} + \hat{\beta}\,\text{wage_growth} = 31.3521 + 0.45582\times(4.3) = 33.31213.$$
 
-Notice what this arithmetic reveals about the slope. If wage growth were 5.3 instead --- one percentage point higher --- the prediction would be $31.3521 + 0.45582 \times 5.3 = 33.768$. The difference between the two predictions is exactly 0.456 --- the slope. That is not a coincidence: the slope *is* the expected change in $\hat{Y}$ for a one-unit increase in X, by definition. For any other change of size $c$, the expected change in $\hat{Y}$ is $\hat{\beta} \times c$ --- the same multiplication, scaled to the size of the change you care about. You will use this directly in Tutorial 16 when interpreting coefficients whose natural unit of change is not one.
+Notice what this arithmetic reveals about the slope. If wage growth were 5.3 instead --- one percentage point higher --- the prediction would be $31.3521 + 0.45582 \times 5.3 = 33.768$<span style='display:inline-block;width:1.2em'></span>. The difference between the two predictions is exactly 0.456 --- the slope. That is not a coincidence: the slope *is* the expected change in $\hat{Y}$ for a one-unit increase in X, by definition. For any other change of size $c$, the expected change in $\hat{Y}$ is $\hat{\beta} \times c$ --- the same multiplication, scaled to the size of the change you care about. You will use this directly in Tutorial 16 when interpreting coefficients whose natural unit of change is not one.
 
 **Practice: Calculate a predicted value**
 
@@ -172,7 +176,7 @@ Substitute 6.5 into the fitted line $\hat{Y} = \hat{\alpha} + \hat{\beta} \times
 
 ```{r quiz-prediction-voteclinton-wagegrowth, echo=FALSE}
 question("Using the intercept and slope from your output, what is the predicted percent of the two-party vote for Hillary Clinton in a county with wage growth at the 75th percentile, 6.5?",
-  correct = "Right. Substituting into the fitted line: 31.3521 + 0.45582 × 6.5 = 34.315.",
+  correct = "Right. Substituting into the fitted line: 31.3521 + 0.45582 * 6.5 = 34.315.",
   answer("About 34.3 percentage points", correct = TRUE,
          message = "$\\hat{Y} = 31.3521 + 0.45582\\times 6.5 = 34.31493$. This is only about one percentage point above the prediction at the mean --- wage growth explains relatively little of the county-to-county variation in Clinton's vote."),
   answer("About 29.6 percentage points",
@@ -331,7 +335,7 @@ summary(model2)
 ```{r exercise-regression-strongleader-freedom-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (is.null(.result)) {
     fail("Your code did not produce a result. Check for a missing tilde (~) in the formula, a misspelled variable name, or unmatched parentheses.")
@@ -385,12 +389,12 @@ question("Which of the following statements correctly interpret the intercept an
   correct = "Right. The intercept gives predicted approval when freedom is zero; the slope gives the change in approval for each additional point of freedom.",
   answer("The intercept gives the predicted approval of a strong leader in a country with a Freedom House score of zero",
          correct = TRUE,
-         message = "The intercept estimate is 55.345 --- in a hypothetically unfree country at FHTotalAggr = 0, about 55.3% of respondents are predicted to approve of a strong leader. No country in the data is exactly at zero, but the scale runs from about 0 to 100 so this is a meaningful benchmark."),
-  answer("The slope gives the expected change in approval of a strong leader for each one-point increase in a country's Freedom House score",
+         message = "The intercept estimate is 55.345 --- in a hypothetically unfree country at **FHTotalAggr** = 0, about 55.3% of respondents are predicted to approve of a strong leader. No country in the data is exactly at zero, so the intercept is a model-based benchmark rather than a prediction for an observed case."),
+  answer("The slope gives the expected difference in approval of a strong leader associated with a one-point difference in a country's Freedom House score",
          correct = TRUE,
-         message = "The slope estimate is -0.229 --- for each additional point of freedom, approval of a strong leader is expected to fall by about 0.229 percentage points. The negative sign matches the hypothesis."),
-  answer("The slope gives the expected change in a country's Freedom House score for each one-percentage-point increase in approval of a strong leader",
-         message = "This reverses the dependent and independent variables. We modeled Pro.Strong.Leader as depending on FHTotalAggr. The slope tells us the expected change in approval for a one-point increase in the freedom score, not the reverse."),
+         message = "The slope estimate is -0.229 --- countries with a one-point higher freedom score are predicted to have about 0.229 percentage points lower approval of a strong leader, on average. The negative sign matches the hypothesis."),
+  answer("The slope gives the expected difference in a country's Freedom House score associated with a one-percentage-point difference in approval of a strong leader",
+         message = "This reverses the dependent and independent variables. We modeled **Pro.Strong.Leader** as depending on **FHTotalAggr**. The slope tells us the expected difference in approval associated with a one-point difference in the freedom score, not the reverse."),
   answer("The intercept tells us the average Freedom House score among countries that approve of a strong leader",
          message = "This reverses the dependent and independent variables. The intercept is a predicted value of the outcome (approval of a strong leader) when the predictor (Freedom House score) equals zero --- it says nothing about the average value of the predictor."),
   allow_retry = TRUE,
@@ -409,7 +413,7 @@ So the model predicts about 38.6% approval of a strong leader in a country near 
 
 **Practice: Calculate a predicted value**
 
-Substitute FHTotalAggr = 90 into the fitted line using the intercept and slope from your output before answering.
+Substitute **FHTotalAggr** = 90 into the fitted line using the intercept and slope from your output before answering.
 
 ```{r quiz-prediction-strongleader-freedom, echo=FALSE}
 question("Using the intercept and slope from your output, what is the predicted approval of a strong leader in a highly free country with FHTotalAggr = 90?",
@@ -434,7 +438,7 @@ That slope is negative, matching the hypothesis --- but with only 78 countries h
 
 **Practice: Conduct the hypothesis test**
 
-Find the t-statistic, p-value, and confidence interval for the slope in your output before answering.
+Find the t-statistic and p-value for the slope in your output before answering.
 
 ```{r quiz-hypothesistesting-strongleader-freedom-2, echo=FALSE}
 question("Which conclusions follow from the hypothesis test on the slope? Select all that apply.",
@@ -538,7 +542,7 @@ Write the code to estimate the model, assigning it to **model3**, then display t
 ```{r exercise-regression-voteclinton-majoritywhite-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (is.null(.result)) {
     fail("Your code did not produce a result. Check for a missing tilde (~) in the formula, a misspelled variable name, or unmatched parentheses.")
@@ -609,11 +613,11 @@ question("Which of the following statements correctly interpret the regression o
 
 ### Conduct Hypothesis Tests
 
-The slope for **White_fMajority White** is what we care about here --- does that gap hold up to formal scrutiny? The null hypothesis is $H_0: \beta_{W} = 0$ and the alternative is $H_A: \beta_{W} \ne 0$, where $\beta_{W}$ is the population slope on White_f. Find the t-statistic and p-value for the slope in your output.
+The slope for **White_fMajority White** is what we care about here --- does that gap hold up to formal scrutiny? The null hypothesis is $H_0: \beta_{W} = 0$ and the alternative is $H_A: \beta_{W} \ne 0$, where $\beta_{W}$ is the population slope on **White_f**. Find the t-statistic and p-value for the slope in your output.
 
 **Practice: Test the slope on White_f**
 
-Find the t-statistic, p-value, and confidence interval for the slope in your output before answering.
+Find the t-statistic and p-value for the slope in your output before answering.
 
 ```{r quiz-hypothesistesting-voteclinton-majoritywhite, echo=FALSE}
 question("Which conclusions follow from the hypothesis test? Select all that apply.",
@@ -709,7 +713,7 @@ question("Across the examples above, the slopes were statistically significant, 
          message = "Statistical significance and $R^2$ are measuring different things. A slope can be highly significant --- meaning we are confident the relationship is not zero --- while $R^2$ remains low, meaning the variable explains little of the total variation. These are not contradictory."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: significance answers 'is this relationship real?' while R-squared answers 'how much of the outcome does this variable explain?' These are different questions."
+  try_again = "Hint: significance asks whether the relationship is statistically distinguishable from zero; R-squared asks how much of the variation in the outcome the model explains. These are different questions."
 )
 ```
 
@@ -759,7 +763,7 @@ We always test a two-tailed alternative ($H_A: \beta \ne 0$) as standard practic
 
 Percentage points and percents sound like the same thing, and they are not. When an explanatory variable is measured in percentage points --- as **wage_growth** is here --- a one-unit change is a one-percentage-point change, full stop. Wage growth moving from 4% to 5% is a one-percentage-point increase, but it is a 25% relative increase, which is a very different claim about the world. The slope tells you how the outcome changes for the former, not the latter. This sounds pedantic until you make the mistake once.
 
-Tutorial 16 takes the next step. Every model here left most of the variation in the outcome unexplained, and we know some of that unexplained variation reflects other variables correlated with the predictor we included. When those omitted variables are correlated with both the predictor and the outcome, the slope we estimated is not just imprecise --- it is biased. Multiple regression is how we address that.
+Tutorial 16 takes the next step. Every model here left most of the variation in the outcome unexplained, and we know some of that unexplained variation reflects other variables correlated with the predictor we included. When omitted variables are related to both the predictor and the outcome, the simple-regression slope may partly reflect those other relationships. Multiple regression allows us to examine whether the original relationship remains after accounting for measured competing explanations.
 
 ## Submit Your Work
 

@@ -1,0 +1,615 @@
+---
+title: "Prediction Plots for Interaction Models"
+tutorial:
+  id: "19-Regression-Predictions-Interactions"
+output: 
+  QPATutorialsCourse::qpa_tutorial:
+    progressive: true
+    allow_skip: true
+runtime: shiny_prerendered
+description: >
+  Apply predict() and plot_model() to interaction models, visualizing conditional relationships and interpreting non-parallel prediction lines.
+---
+
+## Overview {#main-content}
+
+In Tutorial 17 you learned to translate an additive regression model into predicted values and prediction plots. Because the focal predictor did not interact with any other variable, its estimated slope was the same across all groups --- producing parallel prediction lines.
+
+In Tutorial 18 you learned that interaction models estimate a separate slope for each combination of the interacting predictors. You interpreted those slopes numerically from the coefficient table. What you could not yet do was *see* them.
+
+This tutorial applies the same tools from Tutorial 17 --- `predict()` and `plot_model()` --- to the interaction model from Tutorial 18. The tools are identical; what changes is what they reveal. When the model includes an interaction, the prediction lines are no longer parallel. One line is steeper than the other, they may cross, and the story the plot tells is richer than any single coefficient can convey.
+
+One important addition to the interpretation framework from Tutorial 17: in an interaction model, a complete interpretation must identify not only what varies and what is held constant, but also **how the estimated association between the focal predictor and the outcome changes across values or categories of the other interacting variable**. That is the new question prediction plots answer in this tutorial.
+
+In this tutorial you will:
+
+* Use `predict()` to calculate model-implied outcomes for combinations of the interacting predictors
+* Use `plot_model()` to visualize the conditional relationship, varying the orientation to see what each reveals
+* Interpret non-parallel prediction lines --- including the slopes, the gap between groups, and where the lines cross
+* Practice applying the full prediction-and-interpretation workflow independently
+
+```{r setup, include=FALSE}
+library(learnr)
+library(learnrhash)
+library(tidyverse)
+library(knitr)
+library(poliscidata)
+library(gradethis)
+library(stargazer)
+library(sjPlot)
+tutorial_options(exercise.checker = gradethis::grade_learnr,
+                 exercise.completion = FALSE)
+knitr::opts_chunk$set(error = TRUE)
+data("qog", package = "QPATutorialsCourse")
+qog$rights[qog$fh_pr <= 2] <- 0
+qog$rights[qog$fh_pr >  2] <- 1
+qog$rights_f <- factor(qog$rights, labels = c("Few Rights", "Many Rights"))
+model_env <- lm(epi_epi ~ rights_f * ipi_tradeopen + hf_efiscore, data = qog)
+```
+
+## Does Political Rights Status Condition the Relationship Between Trade Openness and Environmental Performance?
+
+In Tutorial 18 you estimated this model and interpreted its interaction coefficients. It is available here as **model_env**.
+
+```{r model-env-table, echo=TRUE}
+stargazer(model_env,
+          type = "text",
+          title = "Trade Openness, Political Rights, and Environmental Performance",
+          dep.var.labels = "Environmental Performance Index",
+          covariate.labels = c("Many Rights (vs. Few Rights)",
+                               "Trade Openness",
+                               "Economic Freedom Score",
+                               "Many Rights x Trade Openness"))
+```
+
+In Tutorial 18 you found that **ipi_tradeopen** has a large positive association with **epi_epi** in countries with few political rights (slope ≈ 4.75, p < .001), but near-zero association in countries with many political rights (combined slope ≈ 0.12, not significant). The interaction coefficient is negative and significant (−4.63, p < .001), confirming that the **ipi_tradeopen** slope depends on **rights_f**. The economic freedom score (**hf_efiscore**) is also a significant positive predictor. The model explains about 60% of the variation in environmental performance across 116 countries.
+
+Our focus here is not on revisiting those coefficients but on what the model predicts for specific cases and how those predictions look when visualized across the full range of trade openness.
+
+::: {.hypothesis}
+The estimated association between trade openness and environmental performance is stronger in countries with few political rights than in countries with many political rights.
+:::
+
+The data frame **qog** contains the following variables used in this model:
+
+- **epi_epi**: Environmental Performance Index (27--87, higher = better)
+- **rights_f**: two-category factor --- Few Rights (reference) and Many Rights
+- **ipi_tradeopen**: trade openness index (1--10, higher = more open)
+- **hf_efiscore**: economic freedom score (control variable)
+
+### Obtain Specific Predicted Values
+
+Two comparisons are worth making here, and each requires two `predict()` calls --- four in total.
+
+**Comparison 1** asks: how much does **epi_epi** differ between Few Rights and Many Rights countries at average trade openness? This is the most direct test of whether **rights_f** matters, holding the level of economic integration constant.
+
+**Comparison 2** asks: within Few Rights countries specifically, how much does **ipi_tradeopen** matter? Moving from low to high trade openness within the rights-restricted group captures the steepness of the Few Rights slope --- the core of the interaction hypothesis.
+
+Calls 1 and 2 below are scaffolded with blanks for you to fill in. Calls 3 and 4 are yours to write from scratch.
+
+**Practice: Compute four predicted values**
+
+These four predictions anchor everything that follows --- once you have them, you know exactly what the interaction plots are showing before you see them.
+
+Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predict-env, exercise=TRUE, exercise.cap="Practice: Compute four predicted values from model_env"}
+# Comparison 1: Few Rights vs. Many Rights at average trade openness
+# Call 1: Few Rights
+predict(model_env, newdata = data.frame(
+  rights_f      = factor(___, levels = levels(qog$rights_f)),
+  ipi_tradeopen = ___,
+  hf_efiscore   = ___
+))
+# Call 2: Many Rights
+predict(model_env, newdata = data.frame(
+  rights_f      = factor(___, levels = levels(qog$rights_f)),
+  ipi_tradeopen = ___,
+  hf_efiscore   = ___
+))
+
+# Comparison 2: Few Rights at low vs. high trade openness
+# Mean economic freedom score ≈ 60.26
+# Write Calls 3 and 4 from scratch here
+
+```
+
+```{r exercise-predict-env-hint-1}
+# Hint 1 of 3
+# For Comparison 1, exactly one thing changes between Call 1 and Call 2:
+# the rights category. Trade openness and economic freedom stay at the
+# same values for both calls. Think about which factor level goes in
+# each call and what "average" means for the two interval variables.
+# For Comparison 2, the rights category stays the same (Few Rights)
+# while trade openness changes between the two calls.
+```
+
+```{r exercise-predict-env-hint-2}
+# Hint 2 of 3
+# The factor level names are "Few Rights" and "Many Rights".
+# Use: factor("Few Rights", levels = levels(qog$rights_f))
+# Mean ipi_tradeopen ≈ 7.77; mean hf_efiscore ≈ 60.26
+# For Comparison 2: use ipi_tradeopen = 6.9 (low, 25th percentile)
+#   and ipi_tradeopen = 9.4 (high, 75th percentile), both Few Rights.
+```
+
+```{r exercise-predict-env-hint-3}
+# Hint 3 of 3: skeleton for Calls 3 and 4
+predict(model_env, newdata = data.frame(
+  rights_f      = factor(___, levels = levels(qog$rights_f)),
+  ipi_tradeopen = ___,
+  hf_efiscore   = ___
+))
+predict(model_env, newdata = data.frame(
+  rights_f      = factor(___, levels = levels(qog$rights_f)),
+  ipi_tradeopen = ___,
+  hf_efiscore   = ___
+))
+```
+
+```{r exercise-predict-env-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("predict\\s*\\(", code_nc))
+    fail("Use predict() to obtain predicted values.")
+  if (!grepl("model_env", code_nc))
+    fail("Pass model_env as the model object.")
+  if (!grepl("rights_f", code_nc))
+    fail("Include rights_f in your newdata data frame.")
+  if (!grepl("ipi_tradeopen", code_nc))
+    fail("Include ipi_tradeopen in your newdata data frame.")
+  if (!grepl("hf_efiscore", code_nc))
+    fail("Include hf_efiscore in your newdata data frame.")
+  if (!grepl("Few Rights", code_nc, fixed = TRUE))
+    fail("Include a prediction for Few Rights countries.")
+  if (!grepl("Many Rights", code_nc, fixed = TRUE))
+    fail("Include a prediction for Many Rights countries.")
+  n_predict_calls <- lengths(regmatches(code_nc, gregexpr("predict\\s*\\(", code_nc)))
+  if (n_predict_calls < 4)
+    fail("You need four predict() calls: two for Comparison 1 (Few Rights vs. Many Rights at mean trade openness) and two for Comparison 2 (Few Rights at low vs. high trade openness).")
+  if (!grepl("7\\.77|mean\\s*\\(\\s*qog\\s*\\$\\s*ipi_tradeopen", code_nc))
+    fail("Comparison 1 should use mean trade openness (≈ 7.77) for both calls. Check the value you supplied for ipi_tradeopen in Calls 1 and 2.")
+  if (!grepl("6\\.9", code_nc))
+    fail("Comparison 2 should include a low trade openness value (6.9, the 25th percentile). Check Calls 3 and 4.")
+  if (!grepl("9\\.4", code_nc))
+    fail("Comparison 2 should include a high trade openness value (9.4, the 75th percentile). Check Calls 3 and 4.")
+  pass("Right. At mean trade openness, Few Rights countries (≈59.5) are predicted to slightly outperform Many Rights countries (≈52.7) --- because at this level of trade openness, the large positive trade slope for Few Rights countries overcomes the rights disadvantage. Within Few Rights countries, moving from low (6.9) to high (9.4) trade openness predicts a jump of about 12 points (55.3 to 67.2) --- a substantial effect of trade in the rights-restricted context.")
+})
+```
+
+**Practice: Interpret the predicted comparisons**
+
+You now have four numbers. Read them together --- Comparison 1 tells you who leads at average trade, Comparison 2 tells you how much the Few Rights slope matters.
+
+```{r quiz-predict-env, echo=FALSE}
+question("Look at your four predicted values. Comparison 1 shows how Few Rights and Many Rights countries differ at average trade openness. Comparison 2 shows how much trade openness matters within Few Rights countries. What do these two comparisons together suggest about the role of trade openness in rights-restricted countries?",
+  correct = "Right. Trade openness is doing most of the work for Few Rights countries at mean and above levels of trade.",
+  answer("Trade openness is doing most of the work for Few Rights countries --- the steep positive slope means that at average or above-average trade openness, the trade association is large enough to offset the rights disadvantage entirely",
+         correct = TRUE,
+         message = "This is the interaction pattern made concrete. At low trade openness, the model predicts Many Rights countries to outperform Few Rights countries. As trade openness rises, the steep Few Rights slope closes and then reverses the gap --- the model predicts Few Rights countries to overtake Many Rights countries at above-average trade openness levels."),
+  answer("Many Rights countries always perform better environmentally because political accountability matters more than trade",
+         message = "At mean and high trade openness, the model actually predicts Few Rights countries to outperform Many Rights countries. The advantage of political rights is largest when trade openness is low."),
+  answer("The two comparisons show the same pattern --- the predicted difference between Few Rights and Many Rights countries is the same at all trade openness levels",
+         message = "If the gap were the same at all trade levels, the lines in the interaction plot would be parallel. Comparison 2 shows the steep Few Rights slope --- at high trade openness, Few Rights countries are predicted to outperform Many Rights countries, reversing the gap seen at low trade openness."),
+  answer("Comparison 2 is not informative because trade openness varies within the Few Rights group just as it does in the full sample",
+         message = "Comparison 2 is specifically designed to be informative: it fixes the rights category at Few Rights and varies trade openness to isolate the slope within that group. This is exactly what a conditional effect is --- the trade openness slope at a particular value of rights status."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: compare Comparison 1 (who leads at average trade?) to Comparison 2 (how steep is the Few Rights slope?). What happens as trade openness rises?"
+)
+```
+
+### Visualize the Association Between Trade Openness and Environmental Performance
+
+Before visualizing the interaction, let's look at the trade openness effect alone --- what does the model predict for Few Rights countries (the reference category) across the full range of trade openness?
+
+**Practice: Produce a prediction plot for trade openness**
+
+This plot shows the Few Rights slope in full --- the baseline you will need to compare against when the interaction plot appears.
+
+Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predplot-trade, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for ipi_tradeopen"}
+___(model_env,
+    ___ = "pred",
+    ___ = "ipi_tradeopen",
+    ___ = "Predicted Environmental Performance by Trade Openness",
+    ___ = c("Trade Openness (1-10)",
+            "Environmental Performance Index"),
+    show.data = FALSE) +
+  ___(caption = "Predictions are for Few Rights countries with average economic freedom.")
+```
+
+```{r exercise-predplot-trade-hint-1}
+# Hint 1 of 3
+# You have produced prediction plots in Example 1. This exercise
+# follows the same structure with a different model and variable.
+# Think about which argument controls the type of plot, which
+# controls the x-axis variable, and which labels the axes.
+# All argument names are blank --- you need to supply them.
+```
+
+```{r exercise-predplot-trade-hint-2}
+# Hint 2 of 3
+# The blank argument names are: the function name (plot_model),
+# type =, terms =, title =, axis.title =, and the labs argument name.
+# For type =, a prediction plot uses the value "pred".
+# For terms =, supply the variable name in quotes.
+```
+
+```{r exercise-predplot-trade-hint-3}
+# Hint 3 of 3: fill in the blanks
+plot_model(model_env,
+           type = "pred",
+           terms = "ipi_tradeopen",
+           title = "Predicted Environmental Performance by Trade Openness",
+           axis.title = c("Trade Openness (1-10)",
+                          "Environmental Performance Index"),
+           show.data = FALSE) +
+  labs(caption = "___")
+```
+
+```{r exercise-predplot-trade-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("plot_model\\s*\\(", code_nc))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
+    fail("Set type = \"pred\".")
+  if (!grepl("ipi_tradeopen", code_nc))
+    fail("Set terms = \"ipi_tradeopen\".")
+  if (!grepl("title\\s*=", code_nc))
+    fail("Include the title = argument.")
+  if (!grepl("axis\\.title\\s*=", code_nc))
+    fail("Include the axis.title = argument.")
+  if (!grepl("labs\\s*\\(", code_nc))
+    fail("Add a labs(caption = ...) layer.")
+  pass("Well done. This plot shows the steep positive trade openness slope for Few Rights countries --- the baseline from which the interaction plot will show how things change for Many Rights countries.")
+})
+```
+
+**Practice: Interpret the trade openness plot**
+
+This is the Few Rights slope in full. Read the y-axis at the low and high ends of trade openness before answering.
+
+```{r quiz-trade-interpret, echo=FALSE}
+question("The prediction plot shows a steep upward slope for Few Rights countries. Which statement best completes the interpretation?",
+  correct = "Right. A very large positive association between trade openness and environmental performance within the Few Rights baseline.",
+  answer("For Few Rights countries at average economic freedom, moving from the lowest to highest trade openness predicts a very large improvement on the Environmental Performance Index",
+         correct = TRUE,
+         message = "The trade openness coefficient for Few Rights countries is 4.75 per unit, and the scale runs from 1 to 10 --- a 9-unit range predicts 4.75 × 9 ≈ 43 points of improvement. This is exactly the steep positive slope the interaction hypothesis predicted for rights-restricted countries."),
+  answer("The upward slope means trade openness causes better environmental outcomes in Few Rights countries",
+         message = "A significant positive coefficient is evidence of an association, not proof of causation. Trade openness may be correlated with other factors that also improve environmental performance."),
+  answer("This plot shows the Many Rights slope --- the reference category is always plotted first",
+         message = "The default for plot_model() holds factor variables at their reference category, which for rights_f is Few Rights. This plot shows the Few Rights slope. The next exercise will show both slopes simultaneously."),
+  answer("The slope is the same for Many Rights countries because the model has only one trade openness coefficient",
+         message = "The interaction term means the trade openness slope differs by rights category. The model has both a main effect for trade openness and an interaction term --- together they produce a different slope for each rights category. Few Rights countries get the main effect alone; Many Rights countries get the main effect plus the interaction coefficient."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: read the predicted values at the low and high ends of the trade openness scale and compute the difference."
+)
+```
+
+### Visualize the Interaction: Rights Status Across the Range of Trade Openness
+
+Now we look at the interaction directly. The first plot puts rights status on the x-axis, with separate lines for values of trade openness. Run the code and examine the output before reading the explanation.
+
+**Practice: Produce the interaction plot with rights_f on the x-axis**
+
+This orientation lets you compare the two groups at specific trade openness values --- useful, but as you will see, not the whole story.
+
+Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predplot-int1, exercise=TRUE, exercise.cap="Practice: Produce an interaction plot with rights_f on the x-axis"}
+___(model_env,
+    ___ = "pred",
+    ___ = c("rights_f", "ipi_tradeopen"),
+    ___ = "Environmental Performance by Rights Status",
+    ___ = c("Political Rights Status",
+            "Environmental Performance Index")) +
+  ___(caption = "Predictions are for countries with average economic freedom.")
+```
+
+```{r exercise-predplot-int1-hint-1}
+# Hint 1 of 3
+# This is a two-variable prediction plot --- the same structure as the
+# two-variable plot you produced in Example 1, but now the first variable
+# in terms is a factor. Think about which argument controls what kind of
+# plot you get, which argument takes a vector of two variable names,
+# and which argument labels the two axes.
+```
+
+```{r exercise-predplot-int1-hint-2}
+# Hint 2 of 3
+# The blank argument names are: the function name (plot_model),
+# type =, terms =, title =, axis.title =, and the labs argument name.
+# The first variable in terms goes on the x-axis;
+# the second produces separate colored lines or points.
+```
+
+```{r exercise-predplot-int1-hint-3}
+# Hint 3 of 3: fill in the blanks
+plot_model(model_env,
+           type = "pred",
+           terms = c("rights_f", "ipi_tradeopen"),
+           title = "Environmental Performance by Rights Status",
+           axis.title = c("Political Rights Status",
+                          "Environmental Performance Index")) +
+  labs(caption = "___")
+```
+
+```{r exercise-predplot-int1-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("plot_model\\s*\\(", code_nc))
+    fail("Use plot_model().")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
+    fail("Set type = \"pred\".")
+  if (!grepl("rights_f", code_nc))
+    fail("Include rights_f in terms.")
+  if (!grepl("ipi_tradeopen", code_nc))
+    fail("Include ipi_tradeopen in terms.")
+  if (regexpr("rights_f", code_nc) > regexpr("ipi_tradeopen", code_nc))
+    fail("rights_f should come first in terms (x-axis), and ipi_tradeopen second (separate lines). Check the order inside c(...).")
+  if (!grepl("labs\\s*\\(", code_nc))
+    fail("Add a labs(caption = ...) layer.")
+  pass("Well done. Now look at what this plot can and cannot show before answering the question.")
+})
+```
+
+**Practice: Interpret this orientation of the interaction plot**
+
+Think about what you can read from three discrete points and what you cannot see between them.
+
+```{r quiz-int1-interpret, echo=FALSE}
+question("The plot shows two dots (Few Rights and Many Rights) with confidence intervals, with separate lines for different trade openness values. What can you see from this orientation and what is harder to see?",
+  correct = "Right. You can see the gap at each trade level, but not how the gap changes continuously across the full range.",
+  answer("You can see that at low trade openness Many Rights countries outperform Few Rights countries, and at high trade openness the gap reverses --- but the plot makes it hard to see how the gap changes continuously across the full range of trade openness",
+         correct = TRUE,
+         message = "This orientation answers the question 'which rights category performs better at a given trade level?' but it cannot show the smooth evolution of the trade openness association across its full range. Three points give you snapshots; a continuous line gives you the whole story."),
+  answer("This is the most informative orientation because it shows both variables at once",
+         message = "It shows both variables, but only at three specific trade openness values. The next plot will show the full continuous range of trade openness, which is more informative for understanding how the association changes."),
+  answer("The two dots at each trade openness value show the predicted gap between Few Rights and Many Rights countries, and because the confidence intervals overlap at all three values, no difference is statistically significant",
+         message = "Overlapping confidence intervals show uncertainty about the predictions at specific covariate profiles, but they do not by themselves determine statistical significance. The interaction coefficient test from Tutorial 18 is the appropriate test for whether the two slopes differ."),
+  answer("This orientation is always preferable when one of the two variables is a factor, because factor variables belong on the x-axis",
+         message = "The choice of orientation depends on what you want to communicate. When the interval variable has a meaningful range to sweep across, putting it on the x-axis produces a more informative continuous plot. The next exercise shows why."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: think about what you can see at the three specific trade openness values shown, and what you cannot see between them."
+)
+```
+
+When **rights_f** is on the x-axis, you see two dots at three selected trade openness levels. This is useful for comparing Few Rights to Many Rights at specific values, but it makes it hard to see how the relationship between trade openness and environmental performance evolves continuously. For that, we need trade openness on the x-axis.
+
+### Visualize the Interaction: Trade Openness Across the Full Range
+
+With **ipi_tradeopen** on the x-axis and **rights_f** producing separate lines, we can see the entire conditional relationship: one line for Few Rights countries, one for Many Rights. Where the lines are not parallel, the interaction is visible directly.
+
+**Practice: Produce the interaction plot with ipi_tradeopen on the x-axis**
+
+Use the title "Predicted Environmental Performance by Trade Openness and Rights Status", the x-axis label "Trade Openness (1-10)", the y-axis label "Environmental Performance Index", and the caption "Predictions are for countries with average economic freedom." `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Rights Status", caption = "...")` to set both.
+
+Four hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predplot-int2, exercise=TRUE, exercise.cap="Practice: Produce an interaction plot with ipi_tradeopen on the x-axis"}
+
+```
+
+```{r exercise-predplot-int2-hint-1}
+# Hint 1 of 4
+# This is the same two-variable plot as the previous exercise,
+# but with the variables swapped: the interval variable goes on
+# the x-axis and the factor variable produces separate colored lines.
+# Think about why this orientation tells a richer story than the
+# previous one, and which variable belongs in which position in terms.
+```
+
+```{r exercise-predplot-int2-hint-2}
+# Hint 2 of 4
+# Use plot_model() with type = "pred".
+# terms takes a vector with ipi_tradeopen first (x-axis)
+# and rights_f second (separate colored lines).
+```
+
+```{r exercise-predplot-int2-hint-3}
+# Hint 3 of 4
+# Prescribed title: "Predicted Environmental Performance by Trade Openness and Rights Status"
+# Prescribed axis labels: x = "Trade Openness (1-10)", y = "Environmental Performance Index"
+# Prescribed caption: "Predictions are for countries with average economic freedom."
+# Add the caption with + labs(caption = "...")
+```
+
+```{r exercise-predplot-int2-hint-4}
+# Hint 4 of 4
+# Your call should be plot_model(model_env, type = "pred",
+# terms = c("ipi_tradeopen", "rights_f"), with the prescribed title,
+# axis labels, and a labs(color = "Rights Status", caption = "...") layer
+# with the prescribed caption.
+```
+
+```{r exercise-predplot-int2-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("plot_model\\s*\\(", code_nc))
+    fail("Use plot_model().")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
+    fail("Set type = \"pred\".")
+  if (!grepl("ipi_tradeopen", code_nc))
+    fail("Include ipi_tradeopen in terms (as the first variable --- x-axis).")
+  if (!grepl("rights_f", code_nc))
+    fail("Include rights_f in terms (as the second variable --- separate lines).")
+  if (regexpr("ipi_tradeopen", code_nc) > regexpr("rights_f", code_nc))
+    fail("ipi_tradeopen should come first in terms (x-axis), and rights_f second (separate lines). Check the order inside c(...).")
+  if (!grepl("title\\s*=", code_nc))
+    fail("Include a title = argument.")
+  if (!grepl("Predicted Environmental Performance by Trade Openness and Rights Status", code_nc, fixed = TRUE))
+    fail("Use the prescribed title: \"Predicted Environmental Performance by Trade Openness and Rights Status\".")
+  if (!grepl("axis\\.title\\s*=", code_nc))
+    fail("Include an axis.title = argument.")
+  if (!grepl("Trade Openness \\(1-10\\)", code_nc))
+    fail("Use \"Trade Openness (1-10)\" as the x-axis label.")
+  if (!grepl("Environmental Performance Index", code_nc, fixed = TRUE))
+    fail("Use \"Environmental Performance Index\" as the y-axis label.")
+  if (!grepl("labs\\s*\\(", code_nc))
+    fail("Add a labs() layer with color = and caption = arguments.")
+  if (!grepl("Rights Status", code_nc, fixed = TRUE))
+    fail("Use labs(color = \"Rights Status\") to set the legend title.")
+  if (!grepl("Predictions are for countries with average economic freedom.", code_nc, fixed = TRUE))
+    fail("Use the prescribed caption: \"Predictions are for countries with average economic freedom.\"")
+  pass("Well done. Now look carefully at whether the two lines are parallel and where they cross.")
+})
+```
+
+**Practice: Interpret the interaction plot. Select all that apply.**
+
+Look at the two lines carefully --- their slopes, whether they are parallel, and where they cross --- before answering.
+
+```{r quiz-int2-interpret, echo=FALSE}
+question("Look at the interaction plot with trade openness on the x-axis. Which statements correctly describe what it shows? Select all that apply.",
+  correct = "Right. Non-parallel lines, a crossover, and a near-flat slope for Many Rights countries.",
+  answer("The two lines are not parallel --- this is the visual signature of the interaction: the effect of trade openness on environmental performance differs between Few Rights and Many Rights countries",
+         correct = TRUE,
+         message = "Non-parallel lines are exactly what an interaction looks like in a prediction plot. If the lines were parallel, the interaction term would be zero."),
+  answer("The Few Rights line has a steep positive slope, while the Many Rights line is nearly flat --- confirming that trade openness predicts large improvements in Few Rights countries but almost no change in Many Rights countries",
+         correct = TRUE,
+         message = "The Few Rights slope is 4.75 per unit of trade openness; the Many Rights slope is approximately 0.12. This is the interaction finding made visible: trade openness matters enormously in rights-restricted contexts and barely at all in rights-protected ones."),
+  answer("The lines cross at around a trade openness value of 6, meaning that below this value Many Rights countries are predicted to perform better, but above it Few Rights countries take the lead",
+         correct = TRUE,
+         message = "The crossover at approximately 6.3 on the trade openness scale is where the two predicted values are equal. Below it, political rights provide the advantage; above it, the steep trade slope in Few Rights countries closes and then reverses the gap."),
+  answer("Because adjusted R-squared is below 0.65, the model's predictions are not reliable",
+         message = "R-squared tells you how much variance the model explains; the value here is actually strong for cross-national data. It has nothing to do with whether the predictions or the interaction are reliable."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements. Look at the slope of each line, whether they are parallel, and whether they cross."
+)
+```
+
+### What We Learned About Political Rights, Trade, and the Environment
+
+The interaction plot reveals something that no table of coefficients can show directly: the estimated association between **ipi_tradeopen** and **epi_epi** is not one relationship --- it is two, depending on the political context. In countries with few political rights, the estimated trade-openness slope is steep and positive across the full range of the variable. In countries with many political rights, the estimated slope is near zero. One possible explanation is that international economic integration matters more for environmental outcomes where domestic political accountability is limited, but the regression establishes the difference in slopes, not the mechanism producing it.
+
+The crossover at approximately **ipi_tradeopen** = 6.3 is a substantive finding: it marks the trade openness level where the model predicts Few Rights countries to overtake Many Rights countries on environmental performance. Below that threshold, the model predicts Many Rights countries to perform better; above it, the steep Few Rights slope produces higher predicted values.
+
+Here is what a complete interpretation of the interaction prediction plot looks like as prose: *As trade openness increases, predicted environmental performance rises steeply in Few Rights countries and barely changes in Many Rights countries. Predictions hold the economic freedom score at its mean throughout. At a trade openness score of 5 --- below the crossover --- Few Rights countries are predicted to score about 46 on the Environmental Performance Index while Many Rights countries are predicted to score about 52; Few Rights are behind. At a score of 9, Few Rights countries are predicted to reach about 65 while Many Rights countries remain near 53 --- Few Rights have overtaken them by a wide margin. The confidence bands for the two groups overlap near the middle of the trade openness range and diverge toward the extremes. This is consistent with the hypothesis that the estimated association between trade openness and environmental performance is stronger in countries with limited political rights.*
+
+This is the kind of finding that prediction plots were designed to reveal. The interaction coefficient (−4.63) told you the sign and size; the plot tells you what that means for the world.
+
+## Check Your Understanding
+
+The exercises below test whether you can apply the five-component framework to output you have not seen before. A researcher models life expectancy (in years) across countries as a function of GDP per capita (in $10,000s), proportion of the population with access to basic healthcare (0 to 1), and world region (a four-category factor with Africa as the reference category: Africa, Americas, Asia, Europe). The model is significant, adjusted R-squared = 0.72. A prediction plot shows predicted life expectancy (y-axis, range 50--80 years) as a function of GDP per capita (x-axis, range \$2,000--\$60,000), holding healthcare access at its mean and assuming African countries. The prediction line rises from about 56 years at GDP = \$2,000 to about 72 years at GDP = \$30,000. The confidence band is moderately wide throughout.
+
+**Apply: Apply the five-component framework**
+
+Read the scenario description above carefully, then evaluate each response against all five components of a complete interpretation.
+
+```{r quiz-cyu-fivecomponent, echo=FALSE}
+question("Which response constitutes the most complete five-component interpretation of this prediction plot?",
+  correct = "Right. All five components are addressed: pattern, held values, specific values, uncertainty, and hypothesis connection.",
+  answer("Predicted life expectancy increases from about 56 years at low GDP to about 72 years at higher GDP --- a 16-year difference. Predictions hold healthcare access at its mean and assume African countries. The confidence band is moderately wide. This is consistent with the hypothesis that wealthier countries have higher life expectancy.",
+         correct = TRUE,
+         message = "This covers all five: (1) positive pattern, (2) held values stated with the specific baseline named, (3) two specific values with magnitude, (4) the confidence band assessed, (5) connection to hypothesis. This is the standard for a complete interpretation."),
+  answer("As GDP increases, predicted life expectancy increases. The effect is statistically significant.",
+         message = "This names the pattern and notes significance, but is missing three components: the held values, at least two specific predicted values to convey magnitude, and an assessment of the confidence band."),
+  answer("Predicted life expectancy rises from about 56 to 72 years as GDP increases. The confidence band is moderately wide.",
+         message = "This gives specific values and notes the band, but is missing the held values (healthcare at mean, African countries) and the connection to the research hypothesis."),
+  answer("As GDP increases, predicted life expectancy rises. Predictions hold healthcare access at its mean and assume African countries. This is consistent with the hypothesis that wealthier countries have higher life expectancy.",
+         message = "This has the pattern, held values, and hypothesis connection, but is missing the specific predicted values that convey magnitude --- without them, there is no way to assess whether the association is large or small in practice."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: check each response against all five components: (1) pattern, (2) held values, (3) specific predicted values, (4) uncertainty, (5) hypothesis connection."
+)
+```
+
+**Apply: Interpret the held values**
+
+This question tests Component 2 --- whether you understand what the caption means for the slope and how it generalizes.
+
+```{r quiz-cyu-heldvalues, echo=FALSE}
+question("The prediction plot holds healthcare access at its mean and assumes African countries. A student says this means the plot only applies to Africa. How would you correct this?",
+  correct = "Right. The slope applies everywhere in an additive model --- only the level of the line changes by baseline.",
+  answer("In a linear regression without an interaction between GDP and region, the slope of GDP on life expectancy is the same for every region --- changing the baseline from Africa to Europe would shift the line up by the Europe coefficient but would not change its slope",
+         correct = TRUE,
+         message = "This is the key invariance property of additive linear regression. The caption tells you which level of the line you are looking at. The slope --- the what-if comparison the plot communicates --- applies equally at any baseline you might have chosen."),
+  answer("The student is right --- the plot only describes African countries, and a separate plot would be needed for each region",
+         message = "A separate plot for each region would have the same slope, just shifted up or down. The slope on GDP is the same everywhere in a model without a GDP-by-region interaction."),
+  answer("The student is partly right --- the slope would be the same for all regions, but the confidence band would be wider for regions where fewer observations are available",
+         message = "The confidence band in a plot_model() prediction plot reflects uncertainty about the predicted mean at each covariate profile, which does depend on sample size and covariance structure. But the slope itself is the same for all regions in an additive model --- that is the key conceptual point the student is missing."),
+  answer("The student's error is that Africa is not always the appropriate reference category --- the researcher should have used the most common region as the reference",
+         message = "The choice of reference category is a researcher decision, and the mean or mode is not always the best choice. More importantly, the student's error is conceptual: they think the slope only applies to the reference category, when in fact the slope is the same for all regions in an additive model."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: think about what an interaction between GDP and region would be needed to make the slope differ across regions."
+)
+```
+
+**Apply: Interpret non-parallel lines**
+
+The researcher has now added an interaction. Think about what non-parallel lines in a prediction plot are telling you before choosing.
+
+```{r quiz-cyu-nonparallel, echo=FALSE}
+question("The researcher adds an interaction between GDP and region and produces a new two-variable prediction plot with GDP on the x-axis and separate lines for each region. The lines are not parallel --- the Europe line is steep, the Africa line is shallow. What does this mean?",
+  correct = "Right. The GDP effect is conditional on region --- non-parallel lines are the visual signature of an interaction.",
+  answer("The effect of GDP on life expectancy differs by region --- the return to economic growth for life expectancy is larger in Europe than in Africa, and a model without the interaction would have obscured this difference",
+         correct = TRUE,
+         message = "Non-parallel lines are the visual signature of an interaction. The steeper Europe line means each additional unit of GDP predicts a larger increase in life expectancy in Europe than in Africa. This is exactly the kind of finding that prediction plots reveal that coefficient tables can only hint at."),
+  answer("Non-parallel lines mean the model is misspecified and should be reestimated without the interaction",
+         message = "Non-parallel lines are the expected output when an interaction term is present and significant. They are a finding, not a problem."),
+  answer("Non-parallel lines mean that Europe has higher life expectancy than Africa, which is already known",
+         message = "The vertical gap between lines at any given GDP value reflects the region coefficient --- the level difference. Non-parallel lines tell you something additional: the slope of GDP itself differs by region. That is a different claim from saying the levels differ."),
+  answer("Non-parallel lines in this model mean the confidence bands for Europe and Africa do not overlap, confirming the interaction is statistically significant",
+         message = "Whether the confidence bands overlap is about uncertainty in the predicted values at specific covariate profiles, not about whether the interaction coefficient is significant. Statistical significance of the interaction is determined by the t-statistic and p-value on the interaction term in the model output."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: non-parallel lines mean the x-axis variable has a different slope in different groups. What does that tell you about the interaction?"
+)
+```
+
+## The Takeaways
+
+Across Tutorials 17 and 19, you learned to apply the same tools --- `predict()` and `plot_model()` --- to both additive and interaction models. The tools are identical; what changes is what they reveal. In Tutorial 17, parallel lines showed that the estimated association was the same across groups. Here, non-parallel lines make the interaction visible in a way the coefficient table cannot.
+
+The key things to carry forward:
+
+1. **The workflow is: table → specific predictions → plot.** The table shows the full model for readers who want to verify or build on your analysis. The `predict()` calls give you two specific numbers to anchor your interpretation before you see the full picture. The plot shows how predicted outcomes change across the full range of the predictor, with uncertainty visible.
+
+2. **`predict()` requires a `newdata` data frame with every predictor named and typed exactly as in the model.** For factor variables, the recommended approach is `factor("level", levels = levels(data$variable))` --- this explicitly attaches the full level set and avoids edge cases. The output is in the units of the dependent variable.
+
+3. **`plot_model(type = "pred", terms = "variable")` sweeps across the full range of the specified predictor**, holding all others at their means or reference category. `axis.title` takes x first, then y. Always add `labs(caption = "...")` to state the held values. To override the default held values, use the `condition` argument introduced in Tutorial 17: `condition = list(variable = value)`.
+
+4. **`terms = c("x", "grouping_variable")` shows the conditional relationship.** When the model includes an interaction, the lines are not parallel --- the x-variable has a different estimated slope in each group. The plot makes visible exactly what the interaction coefficient only hints at: which group has the steeper slope, where the lines diverge, and where they cross.
+
+5. **A complete interpretation covers five things:** the pattern, the held values, specific predicted values, the confidence band, and the connection to the hypothesis. Each component adds something the others do not.
+
+The choice of which variable to put on the x-axis matters. When one of your two variables is categorical and the other is interval, put the interval variable on the x-axis. A continuous line across the full range of the interval variable is more informative than a few dots at selected values of the other variable.
+
+## Submit Your Work
+
+When you have completed all exercises in this tutorial, generate your submission code using the button below.
+
+```{r encode-logic-19, context="server"}
+learnrhash::encoder_logic()
+```
+
+```{r encode-ui-19, echo=FALSE}
+learnrhash::encoder_ui(
+  ui_before = shiny::div(
+    shiny::p("Click the button below to generate your submission code.
+              Copy the full code and paste it into Canvas.")
+  )
+)
+```
+
+```{r tutorial-success-banner-19, results="asis", echo=FALSE}
+cat('
+<p class="tutorial-complete"
+   role="status"
+   aria-label="Excellent work! You can now translate regression coefficients into concrete model-implied comparisons using predicted values and prediction plots.">
+  <span aria-hidden="true">📊</span>
+  Excellent work! You can now translate regression coefficients into concrete predicted comparisons --- and that changes what it means to understand a model.
+</p>
+')
+```

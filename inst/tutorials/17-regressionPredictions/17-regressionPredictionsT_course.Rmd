@@ -1,0 +1,1363 @@
+---
+title: "From Coefficients to Predicted Values"
+tutorial:
+  id: "17-Regression-Predictions"
+output: 
+  QPATutorialsCourse::qpa_tutorial:
+    progressive: true
+    allow_skip: true
+runtime: shiny_prerendered
+description: >
+  Learn to translate regression coefficients into concrete predicted values and prediction plots using predict() and plot_model().
+---
+
+## Overview {#main-content}
+
+Regression output can feel both precise and opaque at the same time. The numbers are right there --- coefficients, standard errors, significance stars --- but a slope of 0.876 does not feel like an answer to a political question. Understanding comes when you can ask: if two states differed only in the proportion of their residents who identify as liberal, how different would their state legislatures look? These are *model-implied comparisons* --- and making them is exactly what regression is designed for.
+
+A [**predicted value**]{.important-text} is not a forecast about the future. It is the model's answer to a specific question: what does the model predict for a case with *these particular values* of the predictors? The difference between two such predictions --- holding everything else constant except the variable you care about --- is a [**model-implied comparison**]{.important-text}: a concrete statement about how predicted outcomes differ across specified predictor values, rather than an abstract number.
+
+Once you learn to make these comparisons well, regression output stops being a table of coefficients and starts being a tool for understanding the world. That is what this tutorial teaches --- and it is a skill that transfers to every additive regression model you will ever estimate. Tutorial 18 introduces interaction models, and Tutorial 19 extends these prediction tools to visualize and interpret them.
+
+In this tutorial you will learn:
+
+* What a predicted value from a regression model means --- not a forecast, but a model-implied comparison: what the model predicts for a specific combination of predictor values, and what comparing two such predictions reveals about the estimated association
+* How to obtain specific predicted values using `predict()` and how to visualize predicted values across a range using `plot_model(type = "pred")` from the [sjPlot]{.package-name} package, including how to vary two predictors at once and how to choose which variable goes on the x-axis
+* How to use the `condition` argument to hold specific predictors at substantively meaningful values rather than the defaults, and why that choice matters for interpretation
+* How to interpret any predicted value comparison using a systematic framework covering the pattern, held values, specific predicted values, uncertainty, and the hypothesis connection
+* Why an additive regression model produces parallel prediction lines when two predictors are displayed simultaneously
+
+```{r setup, include=FALSE}
+library(learnr)
+library(learnrhash)
+library(tidyverse)
+library(knitr)
+library(poliscidata)
+library(gradethis)
+library(stargazer)
+library(sjPlot)
+tutorial_options(exercise.checker = gradethis::grade_learnr,
+                 exercise.completion = FALSE)
+knitr::opts_chunk$set(error = TRUE)
+data("states", package = "QPATutorialsCourse")
+legdata <- states
+legdata$p.liberal <- legdata$liberal / 100
+legdata$region_censusf <- factor(legdata$region_census,
+                                 labels = c("South", "Northeast", "Midwest", "West"))
+data("qog", package = "QPATutorialsCourse")
+qog$rights[qog$fh_pr <= 2] <- 0
+qog$rights[qog$fh_pr >  2] <- 1
+qog$rights_f <- factor(qog$rights, labels = c("Few Rights", "Many Rights"))
+qog$democ <- dplyr::case_when(
+  qog$fh_ipolity2 < 4  ~ 0,
+  qog$fh_ipolity2 > 6  ~ 2,
+  TRUE                  ~ 1
+)
+qog$democ_f <- factor(qog$democ, labels = c("Autocracy", "Partial Democracy", "Democracy"))
+fit1 <- lm(hs_dem_prop_all ~ nonwhite + p.liberal + povrate + region_censusf,
+           data = legdata)
+model_gov <- lm(iiag_gov ~ wdi_fertility + bti_eo + democ_f, data = qog)
+model_env <- lm(epi_epi ~ rights_f * ipi_tradeopen + hf_efiscore, data = qog)
+```
+
+## From Model to Meaning: Choosing and Interpreting Predictions
+
+In Tutorials 15 and 16, you learned to estimate regression models, interpret their coefficients, test hypotheses, and assess model fit. That work produces a table of numbers. This section is about what comes next: turning those numbers into answers to the questions that motivated your analysis in the first place. A coefficient tells you the direction and size of an estimated association in abstract units. A predicted value tells you what the model predicts for a specific case --- and how different that predicted outcome is across specified values of a predictor.
+
+Predicted values translate the model's estimated associations into concrete comparisons. Unless the research design supports a causal interpretation, these comparisons describe how predicted outcomes differ across specified predictor values --- not what would necessarily happen if we intervened to change a predictor. The language that follows uses [**predicted difference**]{.important-text} and [**model-implied comparison**]{.important-text} rather than "effect" for this reason.
+
+When you have a model with several predictors, which one should you vary? The answer comes from the research question, not the software. You vary the predictor whose association you are trying to communicate --- usually the one your hypothesis is about. If the hypothesis concerns ideology, you produce predictions across the range of ideology. If an interaction is the central finding, you vary both interacting variables so the reader can see how one variable's association changes across levels of the other. Everything else gets held constant, and you tell your reader what values you used.
+
+In this tutorial you will use two complementary tools. `predict()` answers one what-if question at a time precisely: you specify a complete set of predictor values, and it returns the model's predicted outcome for that case. Running it for two carefully chosen cases gives you concrete, legible numbers in the units of the outcome. These numbers anchor your understanding of what the model is saying. `plot_model(type = "pred")` then shows many such predictions at once, across the full observed range of a predictor, with the uncertainty visible as a shaded band around the line or points. If you have already computed two predicted values for a specific comparison, you know exactly what the y-axis means when you see those values on a plot. The two tools work together --- the numbers anchor your interpretation, and the plot fills in the full picture.
+
+Once you have made a comparison --- whether two numbers from `predict()` or a full prediction plot --- a complete interpretation covers five things:
+
+::: {.important-note}
+**The five-component framework**
+
+1. **The pattern.** What does the comparison show overall? Is the relationship positive or negative, steep or shallow, consistent across the range or concentrated at one end?
+
+2. **The held values.** Every predicted value assumes specific values for all predictors not being varied. State them. In an additive linear regression model (one without interactions involving the focal predictor), changing the held values shifts the predicted line up or down but does not change its slope --- the predicted difference associated with the predictor you are varying is the same regardless of the baseline you choose. The conventional defaults --- means for interval variables, reference category for factor variables --- provide a standardized comparison case, though they are not necessarily substantively typical of any real observation.
+
+3. **Specific predicted values.** At least two. "The predicted proportion increases" is weaker than "the predicted proportion increases from 0.58 to 0.67 as the liberal proportion rises from 0.25 to 0.35." Magnitude is part of the finding.
+
+4. **The uncertainty.** For a pair of specific predictions, adding `interval = "confidence"` to your `predict()` call returns lower and upper bounds alongside each point estimate. In a prediction plot, the same uncertainty appears as a shaded band around the line. A wide band means the data are less precise about the predicted outcomes. Where the bands of two groups overlap, that provides a rough visual cue that the predicted values at that covariate profile are uncertain enough that they may not be reliably distinguishable from each other. This is not the same as saying the predictor is not statistically significant --- a coefficient can be significant in the model and still produce overlapping confidence intervals at a particular set of held values, because the confidence interval around a predicted value incorporates uncertainty about all the predictors in the comparison, not just the one being varied.
+
+5. **The connection to the hypothesis.** A predicted value comparison is evidence. Does the pattern support the hypothesis, fail to support it, or complicate it?
+:::
+
+Here is what a complete interpretation looks like written as a single paragraph.
+
+::: {.research-example}
+A researcher models county voter turnout as a function of median household income, unemployment rate, and urban/rural status, with urban counties as the reference category. She produces a prediction plot showing predicted turnout across the range of income for urban counties at average unemployment. A complete interpretation would read: *As median household income increases, predicted voter turnout rises --- the relationship is positive and linear across the observed range. Predictions hold the unemployment rate at its mean and assume urban counties; a rural county at the same income level would be predicted to have lower turnout by about 4 percentage points, but the income slope would be the same. At $30,000 median income, the model predicts about 54% turnout; at $60,000, about 67% --- a 13-point difference across a realistic range. The confidence band is moderately narrow throughout, reflecting a reasonably large sample. This positive relationship is consistent with the hypothesis that wealthier communities have more resources for civic participation.*
+:::
+
+Notice that all five components appear naturally in the prose without being labeled. That is the standard this tutorial asks you to meet.
+
+### The Workflow
+
+Everything in Tutorials 12 through 16 has been building toward this moment: you have a model, you have tested it, and now you need to make it speak.
+
+The workflow this tutorial follows has three steps. We begin with a **regression table** --- not because tables are exciting, but because the table documents the complete model. Every coefficient is there, with its standard error and its significance. Any reader who wants to verify the analysis or build on it starts here. A complete analysis presents the table alongside predictions and plots; the table documents the full model, while the predictions communicate the substantive meaning of the relationship the research question is about.
+
+We then ask the model for **specific predicted values** --- a comparison for two carefully chosen cases. A coefficient of 0.876 says the slope is positive; a predicted value of 0.58 at p.liberal = 0.25 and 0.67 at p.liberal = 0.35 says what that slope actually means for the predicted gap between a moderately liberal and a more liberal state. Before you draw a line, you know two of its points.
+
+Finally, we **visualize**. The prediction plot sweeps across the full range of the predictor, showing every prediction at once, with the uncertainty visible as a shaded band. By the time you see the plot, you already understand what you are looking at --- because you just computed it by hand for two specific cases.
+
+Follow this sequence for both examples in this tutorial. It will become second nature.
+
+## What Predicts Democratic Representation in State Legislatures?
+
+State legislatures vary dramatically in their partisan composition. What explains these differences? The theoretical argument runs through electoral representation: in a system where legislators are elected by geographic constituencies, the ideological preferences of a state's voters should be reflected in the partisan composition of its legislature. States where more residents identify as liberal provide a larger pool of potential Democratic voters, create more favorable conditions for Democratic candidates, and shift the median voter in legislative districts toward the left. This suggests that public ideology should be a strong positive predictor of Democratic seat share --- and that the relationship should persist even after accounting for other features of states that might confound it. Racial composition, poverty, and regional political culture are all plausibly correlated with both ideology and legislative outcomes; including them in the model lets us assess whether the association between public opinion and seat share persists after accounting for those potentially confounding features.
+
+::: {.hypothesis}
+In a comparison of states, those with more liberal public opinion will have a higher proportion of Democratic state house seats than those with less liberal public opinion, after controlling for racial composition, poverty rate, and census region.
+:::
+
+The data frame **legdata** contains 49 state observations with the following variables:
+
+- **hs_dem_prop_all**: proportion of state house seats held by Democrats
+- **p.liberal**: proportion of state residents identifying as liberal
+- **nonwhite**: proportion of state residents who are not white
+- **povrate**: state poverty rate (percent)
+- **region_censusf**: a four-category factor --- South (reference), Northeast, Midwest, West
+
+### Estimate the Model
+
+`lm()`, `summary()`, and `predict()` are part of base R --- no `library()` call is needed for those functions.
+
+**Practice: Estimate the regression model**
+
+Save your model as **fit1** and present the results. Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-fit1-estimate, exercise=TRUE, exercise.cap="Practice: Estimate the state legislature model and save as fit1"}
+
+```
+
+```{r exercise-fit1-estimate-hint-1}
+# Hint 1 of 3
+# You need to do three things: specify the regression formula
+# (dependent variable and predictors), save the model to an
+# object named fit1, and display the results. Think about which
+# variable is the outcome we are trying to explain and which
+# four variables are the predictors listed in the variable
+# descriptions above.
+```
+
+```{r exercise-fit1-estimate-hint-2}
+# Hint 2 of 3
+# Use lm() with hs_dem_prop_all as the dependent variable and
+# nonwhite, p.liberal, povrate, and region_censusf as predictors.
+# Save to fit1 and call summary(fit1).
+```
+
+```{r exercise-fit1-estimate-hint-3}
+# Hint 3 of 3
+# Your call should assign the model to fit1 using lm(), with
+# hs_dem_prop_all as the dependent variable on the left of ~,
+# and nonwhite, p.liberal, povrate, and region_censusf on the
+# right separated by +, with data = legdata. Then call summary()
+# on fit1 to display the results.
+```
+
+```{r exercise-fit1-estimate-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("lm\\s*\\(", code_nc))
+    fail("Use lm() to estimate the model.")
+  if (!grepl("fit1\\s*<-", code_nc))
+    fail("Save your model as fit1.")
+  if (!grepl("hs_dem_prop_all", code_nc))
+    fail("hs_dem_prop_all should be the dependent variable.")
+  if (!grepl("p\\.liberal", code_nc))
+    fail("Include p.liberal as a predictor.")
+  if (!grepl("nonwhite", code_nc))
+    fail("Include nonwhite as a predictor.")
+  if (!grepl("povrate", code_nc))
+    fail("Include povrate as a predictor.")
+  if (!grepl("region_censusf", code_nc))
+    fail("Include region_censusf as a predictor.")
+  if (!grepl("summary\\s*\\(", code_nc))
+    fail("Call summary() on fit1 to display the results.")
+  expected <- lm(hs_dem_prop_all ~ nonwhite + p.liberal + povrate + region_censusf,
+                 data = legdata)
+  result_coef <- if (inherits(.result, "summary.lm")) {
+    setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
+  } else {
+    coef(.result)
+  }
+  if (is.null(result_coef))
+    fail("Make sure you display the results by calling summary() on fit1.")
+  if (!isTRUE(all.equal(
+    sort(as.numeric(result_coef)),
+    sort(as.numeric(coef(expected))),
+    tolerance = 1e-6)))
+    fail("Check your formula. The model should regress hs_dem_prop_all on nonwhite, p.liberal, povrate, and region_censusf using the legdata data frame.")
+  pass("Right. Only two predictors are significant at .05: p.liberal and the West dummy. Keep that in mind as you interpret the predictions that follow.")
+})
+```
+
+### Present the Model in a Table
+
+The `stargazer()` function from the [stargazer]{.package-name} package was introduced in Tutorial 16. The key arguments are summarized below.
+
+::: {.tip}
+**Key `stargazer()` arguments**
+
+- **`type = "text"`** — produces plain-text output readable in the learnr console; use `"latex"` or `"html"` for documents
+- **`title =`** — the table title, as a character string
+- **`dep.var.labels =`** — the label for the dependent variable column header
+
+- **`covariate.labels =`** — a character vector of row labels for the predictors, one label per predictor in the order they appear in the model formula; the reference category of a factor variable is omitted from the output and should be omitted from the labels as well, so a three-category factor contributes two labels
+:::
+
+**Practice: Produce a stargazer table for fit1**
+
+Use the title "Predictors of Democratic State House Seat Share" and the dependent variable label "Proportion of Democratic House Seats". The six covariate labels for this model are: **Proportion Non-White**, **Proportion Liberal**, **Poverty Rate**, **Northeast**, **Midwest**, and **West**. Determine the correct order from your model output above. Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-stargazer-fit1, exercise=TRUE, exercise.cap="Practice: Produce a labeled stargazer table for fit1"}
+library(stargazer)
+stargazer(fit1,
+          ___ = "text",
+          title = "___",
+          dep.var.labels = "___",
+          ___ = c("Proportion Non-White",
+                  "___",
+                  "___",
+                  "___",
+                  "___",
+                  "___"))
+```
+
+```{r exercise-stargazer-fit1-hint-1}
+# Hint 1 of 3
+# stargazer() needs to know the format of its output, a title,
+# a label for the dependent variable column, and labels for each
+# predictor row. Two of the blanks are argument names --- think
+# about which argument controls what format the output appears in
+# and which argument supplies the row labels for predictors.
+```
+
+```{r exercise-stargazer-fit1-hint-2}
+# Hint 2 of 3
+# The two argument name blanks are: type and covariate.labels.
+# Covariate labels follow formula order; South is the reference
+# category and is omitted, so region labels are Northeast, Midwest, West.
+```
+
+```{r exercise-stargazer-fit1-hint-3}
+# Hint 3 of 3
+# The six covariate labels follow formula order. The first three are
+# Proportion Non-White, Proportion Liberal, and Poverty Rate.
+# The last three are the non-reference region categories in the order
+# they appear in the model output: Northeast, Midwest, and West.
+# South is the reference category and is omitted from the labels.
+```
+
+```{r exercise-stargazer-fit1-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("stargazer\\s*\\(", code_nc))
+    fail("Use stargazer() to produce the table.")
+  if (!grepl("type\\s*=", code_nc))
+    fail("Include the type = argument.")
+  if (!grepl("covariate\\.labels\\s*=", code_nc))
+    fail("Include the covariate.labels = argument.")
+  if (!grepl("Predictors of Democratic State House Seat Share", code_nc, fixed = TRUE))
+    fail("Use the prescribed title.")
+  if (!grepl("Proportion of Democratic House Seats", code_nc, fixed = TRUE))
+    fail("Use the prescribed dep.var.labels.")
+
+  labels <- c("Proportion Non-White","Proportion Liberal","Poverty Rate",
+              "Northeast","Midwest","West")
+  for (lbl in labels)
+    if (!grepl(lbl, code_nc, fixed = TRUE))
+      fail(paste0("The label \"", lbl, "\" is missing."))
+  pos <- sapply(labels, function(l) regexpr(l, code_nc, fixed=TRUE)[1])
+  if (!all(diff(pos) > 0))
+    fail("The labels are out of order. Follow formula order: Proportion Non-White, Proportion Liberal, Poverty Rate, Northeast, Midwest, West.")
+  pass("Well done. The table gives your reader the complete picture; the predictions and plots that follow translate the coefficients into model-implied comparisons.")
+})
+```
+
+Once a package is loaded with `library()`, all of its functions are available for the rest of your R session --- you do not need to load it again each time you use a function from it. Since [stargazer]{.package-name} was loaded in the exercise above, you can assume it is already loaded for all subsequent exercises in this tutorial.
+
+### Obtain Specific Predicted Values
+
+The hypothesis concerns liberalism. The most direct way to make the liberalism coefficient concrete is to compare the model's prediction for a state with a lower liberal proportion to one with a higher liberal proportion, holding everything else constant. The code below does exactly that.
+
+**Run and observe: Compute predicted Democratic seat share at two levels of p.liberal**
+
+```{r exercise-predict-fit1, exercise=TRUE, exercise.cap="Run and observe: Compute two specific predicted values from fit1"}
+# A Southern state at average nonwhite and poverty, with p.liberal = 0.25
+predict(fit1,
+        newdata = data.frame(
+          p.liberal      = 0.25,
+          nonwhite       = mean(legdata$nonwhite, na.rm = TRUE),
+          povrate        = mean(legdata$povrate,  na.rm = TRUE),
+          region_censusf = factor("South", levels = levels(legdata$region_censusf))
+        ))
+
+# Same characteristics, but p.liberal = 0.35
+predict(fit1,
+        newdata = data.frame(
+          p.liberal      = 0.35,
+          nonwhite       = mean(legdata$nonwhite, na.rm = TRUE),
+          povrate        = mean(legdata$povrate,  na.rm = TRUE),
+          region_censusf = factor("South", levels = levels(legdata$region_censusf))
+        ))
+```
+
+**How this code works.** `predict()` takes the model object and a `newdata` argument --- a data frame describing the exact case you want to predict. Every predictor in the model must appear in `newdata`, named and typed exactly as in the formula. Here that means four variables: `p.liberal`, `nonwhite`, and `povrate` set to specific values, and `region_censusf`. Factor variables in R carry information about all their possible levels, not just the value you are supplying --- they are not simply character strings. The recommended way to specify a factor predictor in `newdata` is `factor("South", levels = levels(legdata$region_censusf))`, which creates a one-element factor with the correct level set explicitly attached. This makes the type unambiguous and protects against edge cases where R cannot determine the levels from context alone. The output is in the same units as the dependent variable: the proportion of Democratic house seats, on a 0-to-1 scale.
+
+The two predictions differ in exactly one way --- the value of `p.liberal`. Everything else is held constant. That difference is the liberalism slope made concrete. A second useful comparison is the regional gap: the West coefficient is also significant, so comparing an otherwise identical Southern and Western state gives you a concrete statement of what that coefficient means.
+
+**Practice: Interpret the difference**
+
+```{r quiz-predict-fit1, echo=FALSE}
+question("Look at both outputs. What does the predicted gap between **p.liberal** = 0.25 and **p.liberal** = 0.35 tell you?",
+  correct = "Right. The two predictions express the p.liberal slope as a concrete model-implied comparison.",
+  answer("All else equal, states with a liberal proportion of 0.35 are predicted to have about 9 percentage points more Democratic house seats than states with a liberal proportion of 0.25",
+         correct = TRUE,
+         message = "The liberalism slope is 0.876, so a 0.10 increase predicts about 0.088 more Democratic seats --- roughly 9 percentage points. This is the **p.liberal** coefficient expressed as a concrete predicted difference rather than an abstract number."),
+  answer("The predictions tell us that 58% of voters in less liberal states and 67% of voters in more liberal states support Democrats",
+         message = "The outcome variable is the proportion of state house seats held by Democrats, not the proportion of voters. And these are model predictions, not observed proportions."),
+  answer("The gap proves that more liberal electorates cause Democratic victories",
+         message = "A predicted difference from an observational regression is not evidence of causation. It is the model-implied difference in predicted outcomes across specified predictor values."),
+  answer("The gap tells us that p.liberal = 0.25 and p.liberal = 0.35 are the only values at which we can make predictions",
+         message = "These two values were chosen to illustrate the slope, but `predict()` can return a predicted value for any combination of predictor values you supply. The two specific values anchor your interpretation; `plot_model()` then shows the prediction at every value across the full range."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at both predicted values and compute the difference. What predictor changed between the two calls, and what stayed the same?"
+)
+```
+
+### Visualize the Effect of State Liberalism
+
+The `predict()` calls answered one specific what-if at one value of **p.liberal**. The liberalism hypothesis calls for something richer: how does Democratic seat share change across the full observed range of **p.liberal**? `plot_model(type = "pred")` from the [sjPlot]{.package-name} package answers that. The key arguments:
+
+- **`type = "pred"`** requests predicted values across a range, as opposed to `type = "est"` for a coefficient plot
+- **`terms = "variable"`** names the predictor to place on the x-axis; unlike most R arguments, the variable name must be in quotes. All other predictors in the model are held at their means (for interval variables) or reference category (for factor variables)
+- **`axis.title = c("x label", "y label")`** labels the axes --- x-axis first, then y-axis (the reverse of what ggplot users sometimes expect)
+- **`show.data = TRUE/FALSE`** overlays the raw observations; useful when N is small enough for individual points to be readable
+- **`labs(caption = "...")`** adds a caption stating the held values; since `plot_model()` returns a ggplot object, any ggplot layer works with `+`. The caption tells the reader what covariate profile the predictions are for --- always list the held values in a complete sentence ending with a period, e.g., `"Predictions are for Southern states with average poverty rate and proportion non-white."`
+
+Run the code below and examine the output --- the direction of the line, the shaded band, the individual points, and the caption --- before reading the explanation that follows.
+
+**Run and observe: Produce a prediction plot for state liberalism**
+
+```{r exercise-predplot-liberal-tryit, exercise=TRUE, exercise.cap="Run and observe: Produce a prediction plot for p.liberal"}
+library(sjPlot)
+plot_model(fit1,
+           type = "pred",
+           terms = "p.liberal",
+           title = "Predicted Democratic House Seat Share by State Liberalism",
+           axis.title = c("Proportion Liberal",
+                          "Proportion of Democratic House Seats"),
+           show.data = TRUE) +
+  labs(caption = "Predictions are for Southern states with average poverty rate and proportion non-white.")
+```
+
+Since [sjPlot]{.package-name} was loaded in the exercise above, you can assume it is already loaded for all subsequent exercises in this tutorial. In your own scripts, call `library(sjPlot)` once at the top before using `plot_model()`. You may also see a note about overlapping data points --- with only 49 states this is not a concern, and the `jitter` argument is optional. Jitter adds a small random offset to each data point's position so that overlapping points spread apart and remain individually visible. With sparse data like these 49 states it is unnecessary, but in datasets where many observations share similar x-axis values, `show.data = TRUE` combined with `jitter = 0.1` (or a similar small value) prevents points from stacking on top of each other.
+
+Notice what this plot is doing: it is sweeping across the full range of **p.liberal**, computing a predicted value at every point --- exactly what `predict()` did for one specific value, but repeated across the entire range and displayed as a continuous line. The two specific values you computed earlier (about 0.58 and 0.71) are points on this line. The shaded band is the 95% confidence region around those predictions. Its width is not constant: it is narrower in the middle of the **p.liberal** range, where more states are concentrated and the model has more information, and wider at the tails, where fewer states have very high or very low liberalism levels. Predictions are often more precise where data are dense and less precise where data are sparse, though precision also depends on the model's overall fit and the covariance among predictors.
+
+### Interpret the Liberalism Plot
+
+The five questions below walk through each component of the interpretation framework. The prediction plot is reproduced here for reference.
+
+```{r fit1-predplot-ref, echo=FALSE, message=FALSE}
+plot_model(fit1,
+           type = "pred",
+           terms = "p.liberal",
+           title = "Predicted Democratic House Seat Share by State Liberalism",
+           axis.title = c("Proportion Liberal",
+                          "Proportion of Democratic House Seats"),
+           show.data = FALSE) +
+  labs(caption = "Predictions are for Southern states with average poverty rate and proportion non-white.")
+```
+
+**Practice: Component 1 --- The pattern**
+
+Look at the direction and shape of the line before answering.
+
+```{r quiz-liberal-pattern, echo=FALSE}
+question("Look at the prediction plot above. Which statement best describes the overall pattern?",
+  correct = "Right. The line slopes upward from left to right --- positive and exactly linear.",
+  answer("As the proportion of liberal residents increases, the predicted proportion of Democratic house seats increases --- the relationship is positive and exactly linear",
+         correct = TRUE,
+         message = "The upward slope matches the hypothesis. In a linear regression model, the prediction line is a straight line by construction --- the relationship is exactly, not approximately, linear."),
+  answer("As the proportion of liberal residents increases, the predicted proportion of Democratic house seats decreases",
+         message = "The line slopes upward from left to right --- a positive relationship."),
+  answer("There is no clear pattern --- the line is essentially flat",
+         message = "The line has a clearly positive slope from left to right."),
+  answer("The relationship is positive but curved --- it rises steeply at low liberalism levels and flattens at higher levels",
+         message = "The prediction line is straight, not curved. In a linear regression model, the line is exactly linear by construction --- the slope is constant across the full range of the predictor."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: trace the line from left to right --- does the y-axis value increase, decrease, or stay flat? And is the line straight or curved?"
+)
+```
+
+**Practice: Component 2 --- The held values**
+
+The caption tells you what was held constant. Think about what that means for how the slope generalizes.
+
+```{r quiz-liberal-held, echo=FALSE}
+question("The caption states that predictions are for Southern states with average poverty rate and proportion non-white. What does this mean for interpreting the slope?",
+  correct = "Right. Changing the baseline shifts the line up or down but never changes its slope.",
+  answer("The slope is the same regardless of which region or values of poverty and **nonwhite** we hold constant --- changing the baseline shifts the line up or down but does not change its steepness",
+         correct = TRUE,
+         message = "This is a key property of linear regression without interactions: the slope on **p.liberal** is the same at any baseline. The caption tells you which level of the line you are looking at, not which slope."),
+  answer("The slope only applies to Southern states --- the liberalism effect is completely different in other regions",
+         message = "Because this model does not include an interaction between **p.liberal** and **region_censusf**, the slope is identical in every region. Regional differences shift the line up or down but do not change its slope."),
+  answer("Changing the held values would change both the slope and the level of the line",
+         message = "In an additive model without interactions involving **p.liberal**, only the level of the line changes when you change the held values --- not the slope. The slope on **p.liberal** is the same at any baseline."),
+  answer("The slope only applies when poverty and proportion non-white are at their means --- at other values, the liberalism slope would be different",
+         message = "The choice of held values for the other predictors does not affect the slope on **p.liberal** in an additive model. It determines which level of the line you are looking at, but the steepness is constant."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: think about what an interaction term would be needed to make the slope differ across groups or baseline values."
+)
+```
+
+**Practice: Component 3 --- Specific predicted values**
+
+Read two values from the plot --- one at each end of a realistic range --- and compute the difference.
+
+```{r quiz-liberal-values, echo=FALSE}
+question("Using the prediction plot above, approximately what is the predicted Democratic seat share at **p.liberal** = 0.25 and at **p.liberal** = 0.35 for a Southern state at average poverty and **nonwhite** values?",
+  correct = "Right. About 0.58 at p.liberal = 0.25 and about 0.67 at p.liberal = 0.35.",
+  answer("About 0.58 at **p.liberal** = 0.25 and about 0.67 at **p.liberal** = 0.35 --- a 9-percentage-point increase for a 10-point rise in the liberal proportion",
+         correct = TRUE,
+         message = "The slope on **p.liberal** is 0.876, so a 0.10 increase predicts about 0.088 more Democratic seats --- roughly 9 percentage points. You could verify this by plugging these values into the regression equation by hand; the plot makes it visible at a glance."),
+  answer("About 0.25 at **p.liberal** = 0.25 and about 0.35 at **p.liberal** = 0.35",
+         message = "Read the y-axis value at each x position, not the x-axis value itself."),
+  answer("About 0.50 at both values --- the line is flat",
+         message = "The line is not flat. Trace from x = 0.25 up to the line and read the y-axis value; repeat at x = 0.35."),
+  answer("About 0.40 at **p.liberal** = 0.25 and about 0.49 at **p.liberal** = 0.35 --- a 9-percentage-point increase",
+         message = "The gap of 9 percentage points is correct, but the absolute values are not --- read the y-axis carefully at x = 0.25 and x = 0.35. The line sits higher on the y-axis than 0.40 at those liberalism levels."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: find x = 0.25 on the horizontal axis, trace up to the line, and read the y-axis value. Repeat at x = 0.35."
+)
+```
+
+**Practice: Component 4 --- The uncertainty**
+
+```{r quiz-liberal-band, echo=FALSE}
+question("Look at the shaded confidence band in the plot above. Which statement best describes what it tells you?",
+  correct = "Right. The band is moderately wide and widens at the extremes.",
+  answer("The band is moderately wide and widens at the extremes, reflecting fewer states at very high or very low liberalism levels --- but it is consistent with a positive slope throughout",
+         correct = TRUE,
+         message = "With only 49 states, there is meaningful uncertainty around each prediction. The widening at the tails is expected. The band never crosses in a way that would reverse the directional conclusion."),
+  answer("The band is so narrow that predictions can be read to three decimal places",
+         message = "With 49 states, the band is visible and meaningful."),
+  answer("The band is so wide that no conclusions can be drawn about direction",
+         message = "The band limits precision but not directional conclusions. It is consistent with a positive slope throughout."),
+  answer("The band is narrower at the tails because that is where the model has the most reliable predictions",
+         message = "It is the opposite: the band widens at the tails, where fewer states have very high or very low liberalism levels. Predictions are more precise where data are dense --- in the middle of the range --- and less precise where data are sparse, at the extremes."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at the width of the shaded band and whether it is wider at the tails than in the middle."
+)
+```
+
+**Practice: Component 5 --- The hypothesis connection**
+
+A coefficient and p-value tell you the relationship is statistically significant. The plot translates that coefficient into a substantively interpretable pattern across the observed range.
+
+```{r quiz-liberal-hypothesis, echo=FALSE}
+question("Look at the **p.liberal** coefficient and its p-value in your output. What does the prediction plot add to that conclusion?",
+  correct = "Right. The plot adds substantive magnitude to what the p-value can only confirm as non-zero.",
+  answer("The plot makes the substantive meaning visible --- showing that the predicted difference between a less liberal and more liberal state is about 9 percentage points across a realistic range, not just that the slope is positive and significant",
+         correct = TRUE,
+         message = "A significant p-value tells you the relationship is statistically distinguishable from zero. The plot tells you what it looks like in the units and range that matter for your research question."),
+  answer("The plot adds nothing beyond the p-value",
+         message = "The p-value tells you the relationship is unlikely to be chance. The plot tells you its magnitude across a realistic range --- substantively different information."),
+  answer("The plot proves liberal voters cause Democratic victories",
+         message = "A prediction plot is evidence of an association, not proof of causation."),
+  answer("The plot shows the same information as the p-value, just in visual form",
+         message = "The p-value tells you whether the relationship is statistically distinguishable from zero. The plot tells you how large the predicted difference is across a realistic range --- about 9 percentage points for a 10-point shift in the liberal proportion. Statistical significance and substantive magnitude are different things."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: think about what a p-value tells you and what it cannot tell you about the size or practical meaning of an effect."
+)
+```
+
+### Visualize the Effect of Census Region
+
+The `predict()` calls showed a regional gap. Seeing all four regions at once makes the comparison easier --- `plot_model()` shows the predicted Democratic seat share for each region as a point with a confidence interval, using the same held values.
+
+**Practice: Produce a prediction plot for census region**
+
+Produce the plot and examine it carefully before answering the interpretation question that follows. Use the title "Predicted Democratic House Seat Share by Census Region", the x-axis label "Census Region", the y-axis label "Proportion of Democratic House Seats", and the caption "Predictions are for states with average poverty rate, proportion liberal, and proportion non-white." Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predplot-region, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for region_censusf"}
+___(fit1,
+    ___ = "pred",
+    ___ = "region_censusf",
+    title = "Predicted Democratic House Seat Share by Census Region",
+    axis.title = c("___", "___")) +
+  labs(caption = "___")
+```
+
+```{r exercise-predplot-region-hint-1}
+# Hint 1 of 3
+# plot_model() can produce different kinds of output depending on
+# one argument. Another argument controls which variable appears
+# on the x-axis. Both were filled in for you in the liberalism
+# Try it above --- look at that code and think about what values
+# you need here for a factor variable instead of an interval one.
+```
+
+```{r exercise-predplot-region-hint-2}
+# Hint 2 of 3
+# The argument that controls what kind of plot you get is type =.
+# For a prediction plot, its value is "pred".
+# The argument that controls the x-axis variable is terms =.
+# Set it to the name of the factor variable, in quotes.
+# Prescribed axis labels: x = "Census Region", y = "Proportion of Democratic House Seats"
+# Prescribed caption: "Predictions are for states with average poverty rate,
+#   proportion liberal, and proportion non-white."
+```
+
+```{r exercise-predplot-region-hint-3}
+# Hint 3 of 3
+# Your call should be plot_model(fit1, type = "pred",
+# terms = "region_censusf", with the prescribed title, axis labels,
+# and a labs(caption = "...") layer. The prescribed caption is:
+# "Predictions are for states with average poverty rate, proportion
+# liberal, and proportion non-white."
+```
+
+```{r exercise-predplot-region-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("plot_model\\s*\\(", code_nc))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
+    fail("Set type = \"pred\".")
+  if (!grepl("region_censusf", code_nc))
+    fail("Set terms = \"region_censusf\".")
+  if (!grepl("Census Region", code_nc, fixed = TRUE))
+    fail("Use \"Census Region\" as the x-axis label.")
+  if (!grepl("Proportion of Democratic House Seats", code_nc, fixed = TRUE))
+    fail("Use \"Proportion of Democratic House Seats\" as the y-axis label.")
+  if (!grepl("labs\\s*\\(", code_nc))
+    fail("Add a labs(caption = \"...\") layer stating the held values.")
+  if (!grepl("Predictions are for states with average poverty rate, proportion liberal, and proportion non-white.", code_nc, fixed = TRUE))
+    fail("Use the prescribed caption: \"Predictions are for states with average poverty rate, proportion liberal, and proportion non-white.\"")
+  pass("Well done. When terms is a factor, plot_model() produces a point with a confidence interval for each level rather than a continuous line --- there is no meaningful range to sweep across for a categorical variable, only discrete levels to compare.")
+})
+```
+
+When `terms` is a factor, `plot_model()` produces a point with a confidence interval for each level rather than a continuous line --- there is no meaningful range to sweep across for a categorical variable, only discrete levels. Overlapping confidence intervals show that the predictions are estimated with substantial uncertainty; they do not by themselves determine whether a contrast is statistically significant --- that requires the relevant coefficient test.
+
+**Practice: Interpret the regional plot**
+
+For each region, `plot_model()` displays a point showing the predicted seat share with a confidence interval around it.
+
+```{r quiz-region-interpret, echo=FALSE}
+question("Look at the regional prediction plot. Which statement best describes what the predicted values and confidence intervals show?",
+  correct = "Right. The West is highest, but overlapping intervals show substantial uncertainty --- significance requires the coefficient test.",
+  answer("The predicted Democratic seat share is highest for Western states, but the confidence intervals overlap across all four regions --- the intervals show substantial uncertainty around each prediction",
+         correct = TRUE,
+         message = "The West has the highest predicted seat share, but the confidence intervals around the separate predictions overlap. That overlap shows the predictions are estimated with considerable uncertainty; it does not by itself determine whether the West-South contrast is statistically significant. For that conclusion, consult the West coefficient and its hypothesis test."),
+  answer("The predicted Democratic seat share is nearly identical across all four regions, with overlapping confidence intervals suggesting the predicted values do not vary meaningfully across regions",
+         message = "The predicted values are not identical --- the West is clearly higher than the other three. The overlapping intervals limit what conclusions you can draw about significance, but the predicted values themselves do differ across regions."),
+  answer("The predicted Democratic seat share is highest for the West and second highest for the Northeast, and the Northeast confidence interval does not overlap with South --- the predicted values for those two regions are reliably distinguishable",
+         message = "Look carefully at the Northeast and South intervals --- they do overlap. The Northeast predicted value is slightly above South, but the intervals cross."),
+  answer("The predicted Democratic seat share for Western states has a narrow confidence interval that does not overlap with any other region, making it the only clearly distinguishable regional prediction",
+         message = "The West confidence interval is not narrow --- it is wide and does overlap with the other regions. Wide intervals with overlap are the visual signature of uncertainty about the size of a difference."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at where each region's predicted value falls on the y-axis and whether the confidence intervals overlap with each other."
+)
+```
+
+### Visualize Two Predictors at Once
+
+The liberalism and region plots each varied one predictor. A two-variable plot extends this: it shows whether predicted Democratic seat share is systematically higher or lower in some regions than others after accounting for liberalism, and whether the predicted effect of liberalism on seat share is the same size across regions.
+
+Setting `terms` to a vector of two variable names produces this plot: the first variable goes on the x-axis, and the second variable's levels appear as separate colored lines.
+
+**Practice: Produce a two-variable prediction plot**
+
+Produce the plot and notice whether the four lines are parallel --- that parallelism is a finding about the model, not just a visual feature. Use the title "Predicted Democratic House Seat Share by Liberalism and Region", the x-axis label "Proportion Liberal", the y-axis label "Proportion of Democratic House Seats", and the caption "Predictions are for states with average poverty rate and proportion non-white." `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Census Region", caption = "...")` to set both. Four hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predplot-twovar, exercise=TRUE, exercise.cap="Practice: Produce a two-variable prediction plot for p.liberal and region_censusf"}
+___(fit1,
+    ___ = "pred",
+    ___ = c("p.liberal", "region_censusf"),
+    title = "___",
+    ___ = c("___", "___")) +
+  labs(color = "___", caption = "___")
+```
+
+```{r exercise-predplot-twovar-hint-1}
+# Hint 1 of 4
+# You have produced prediction plots for one variable at a time.
+# This plot varies two variables simultaneously. Think about which
+# variable should be on the x-axis (the continuous predictor your
+# hypothesis is about) and which should produce separate colored
+# lines (the grouping variable). The only change in the code
+# structure is how the terms argument is specified.
+```
+
+```{r exercise-predplot-twovar-hint-2}
+# Hint 2 of 4
+# The blank argument names are: the function name (plot_model),
+# type =, terms =, and axis.title =.
+# terms takes a character vector of two variable names.
+# In labs(), color = sets the legend title and caption = sets the caption.
+```
+
+```{r exercise-predplot-twovar-hint-3}
+# Hint 3 of 4
+# Prescribed title: "Predicted Democratic House Seat Share by Liberalism and Region"
+# Prescribed axis labels: x = "Proportion Liberal", y = "Proportion of Democratic House Seats"
+# Prescribed legend title (color =): "Census Region"
+# Prescribed caption: "Predictions are for states with average poverty rate and proportion non-white."
+```
+
+```{r exercise-predplot-twovar-hint-4}
+# Hint 4 of 4
+# Your call should be plot_model(fit1, type = "pred",
+# terms = c("p.liberal", "region_censusf"), with the prescribed
+# title, axis labels, and a labs(color = "Census Region", caption = "...")
+# layer with the prescribed caption.
+```
+
+```{r exercise-predplot-twovar-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("plot_model\\s*\\(", code_nc))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
+    fail("Set type = \"pred\".")
+  if (!grepl("p\\.liberal", code_nc))
+    fail("Include p.liberal as the first term (x-axis).")
+  if (!grepl("region_censusf", code_nc))
+    fail("Include region_censusf as the second term (separate colored lines).")
+  if (regexpr("p\\.liberal", code_nc) > regexpr("region_censusf", code_nc))
+    fail("p.liberal should come first in terms (x-axis), and region_censusf second (separate colored lines). Check the order inside c(...).")
+  if (!grepl("Predicted Democratic House Seat Share by Liberalism and Region", code_nc, fixed = TRUE))
+    fail("Use the prescribed title: \"Predicted Democratic House Seat Share by Liberalism and Region\".")
+  if (!grepl("axis\\.title\\s*=", code_nc))
+    fail("Include the axis.title = argument.")
+  if (!grepl("Proportion Liberal", code_nc, fixed = TRUE))
+    fail("Use \"Proportion Liberal\" as the x-axis label.")
+  if (!grepl("Proportion of Democratic House Seats", code_nc, fixed = TRUE))
+    fail("Use \"Proportion of Democratic House Seats\" as the y-axis label.")
+  if (!grepl("labs\\s*\\(", code_nc))
+    fail("Add a labs() layer with color = and caption = arguments.")
+  if (!grepl("Census Region", code_nc, fixed = TRUE))
+    fail("Use labs(color = \"Census Region\") to set the legend title.")
+  if (!grepl("Predictions are for states with average poverty rate and proportion non-white.", code_nc, fixed = TRUE))
+    fail("Use the prescribed caption: \"Predictions are for states with average poverty rate and proportion non-white.\"")
+  pass("Well done. Look at the vertical gaps between the lines --- the West line sits clearly above the other three, while South, Northeast, and Midwest cluster closely together.")
+})
+```
+
+**Practice: Interpret the two-variable plot**
+
+```{r quiz-twovar-interpret, echo=FALSE}
+question("Look at the two-variable plot. Which statement best describes what the predicted values and confidence bands show about regional differences?",
+  correct = "Right. The West stands clearly apart; the other three regions are nearly indistinguishable in the plot.",
+  answer("The West line is clearly above the other three --- at a liberal proportion of 0.20, the model predicts about 0.72 for Western states and just over 0.50 for the other three regions, holding poverty rate and proportion non-white at their means. The South, Northeast, and Midwest lines cluster so closely together, with heavily overlapping bands, that the plot cannot distinguish them.",
+         correct = TRUE,
+         message = "The vertical gap between the West line and the others is visible across the full range of liberalism --- that gap is the West coefficient. The three other lines are so close, with bands that overlap throughout, that no regional difference among them is readable from the plot alone."),
+  answer("The West line is clearly above the other three --- at a liberal proportion of 0.20, the model predicts about 0.60 for Western states and about 0.40 for the other three regions, holding poverty rate and proportion non-white at their means. The South, Northeast, and Midwest lines cluster closely together with overlapping bands.",
+         message = "The West advantage is real, but read the y-axis more carefully at p.liberal = 0.20. The other three lines sit just above 0.50, not near 0.40, and the West is closer to 0.72 than 0.60."),
+  answer("The West line is clearly above the other three, and the Northeast line is clearly above the South and Midwest --- at a liberal proportion of 0.20, the Northeast is predicted to have meaningfully higher Democratic seat share than Southern states, with confidence intervals that do not overlap.",
+         message = "Look again at the Northeast and South lines. They track almost identically across the full range, with heavily overlapping confidence bands. The plot does not show a reliable Northeast advantage."),
+  answer("All four regional lines are clustered closely together with heavily overlapping confidence bands across the full range of liberalism --- the plot suggests the model cannot distinguish predicted Democratic seat share across any of the four regions.",
+         message = "The West line is clearly separated from the other three. Look at the vertical gap between the West and South lines at any given liberalism level --- that gap is visible throughout the plot."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: find the West line and read its predicted value at p.liberal = 0.20. Then look at where the South, Northeast, and Midwest lines fall at the same point and how closely their confidence bands overlap."
+)
+```
+
+The four lines are parallel. That is not a coincidence --- it is what a model without an interaction produces. Because there is no interaction term between p.liberal and region_censusf in this model, the slope of liberalism is mathematically identical in every region. The vertical distances between lines are the region coefficients: the West line runs consistently above the others, and South, Northeast, and Midwest cluster closely together. Parallel lines tell you the estimated association with the x-axis variable does not depend on which group you are in.
+
+### What We Learned About Ideology, Region, and Democratic Representation
+
+The model confirms the hypothesis: states with more liberal public opinion do have higher proportions of Democratic state house seats, even after controlling for racial composition, poverty, and region. A 10-percentage-point increase in the liberal share of the electorate predicts about 0.09 more in the proportion of Democratic seats --- a substantive effect, visible in the slope of the prediction plot, and significant (p = .013).
+
+The regional finding is perhaps more surprising. The West stands apart from the other three regions even after controlling for ideology. The Northeast and Midwest, despite their reputations for Democratic strength, are not significantly different from the South once ideology and demographics are controlled. What makes the West distinct in this model is not just a more liberal electorate --- the regional advantage persists after liberalism is held constant.
+
+Here is what a complete interpretation of the liberalism prediction plot looks like written as prose:
+
+::: {.research-example}
+*As the proportion of liberal state residents increases, the predicted proportion of Democratic house seats rises in a straight line across the full observed range of the variable. Predictions are for Southern states with average poverty rate and proportion non-white; a Western state at the same liberalism level would be predicted to have about 0.13 higher predicted proportion of Democratic seats, but the liberalism slope would be identical. At a liberal proportion of 0.25, the model predicts about 0.58; at 0.35, about 0.67 --- a difference of about 0.09 for a 10-point shift in the liberal electorate. The confidence band is moderately wide, narrower in the middle of the range where most states are concentrated, and widens at the extremes. This is consistent with the hypothesis that public ideology shapes legislative representation, even after controlling for racial composition, poverty, and region.*
+:::
+
+## What Does the Governance Model Predict?
+
+In Tutorial 16 you estimated a model asking whether democracy predicts governance quality across countries, controlling for economic equality of opportunity and the fertility rate. That model is available here as **model_gov**. In Tutorial 16 the focus was on the coefficients --- their direction, size, and significance. Here the focus is on what those coefficients predict for specific country profiles, and on visualizing the relationships across the full range of each predictor.
+
+The data frame **qog** contains country-level observations. The variables in this model are:
+
+- **iiag_gov**: overall governance quality score (roughly 11--80; higher = better governance)
+- **wdi_fertility**: total fertility rate (average number of children per woman)
+- **bti_eo**: equal opportunity score (1--10; higher = more equal)
+- **democ_f**: a three-category factor --- **Autocracy** (reference category), **Partial Democracy**, and **Democracy**
+
+The theoretical argument runs through accountability. Democratic institutions create electoral incentives for governments to deliver public goods, independent courts that constrain abuses of power, and civil society organizations that monitor performance. All of these channels suggest that more democratic countries should, on average, be better governed. Economic equality of opportunity and the fertility rate are included as controls because both are plausibly correlated with regime type and with governance outcomes.
+
+::: {.hypothesis}
+In a comparison of countries, those with higher levels of democratic governance will have higher quality of governance than those with lower levels of democratic governance, after controlling for economic equality of opportunity and the fertility rate.
+:::
+
+### Present the Model in a Table
+
+The `summary()` output below shows the model coefficients and their order --- you will need both to produce a correctly labeled table. Read it before writing your `stargazer()` call.
+
+```{r model-gov-summary, echo=FALSE, comment=NA}
+summary(model_gov)
+```
+
+**Practice: Produce a labeled `stargazer()` table for the governance model**
+
+Write the complete `stargazer()` call from scratch, passing **model_gov** as the model object. Use the title "Democracy, Fertility, Equal Opportunity, and Governance Quality" and the dependent variable label "Governance Quality". The four covariate labels are **Fertility Rate**, **Equal Opportunity**, **Partial Democracy**, and **Full Democracy** --- determine their order from the `summary()` output above. Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-stargazer-gov, exercise=TRUE, exercise.cap="Practice: Produce a labeled stargazer table for the governance model"}
+
+```
+
+```{r exercise-stargazer-gov-hint-1}
+# Hint 1 of 3
+# stargazer() takes the model object as its first argument.
+# You need type =, title =, dep.var.labels =, and covariate.labels =.
+# Look at the summary() output above to determine the order of
+# the predictors --- covariate labels must follow that same order.
+# For democ_f, Autocracy is the reference category and does not
+# appear in the output, so you need two labels: one for Partial
+# Democracy and one for Democracy, in the order they appear.
+```
+
+```{r exercise-stargazer-gov-hint-2}
+# Hint 2 of 3
+# The function name is stargazer(). The model object is model_gov.
+# Set type = "text". The title and dep.var.labels are given in the
+# exercise prompt. covariate.labels takes a character vector of
+# four labels in formula order: wdi_fertility first, then bti_eo,
+# then the two non-reference levels of democ_f.
+```
+
+```{r exercise-stargazer-gov-hint-3}
+# Hint 3 of 3
+# Your call is stargazer(model_gov, type = "text", followed by
+# the title and dep.var.labels from the exercise prompt, then
+# covariate.labels = c(...) with four labels in formula order:
+# "Fertility Rate", "Equal Opportunity", "Partial Democracy", "Full Democracy".
+```
+
+```{r exercise-stargazer-gov-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("stargazer\\s*\\(", code_nc))
+    fail("Use stargazer() to produce the table.")
+  if (!grepl("model_gov", code_nc))
+    fail("Pass model_gov as the model object.")
+  if (!grepl("type\\s*=\\s*['\"]text['\"]", code_nc))
+    fail("Set type = \"text\".")
+  if (!grepl("Democracy, Fertility, Equal Opportunity, and Governance Quality", code_nc, fixed = TRUE))
+    fail("Use the prescribed title: \"Democracy, Fertility, Equal Opportunity, and Governance Quality\".")
+  if (!grepl("Governance Quality", code_nc, fixed = TRUE))
+    fail("Use the prescribed dep.var.labels: \"Governance Quality\".")
+  if (!grepl("covariate\\.labels\\s*=", code_nc))
+    fail("Include a covariate.labels = argument.")
+  labels <- c("Fertility Rate", "Equal Opportunity", "Partial Democracy", "Full Democracy")
+  for (lbl in labels)
+    if (!grepl(lbl, code_nc, fixed = TRUE))
+      fail(paste0("The label \"", lbl, "\" is missing."))
+  cov_match <- regexpr("covariate\\.labels\\s*=.*", code_nc)
+  cov_str   <- if (cov_match > 0) substring(code_nc, cov_match) else code_nc
+  pos_fertility <- regexpr("Fertility Rate",    cov_str, fixed = TRUE)[1]
+  pos_equal     <- regexpr("Equal Opportunity", cov_str, fixed = TRUE)[1]
+  pos_partial   <- regexpr("Partial Democracy", cov_str, fixed = TRUE)[1]
+  pos_democracy <- regexpr("Full Democracy",    cov_str, fixed = TRUE)[1]
+  if (!all(diff(c(pos_fertility, pos_equal, pos_partial, pos_democracy)) > 0))
+    fail("The labels are out of order. They should follow formula order: Fertility Rate, Equal Opportunity, Partial Democracy, Full Democracy.")
+  pass("Right. The coefficient values and significance levels in this table will anchor your interpretation of the predictions that follow.")
+})
+```
+
+### Obtain Specific Predicted Values
+
+The Democracy coefficient tells you the direction and size of the regime-type gap in abstract units. A predicted value makes it concrete: what governance score does the model predict for an Autocracy at mean fertility and equal opportunity, and how much higher is the predicted score for a full Democracy with otherwise identical characteristics?
+
+Two comparisons are worth making. The first compares an Autocracy to a Democracy at the mean values of both continuous predictors --- this is the most direct translation of the Democracy coefficient into a predicted difference. The second varies **bti_eo** (equal opportunity) within Autocracies, to show what the continuous predictor contributes.
+
+**Practice: Compute predicted governance scores for two regime types**
+
+Fill in the blanks to complete the first `predict()` call for an Autocracy, then write the second call for a Democracy from scratch. For both calls, set **wdi_fertility** and **bti_eo** to their means (use `mean(..., na.rm = TRUE)`). Remember that **democ_f** is a factor. The recommended approach is to use `factor("level", levels = levels(qog$democ_f))` so that the factor levels are specified explicitly. Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predict-gov, exercise=TRUE, exercise.cap="Practice: Compute predicted governance scores for Autocracy and Democracy"}
+# Call 1: Autocracy at mean fertility and equal opportunity
+predict(model_gov,
+        newdata = data.frame(
+          wdi_fertility = mean(qog$___, na.rm = TRUE),
+          bti_eo        = mean(qog$___, na.rm = TRUE),
+          democ_f       = factor("___", levels = levels(qog$democ_f))
+        ))
+
+# Call 2: Democracy --- write from scratch
+
+```
+
+```{r exercise-predict-gov-hint-1}
+# Hint 1 of 3
+# predict() takes the model object and a newdata argument --- a data frame
+# describing the exact case you want to predict. Every predictor in the
+# model must appear in newdata, named exactly as in the formula.
+# For the blanks in Call 1: the function for a mean is mean(),
+# and the variable names are wdi_fertility and bti_eo in the qog data frame.
+# The factor level name for the first call is "Autocracy".
+```
+
+```{r exercise-predict-gov-hint-2}
+# Hint 2 of 3
+# Call 1 completed:
+# predict(model_gov,
+#         newdata = data.frame(
+#           wdi_fertility = mean(qog$wdi_fertility, na.rm = TRUE),
+#           bti_eo        = mean(qog$bti_eo,        na.rm = TRUE),
+#           democ_f       = factor("Autocracy", levels = levels(qog$democ_f))
+#         ))
+# Call 2 follows the same structure with "Democracy" as the factor level.
+```
+
+```{r exercise-predict-gov-hint-3}
+# Hint 3 of 3
+# Call 2 should be predict(model_gov, newdata = data.frame(...))
+# with the same three variables as Call 1, but with
+# factor("Democracy", levels = levels(qog$democ_f)) for democ_f.
+# Both continuous predictors stay at their means.
+```
+
+```{r exercise-predict-gov-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("predict\\s*\\(", code_nc))
+    fail("Use predict() to obtain predicted values.")
+  if (!grepl("model_gov", code_nc))
+    fail("Pass model_gov as the model object.")
+  if (!grepl("newdata", code_nc))
+    fail("Include a newdata = argument specifying the predictor values.")
+  if (!grepl("wdi_fertility", code_nc))
+    fail("Include wdi_fertility in your newdata data frame.")
+  if (!grepl("bti_eo", code_nc))
+    fail("Include bti_eo in your newdata data frame.")
+  if (!grepl("democ_f", code_nc))
+    fail("Include democ_f in your newdata data frame.")
+  if (!grepl("Autocracy", code_nc))
+    fail("Include a prediction for Autocracy countries.")
+  if (!grepl("Democracy", code_nc))
+    fail("Include a prediction for Democracy countries.")
+  n_calls <- lengths(regmatches(code_nc, gregexpr("predict\\s*\\(", code_nc)))
+  if (n_calls < 2)
+    fail("Write two predict() calls: one for Autocracy, one for Democracy.")
+  if (!grepl("mean\\s*\\(\\s*qog\\s*\\$\\s*wdi_fertility|mean\\s*\\(qog\\$wdi_fertility", code_nc))
+    fail("Set wdi_fertility to its mean using mean(qog$wdi_fertility, na.rm = TRUE).")
+  if (!grepl("mean\\s*\\(\\s*qog\\s*\\$\\s*bti_eo|mean\\s*\\(qog\\$bti_eo", code_nc))
+    fail("Set bti_eo to its mean using mean(qog$bti_eo, na.rm = TRUE).")
+  pass("Right. At mean fertility and equal opportunity, the model predicts a governance score of about 51 for Autocracies and about 63 for Democracies --- a gap of roughly 12 points, closely matching the Full Democracy coefficient of 11.9 in the table. That 12-point difference is the Democracy coefficient made concrete.")
+})
+```
+
+**Practice: Interpret the predicted gap**
+
+```{r quiz-predict-gov-interpret, echo=FALSE}
+question("Your two predicted values show the governance gap between an Autocracy and a full Democracy evaluated at mean fertility and equal opportunity. Which statement best describes what this gap tells you?",
+  correct = "Right. The predicted gap translates the Democracy coefficient into concrete units.",
+  answer("At mean fertility and equal opportunity, the model predicts full democracies to score about 12 governance points higher than autocracies --- the Democracy coefficient expressed as a concrete predicted difference",
+         correct = TRUE,
+         message = "The Democracy coefficient of 11.905 is the expected gap between Democracies and Autocracies holding the other variables constant. The two predict() calls anchor this comparison: about 51 for Autocracies and about 63 for Democracies, a gap of roughly 12 points in the units of the governance score."),
+  answer("The gap proves that democratic institutions cause better governance, since the model controls for fertility and equal opportunity",
+         message = "Controlling for other variables reduces confounding but does not establish causation. A predicted difference from an observational regression is a model-implied comparison, not evidence that democracy itself caused the governance improvement."),
+  answer("The gap of about 12 points simply restates the Democracy coefficient, so the predict() calls added no new information beyond what was already in the table",
+         message = "The gap does match the Democracy coefficient --- that is the point. But the predict() calls express it in the units of the outcome for a specific, realistic country profile, which is more interpretable than an abstract coefficient. The coefficient tells you the direction and size; the predicted values tell you what that means in practice."),
+  answer("The predictions are unreliable because Partial Democracy is not significant in this model, casting doubt on the regime-type variable overall",
+         message = "The non-significance of Partial Democracy does not affect the reliability of the Democracy prediction. Full Democracy is highly significant (p < .001), and the predicted gap of about 12 points closely matches that coefficient."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: the Democracy coefficient gives the expected gap between Democracies and Autocracies. How does the difference between your two predicted values compare to that coefficient?"
+)
+```
+
+### Visualize the Effect of Equal Opportunity
+
+`predict()` answered one specific what-if. `plot_model()` shows how predicted governance quality changes across the full range of **bti_eo** --- the same tool you used for **p.liberal** in Example 1, now applied to a different model and predictor.
+
+**Practice: Produce a prediction plot for equal opportunity**
+
+Write the complete `plot_model()` call from scratch, using **model_gov** as the model object. Use the title "Predicted Governance Quality by Equal Opportunity", the x-axis label "Equal Opportunity Score (1-10)", the y-axis label "Predicted Governance Quality", and the caption "Predictions are for Autocracies with average fertility rate." Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predplot-btieo, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for bti_eo"}
+
+```
+
+```{r exercise-predplot-btieo-hint-1}
+# Hint 1 of 3
+# plot_model() from the sjPlot package produces prediction plots
+# when you set type = "pred". The terms = argument names the
+# predictor to vary on the x-axis; all others are held at their
+# means or reference category. axis.title takes the x-axis label
+# first, then the y-axis label. Add a labs(caption = ...) layer
+# with + to state what was held constant.
+```
+
+```{r exercise-predplot-btieo-hint-2}
+# Hint 2 of 3
+# The function is plot_model(). The model object is model_gov.
+# Set type = "pred" and terms = "bti_eo".
+# axis.title takes a character vector: c("x label", "y label").
+# Chain labs(caption = "...") after the plot_model() call with +.
+```
+
+```{r exercise-predplot-btieo-hint-3}
+# Hint 3 of 3
+# Your call should be plot_model(model_gov, type = "pred",
+# terms = "bti_eo", with title = "Predicted Governance Quality by
+# Equal Opportunity", axis.title = c("Equal Opportunity Score (1-10)",
+# "Predicted Governance Quality"), and a labs(caption = "...") layer.
+# The prescribed caption is:
+# "Predictions are for Autocracies with average fertility rate."
+```
+
+```{r exercise-predplot-btieo-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("plot_model\\s*\\(", code_nc))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
+    fail("Set type = \"pred\".")
+  if (!grepl("bti_eo", code_nc))
+    fail("Set terms = \"bti_eo\" to put equal opportunity on the x-axis.")
+  if (!grepl("model_gov", code_nc))
+    fail("Pass model_gov as the model object.")
+  if (!grepl("axis\\.title\\s*=", code_nc))
+    fail("Include the axis.title = argument.")
+  if (!grepl("Equal Opportunity Score \\(1[-\u2013]10\\)", code_nc))
+    fail("Use \"Equal Opportunity Score (1-10)\" as the x-axis label.")
+  if (!grepl("Predicted Governance Quality", code_nc, fixed = TRUE))
+    fail("Use \"Predicted Governance Quality\" as the y-axis label.")
+  if (!grepl("labs\\s*\\(", code_nc))
+    fail("Add a labs(caption = \"...\") layer stating the held values.")
+  if (!grepl("Predictions are for Autocracies with average fertility rate.", code_nc, fixed = TRUE))
+    fail("Use the prescribed caption: \"Predictions are for Autocracies with average fertility rate.\"")
+  pass("Well done. The upward slope confirms that equal opportunity is a strong positive predictor of governance quality --- countries with more equal opportunity are predicted to have substantially better governance, even holding regime type and fertility constant.")
+})
+```
+
+**Practice: Interpret the equal opportunity plot**
+
+```{r quiz-predplot-btieo-interpret, echo=FALSE}
+question_checkbox(
+  "Which of the following statements should be included in a complete interpretation of the equal opportunity prediction plot? Select all that apply.",
+  answer("As equal opportunity increases, predicted governance quality rises in a straight line across the observed range",
+         correct = TRUE,
+         message = "This is the pattern component --- direction and shape of the relationship."),
+  answer("Predictions are for Autocracies with average fertility rate",
+         correct = TRUE,
+         message = "This is the held values component --- essential for a complete interpretation."),
+  answer("At an equal opportunity score of about 2, predicted governance quality is roughly 30; at a score of about 7, it is roughly 57 --- a difference of about 27 points across the observed range",
+         correct = TRUE,
+         message = "This is the specific predicted values component --- magnitude makes the pattern concrete."),
+  answer("The confidence band widens at the extremes, reflecting fewer countries at very high or low equal opportunity scores",
+         correct = TRUE,
+         message = "This is the uncertainty component --- the band's behavior tells you where predictions are more or less precise."),
+  answer("The upward slope is consistent with the hypothesis that equal opportunity predicts better governance quality, even after controlling for regime type and fertility",
+         correct = TRUE,
+         message = "This is the hypothesis connection component --- linking the visual back to the research question."),
+  answer("The slope would be steeper for Democracies than for Autocracies, because democracies tend to have higher equal opportunity scores",
+         correct = FALSE,
+         message = "In an additive model, the slope on equal opportunity is the same regardless of regime type. Changing the held value from Autocracy to Democracy shifts the line up or down but does not change its steepness."),
+  answer("The wide confidence band means the relationship between equal opportunity and governance quality is not statistically significant",
+         correct = FALSE,
+         message = "A wide confidence band reflects uncertainty about the predicted values, not about whether the relationship is significant. The significance of a coefficient is determined by its t-statistic and p-value in the model output, not by the width of the confidence band."),
+  correct = "Right. All five components are present.",
+  incorrect = "Not quite --- review which statements are missing or inaccurate.",
+  allow_retry = TRUE,
+  random_answer_order = TRUE
+)
+```
+
+### Visualize the Effect of Regime Type
+
+The two `predict()` calls showed the governance gap between an Autocracy and a full Democracy at mean fertility and equal opportunity. But the model has three regime categories --- where does Partial Democracy fall, and how precisely can we place all three? `plot_model()` answers this by showing the predicted governance score for each regime type alongside its confidence interval.
+
+**Practice: Produce a prediction plot for regime type**
+
+Write the complete `plot_model()` call from scratch, using **model_gov** as the model object. Use the title "Predicted Governance Quality by Regime Type", the x-axis label "Regime Type", the y-axis label "Predicted Governance Quality", and the caption "Predictions are for countries with average fertility rate and equal opportunity score." Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predplot-democ, exercise=TRUE, exercise.cap="Practice: Produce a prediction plot for democ_f"}
+
+```
+
+```{r exercise-predplot-democ-hint-1}
+# Hint 1 of 3
+# This is the same plot_model() structure as the equal opportunity
+# plot above, but now terms = names the factor variable instead of
+# the continuous one. When terms is a factor, plot_model() produces
+# dots with confidence intervals rather than a continuous line.
+```
+
+```{r exercise-predplot-democ-hint-2}
+# Hint 2 of 3
+# Set terms = "democ_f". Everything else follows the same structure
+# as the equal opportunity plot: type = "pred", axis.title = c(...),
+# and a labs(caption = ...) layer.
+# Prescribed x-axis label: "Regime Type"
+# Prescribed y-axis label: "Predicted Governance Quality"
+# Prescribed caption: "Predictions are for countries with average
+#   fertility rate and equal opportunity score."
+```
+
+```{r exercise-predplot-democ-hint-3}
+# Hint 3 of 3
+# Your call should be plot_model(model_gov, type = "pred",
+# terms = "democ_f", with title = "Predicted Governance Quality by
+# Regime Type", axis.title = c("Regime Type", "Predicted Governance
+# Quality"), and a labs(caption = "...") layer. The prescribed caption
+# is: "Predictions are for countries with average fertility rate and
+# equal opportunity score."
+```
+
+```{r exercise-predplot-democ-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("plot_model\\s*\\(", code_nc))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
+    fail("Set type = \"pred\".")
+  if (!grepl("democ_f", code_nc))
+    fail("Set terms = \"democ_f\" to put regime type on the x-axis.")
+  if (!grepl("model_gov", code_nc))
+    fail("Pass model_gov as the model object.")
+  if (!grepl("axis\\.title\\s*=", code_nc))
+    fail("Include the axis.title = argument.")
+  if (!grepl("Regime Type", code_nc, fixed = TRUE))
+    fail("Use \"Regime Type\" as the x-axis label.")
+  if (!grepl("Predicted Governance Quality", code_nc, fixed = TRUE))
+    fail("Use \"Predicted Governance Quality\" as the y-axis label.")
+  if (!grepl("labs\\s*\\(", code_nc))
+    fail("Add a labs(caption = \"...\") layer stating the held values.")
+  if (!grepl("Predictions are for countries with average fertility rate and equal opportunity score.", code_nc, fixed = TRUE))
+    fail("Use the prescribed caption: \"Predictions are for countries with average fertility rate and equal opportunity score.\"")
+  pass("Well done. When terms is a factor, plot_model() produces a point with a confidence interval for each level rather than a continuous line --- there is no meaningful range to sweep across for a categorical variable, only discrete levels to compare.")
+})
+```
+
+**Practice: Interpret the regime type plot**
+
+```{r quiz-predplot-democ-interpret, echo=FALSE}
+question("Look at the regime type prediction plot. Which statement best describes the key finding?",
+  correct = "Right. Full democracy's predicted value is clearly the highest, with non-overlapping intervals separating it from the others.",
+  answer("The predicted governance quality for full democracies is clearly the highest, with a confidence interval that does not overlap those of autocracies or partial democracies. The predicted values for autocracies and partial democracies are close together with heavily overlapping intervals.",
+         correct = TRUE,
+         message = "The Democracy predicted value sits well above the other two, and its confidence interval does not overlap with Autocracy or Partial Democracy --- the intervals show the Democracy prediction is well separated. The Autocracy and Partial Democracy predicted values are close with heavily overlapping intervals, showing substantial uncertainty about the difference between them. Whether that Partial Democracy-Autocracy contrast is statistically significant should be assessed from the Partial Democracy coefficient and its p-value."),
+  answer("All three regime types are predicted to have similar governance quality --- the predicted values cluster closely together with overlapping confidence intervals, making none of them reliably distinguishable from the others.",
+         message = "The predicted governance quality for full democracies is clearly the highest --- its predicted value and confidence interval sit well above the other two. It is the Autocracy and Partial Democracy predictions that are close together and estimated with substantially overlapping uncertainty."),
+  answer("The predicted governance quality for partial democracies is clearly above autocracies, with confidence intervals that do not overlap --- suggesting the two predicted values are reliably distinguishable at this covariate profile.",
+         message = "Look again at the Autocracy and Partial Democracy intervals --- they overlap substantially. The predicted governance quality for partial democracies is only slightly above autocracies, with wide overlapping intervals."),
+  answer("The Democracy confidence interval overlaps with both other categories, so the predicted governance quality for full democracies is not reliably distinguishable from autocracies or partial democracies at this covariate profile.",
+         message = "Look again at the Democracy interval --- it sits clearly above the other two and does not overlap with either the Autocracy or Partial Democracy intervals."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at the predicted governance quality for each regime type and whether the confidence intervals overlap with each other."
+)
+```
+
+### Choosing Held Values: The `condition` Argument
+
+By default, `plot_model()` holds all predictors not on the x-axis at their means (for interval variables) or reference category (for factor variables). The equal opportunity plot above used Autocracy as the reference category for **democ_f** --- that is what the caption says. But what if the research question is specifically about full democracies? The predicted level of governance quality will differ when the model is evaluated for a different regime type, even though the equal opportunity slope remains the same in this additive model.
+
+The `condition` argument lets you override the defaults explicitly:
+
+```r
+plot_model(model_gov, type = "pred", terms = "bti_eo",
+           condition = list(democ_f = "Democracy"))
+```
+
+`condition` takes a named list: the variable name as the name, and the value to hold it at as the value. For a factor variable, the value must be a character string matching one of the factor levels exactly. You can set multiple variables: `condition = list(variable1 = value1, variable2 = value2)`.
+
+::: {.tip}
+**Choose held values deliberately.** The defaults (means for interval variables, reference category for factor variables) provide a standardized comparison case, but they are not necessarily substantively typical of any real observation. If you are studying the relationship between equal opportunity and governance in full democracies, conditioning on Autocracy produces a plot that answers a different question. The caption is your contract with the reader --- it must accurately state what the plot is showing, and the values you choose should reflect the context the research question concerns.
+:::
+
+**Run and observe: Equal opportunity in full democracies**
+
+The plot below shows predicted governance quality across the range of **bti_eo**, this time conditioning on full democracies rather than the default Autocracy. Run the code and compare the line to the Autocracy version you produced above before answering.
+
+```{r exercise-predplot-btieo-democracy, exercise=TRUE, exercise.cap="Run and observe: Equal opportunity plot for full democracies"}
+plot_model(model_gov,
+           type = "pred",
+           terms = "bti_eo",
+           condition = list(democ_f = "Democracy"),
+           title = "Predicted Governance Quality by Equal Opportunity",
+           axis.title = c("Equal Opportunity Score (1-10)",
+                          "Predicted Governance Quality")) +
+  labs(caption = "Predictions are for full democracies with average fertility rate.")
+```
+
+**Practice: Interpret the shift**
+
+```{r quiz-condition-shift, echo=FALSE}
+question("Compare the equal opportunity plot for full democracies to the one for autocracies you produced earlier. Which statement best describes what changes and what stays the same?",
+  correct = "Right. The slope is the same; the level shifts.",
+  answer("The predicted governance quality line is higher throughout for full democracies than for autocracies, but the slope of the equal opportunity relationship is the same --- the lines are parallel",
+         correct = TRUE,
+         message = "This is the key property of an additive model: the slope on equal opportunity is the same regardless of which regime type you condition on. What changes is the intercept --- full democracies start higher and end higher, but the rate of increase is identical. The vertical gap between the two lines is the Full Democracy coefficient."),
+  answer("The slope is steeper for full democracies than for autocracies, because equal opportunity matters more in democratic contexts",
+         message = "In an additive model, the slope on equal opportunity is the same in every group --- that is what additive means. If you believed the slope should differ across regime types, you would need to include an interaction term between bti_eo and democ_f."),
+  answer("The predicted governance quality is lower throughout for full democracies, because the model is controlling for their naturally higher equal opportunity scores",
+         message = "Full democracies have higher predicted governance quality at every equal opportunity level --- the line is higher, not lower. The Democracy coefficient is positive (about 11.9), so conditioning on Democracy shifts the line upward."),
+  answer("Both the slope and the level are the same --- the condition argument only affects the caption, not the predictions",
+         message = "The condition argument changes the held values for the predictors not on the x-axis, which directly changes the predicted values. Conditioning on Democracy rather than Autocracy shifts the line up by the Democracy coefficient --- about 12 governance points."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: in an additive model, which aspects of a prediction plot change when you change the held values, and which stay the same?"
+)
+```
+
+### Visualize Two Predictors Together
+
+The single-variable plots show equal opportunity and regime type separately. A two-variable plot combines them: **bti_eo** on the x-axis, **democ_f** producing three separate lines, one per regime type. This lets you see all three governance trajectories at once and compare the level differences across the full range of equal opportunity.
+
+**Practice: Produce a two-variable prediction plot**
+
+Write the complete `plot_model()` call from scratch, using **model_gov** as the model object. Put **bti_eo** on the x-axis and use **democ_f** to produce separate lines. Use the title "Predicted Governance Quality by Equal Opportunity and Regime Type", the x-axis label "Equal Opportunity Score (1-10)", the y-axis label "Predicted Governance Quality", and the caption "Predictions are at average fertility rate." `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Regime Type", caption = "...")` to set both. Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predplot-twovar-gov, exercise=TRUE, exercise.cap="Practice: Produce a two-variable prediction plot for bti_eo and democ_f"}
+
+```
+
+```{r exercise-predplot-twovar-gov-hint-1}
+# Hint 1 of 3
+# You have produced two-variable plots before --- the structure is the same
+# as the liberalism-by-region plot in Example 1. The terms argument takes
+# a character vector of two names: the x-axis variable first, then the
+# grouping variable. Both names must be in quotes.
+# In labs(), use color = "Regime Type" to set the legend title and
+# caption = "..." for the caption.
+```
+
+```{r exercise-predplot-twovar-gov-hint-2}
+# Hint 2 of 3
+# The function is plot_model(). The model object is model_gov.
+# Set type = "pred" and terms = c("bti_eo", "democ_f").
+# axis.title takes a character vector: c("x label", "y label").
+# Chain labs(color = "Regime Type", caption = "...") after with +.
+```
+
+```{r exercise-predplot-twovar-gov-hint-3}
+# Hint 3 of 3
+# Your call should be plot_model(model_gov, type = "pred",
+# terms = c("bti_eo", "democ_f"), with the prescribed title,
+# axis labels, and a labs(color = "Regime Type", caption = "...") layer.
+# The prescribed caption is: "Predictions are at average fertility rate."
+```
+
+```{r exercise-predplot-twovar-gov-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_nc <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("plot_model\\s*\\(", code_nc))
+    fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("model_gov", code_nc))
+    fail("Pass model_gov as the model object.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
+    fail("Set type = \"pred\".")
+  if (!grepl("bti_eo", code_nc))
+    fail("Include bti_eo as the x-axis variable in terms.")
+  if (!grepl("democ_f", code_nc))
+    fail("Include democ_f as the grouping variable in terms.")
+  if (!grepl("c\\s*\\(", code_nc))
+    fail("Use terms = c(\"bti_eo\", \"democ_f\") to specify both variables.")
+  cov_pos    <- regexpr("c\\s*\\(", code_nc)[1]
+  btieo_pos  <- regexpr("bti_eo",  code_nc, fixed = TRUE)[1]
+  democf_pos <- regexpr("democ_f", code_nc, fixed = TRUE)[1]
+  if (!(btieo_pos > cov_pos && democf_pos > cov_pos))
+    fail("Both bti_eo and democ_f should appear inside the terms = c(...) argument.")
+  if (btieo_pos > democf_pos)
+    fail("bti_eo should come first in terms (x-axis), and democ_f second (separate lines). Check the order inside c(...).")
+  if (!grepl("axis\\.title\\s*=", code_nc))
+    fail("Include the axis.title = argument.")
+  if (!grepl("Equal Opportunity Score \\(1[-\u2013]10\\)", code_nc))
+    fail("Use \"Equal Opportunity Score (1-10)\" as the x-axis label.")
+  if (!grepl("Predicted Governance Quality", code_nc, fixed = TRUE))
+    fail("Use \"Predicted Governance Quality\" as the y-axis label.")
+  if (!grepl("labs\\s*\\(", code_nc))
+    fail("Add a labs() layer with color = and caption = arguments.")
+  if (!grepl("Regime Type", code_nc, fixed = TRUE))
+    fail("Use labs(color = \"Regime Type\") to set the legend title.")
+  if (!grepl("Predictions are at average fertility rate.", code_nc, fixed = TRUE))
+    fail("Use the prescribed caption: \"Predictions are at average fertility rate.\"")
+  pass("Right. The three lines show how predicted governance quality varies with equal opportunity for each regime type. In this additive model the lines are parallel --- the equal opportunity slope is the same in every regime type, and the vertical gaps between lines are the regime type coefficients.")
+})
+```
+
+**Practice: Interpret the two-variable plot**
+
+Look at whether the three lines are parallel and what the vertical gaps between them represent before answering.
+
+```{r quiz-twovar-gov-interpret, echo=FALSE}
+question("Look at the two-variable prediction plot. Which statement best describes what the three lines show?",
+  correct = "Right. Parallel lines, equal slopes, vertical gaps equal to the regime coefficients.",
+  answer("The three lines are parallel --- the equal opportunity slope is the same in every regime type. The vertical gaps between lines reflect the regime type coefficients: full democracies are predicted to have substantially higher governance quality than the other two at every equal opportunity level, while partial democracies sit close to autocracies throughout.",
+         correct = TRUE,
+         message = "Parallel lines are the visual signature of an additive model. The slope on equal opportunity is identical across regime types because there is no interaction term. The vertical gaps are the regime type coefficients --- about 12 points for full democracy and about 1.4 points for partial democracy, the same values you read from the table."),
+  answer("The lines are not parallel --- the equal opportunity slope is steeper for full democracies than for autocracies, showing that equal opportunity matters more in democratic contexts",
+         message = "The lines are parallel in this additive model. If you believed the equal opportunity slope should differ across regime types, you would need to add an interaction between bti_eo and democ_f. Non-parallel lines are the visual signature of an interaction, not of an additive model."),
+  answer("The vertical gaps between lines grow as equal opportunity increases, showing that the governance advantage of democracy becomes larger in more equal societies",
+         message = "In an additive linear model, parallel lines mean constant vertical gaps --- the distance between the lines is the same at every equal opportunity level. Growing gaps would require an interaction term."),
+  answer("The three lines converge at high equal opportunity levels, suggesting that regime type differences in governance disappear once equal opportunity is sufficiently high",
+         message = "Parallel lines do not converge --- they maintain a constant vertical gap throughout. Converging lines would require a negative interaction between equal opportunity and regime type."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: look at whether the three lines have the same slope and whether the vertical gaps between them are constant or changing across the range of equal opportunity."
+)
+```
+
+
+
+### What We Learned About Democracy and Governance Quality
+
+::: {.research-example}
+The prediction plots translate the coefficient table into a visual argument. Equal opportunity is a powerful continuous predictor: across the observed range of the score, predicted governance quality rises by roughly 27 points. The regime type plot shows that this continuous gradient coexists with a sharp categorical pattern: the predicted governance quality for full democracies sits about 12 points above autocracies at the same equal opportunity and fertility levels, with confidence intervals that do not overlap --- the Democracy prediction is well separated from the others. The predicted governance quality for partial democracies sits close to autocracies with heavily overlapping intervals --- the intervals show substantial uncertainty about the Partial Democracy-Autocracy difference, and whether that contrast is significant requires the coefficient test. The governance advantage of democracy is not a smooth gradient across the spectrum --- it is concentrated at the top.
+
+These two plots together show something the coefficient table could only summarize in rows of numbers: equal opportunity and full democracy are both strong, independent predictors of governance quality, and the regime type plot makes visible that the model predicts little difference in governance quality between partial democracies and autocracies at the specified fertility and equal opportunity values; the coefficient test indicates that this estimated difference is not statistically significant.
+:::
+
+## Check Your Understanding
+
+The two examples showed that `predict()` translates coefficients into concrete model-implied comparisons, that `plot_model()` makes those comparisons visible across the full range of a predictor, and that a complete interpretation requires more than noting the direction of a relationship. The questions below ask you to apply these ideas to new scenarios without looking back at the examples.
+
+**Apply: Identify the predictor and held values**
+
+A researcher estimates a model of county-level turnout as a function of median income, unemployment rate, and college graduation rate. Her research question is: "Do counties with higher college graduation rates turn out at higher rates, holding economic conditions constant?" She wants to produce a prediction plot.
+
+```{r quiz-cyu-predictor, echo=FALSE}
+question("Which predictor should vary on the x-axis, and what values should she use for the others?",
+  correct = "Right. The focal predictor goes on the x-axis; the controls are held at standardized values.",
+  answer("College graduation rate on the x-axis; median income and unemployment rate held at their means",
+         correct = TRUE,
+         message = "The research question is about college graduation rate, so that goes on the x-axis. The other two predictors --- median income and unemployment rate --- are economic conditions the question asks to hold constant. Means are the conventional default for interval predictors."),
+  answer("Median income on the x-axis; unemployment rate and college graduation rate held at their means",
+         message = "The research question is about college graduation rate, not median income. The focal predictor of the hypothesis is what should vary on the x-axis."),
+  answer("All three predictors should vary simultaneously to show the full multivariate relationship",
+         message = "A useful prediction plot varies the predictor the research question is about while holding the remaining predictors at interpretable values. Varying all three simultaneously would make it difficult to isolate and communicate the specific relationship the hypothesis concerns."),
+  answer("College graduation rate on the x-axis; median income and unemployment rate each at their maximum values to show the best-case scenario",
+         message = "Choosing maximum values to produce a best-case scenario is not a principled default. Means are the conventional choice for held values unless there is a specific substantive reason to choose otherwise --- and that reason should be stated in the caption."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: the research question identifies which predictor the hypothesis is about. That predictor goes on the x-axis."
+)
+```
+
+**Apply: Interpret parallel lines**
+
+A researcher estimates an additive model of policy liberalism as a function of state median income and a three-category region variable (South, Northeast, West). She produces a two-variable prediction plot with median income on the x-axis and three separate lines for each region. The lines are parallel.
+
+```{r quiz-cyu-parallel, echo=FALSE}
+question("What do the parallel lines tell you about the relationship between income and policy liberalism?",
+  correct = "Right. Parallel lines mean equal slopes --- the income relationship is the same in every region.",
+  answer("The association between median income and policy liberalism is the same in every region --- the income slope does not depend on which region a state is in",
+         correct = TRUE,
+         message = "Parallel lines are the visual signature of an additive model. The income slope is identical across regions because there is no interaction term between income and region. The vertical gaps between lines are the region coefficients --- they shift the lines up or down but do not change their steepness."),
+  answer("The three regions have identical predicted policy liberalism at every income level --- the lines are indistinguishable",
+         message = "Parallel lines can still be vertically separated. Parallel means equal slopes, not equal intercepts. The gaps between lines are the region coefficients."),
+  answer("The income association is stronger in some regions than others, which is why the lines run in different directions",
+         message = "If the income association differed across regions, the lines would not be parallel --- they would have different slopes and would cross or diverge. Parallel lines mean exactly equal slopes in every group."),
+  answer("The parallel lines indicate that region is not a significant predictor of policy liberalism once income is controlled",
+         message = "Parallelism is about the interaction between income and region, not about whether region is significant. The lines can be parallel and still be vertically separated by large, significant region coefficients."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: what does it mean geometrically for lines to be parallel? And what would non-parallel lines indicate about the model?"
+)
+```
+
+**Apply: Diagnose an incomplete interpretation**
+
+A student writes the following interpretation of a prediction plot showing the relationship between poverty rate and Democratic vote share across US counties:
+
+*"As poverty rate increases, predicted Democratic vote share decreases. This proves that economic hardship causes counties to vote Republican. The effect is large."*
+
+```{r quiz-cyu-diagnose, echo=FALSE}
+question("Which of the following best identifies what is wrong or missing from this interpretation?",
+  correct = "Right. Multiple problems: causal claim, missing held values, missing specific values, missing uncertainty.",
+  answer("It claims causation from an observational regression, omits the held values for other predictors, gives no specific predicted values to convey magnitude, and does not describe the confidence band",
+         correct = TRUE,
+         message = "A complete interpretation avoids causal language (uses 'associated with' rather than 'causes'), states the held values so readers know what covariate profile the plot shows, gives at least two specific predicted values to make 'large' concrete, and describes the confidence band. All four components are missing or wrong here."),
+  answer("It is correct --- poverty rate is a valid predictor of vote share and the interpretation covers the key finding",
+         message = "The interpretation has at least two serious problems: 'causes' is causal language inappropriate for an observational regression, and 'large' is vague without specific predicted values to anchor it."),
+  answer("The only problem is the causal language --- changing 'causes' to 'is associated with' would make the interpretation complete",
+         message = "Removing the causal claim is necessary but not sufficient. The interpretation is also missing the held values for other predictors, specific predicted values to quantify 'large', and any description of the confidence band."),
+  answer("The only problem is that 'large' is vague --- adding a specific predicted value would complete the interpretation",
+         message = "Adding a specific value would help, but the causal language ('causes'), missing held values, and missing confidence band description are also problems."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: check the student's interpretation against all five components of the framework and the causal language convention."
+)
+```
+
+## The Takeaways
+
+Predicted values translate the model's estimated associations into concrete [**model-implied comparisons**]{.important-text}. Unless the research design supports a causal interpretation, these comparisons describe how predicted outcomes differ across specified predictor values --- not what would necessarily happen if we intervened to change a predictor.
+
+The key things to carry forward:
+
+1. **The workflow: table → specific predictions → plot.** The table shows the full model for readers who want to verify or build on your analysis. The `predict()` calls give you specific numbers in the units of the outcome to anchor your interpretation. The plot shows how predicted outcomes change across the full range of the predictor, with uncertainty visible as a shaded band.
+
+2. **`predict()` requires a `newdata` data frame with every predictor named and typed exactly as in the model.** For factor variables, the recommended approach is `factor("level", levels = levels(data$variable))` --- this explicitly attaches the full level set and avoids edge cases where R cannot determine the levels from context. The output is in the units of the dependent variable.
+
+3. **`plot_model(type = "pred", terms = "variable")` sweeps across the full range of the specified predictor**, holding all others at their means or reference category. `axis.title` takes x first, then y. The variable name in `terms` must be in quotes --- unlike most R arguments. Always add `labs(caption = "...")` to state the [**held values**]{.important-text}.
+
+4. **The `condition` argument overrides the default held values.** `condition = list(variable = value)` holds the named variable at a specific value instead of its mean or reference category. Use it when the default held values do not correspond to the context your research question concerns. The caption must always state what values were used.
+
+5. **`terms = c("x", "grouping_variable")` shows the relationship for multiple groups simultaneously.** In an additive model, the lines are [**parallel lines**]{.important-text} --- the x-variable has the same estimated slope in every group. Parallel lines are the visual signature of an additive model, not a coincidence. `plot_model()` has additional capabilities not covered here --- a third variable in `terms` produces faceted panels, and bracket notation like `[meansd]` or `[value1, value2]` controls which specific values are shown for any term. These features become useful when visualizing interaction models and logistic regression predictions --- Tutorials 19 and 21 build on them.
+
+6. **A complete interpretation covers five things:** the pattern, the held values, specific predicted values and their difference, the [**confidence interval**]{.important-text} (the shaded band around the line, showing uncertainty in the predicted mean), and the connection to the hypothesis. A wide or overlapping confidence interval reflects uncertainty about the predicted values at each displayed covariate profile --- not whether the predictor is statistically significant.
+
+Tutorial 18 introduces interaction models, where the slope of one predictor depends on the value of another. Tutorial 19 then extends these prediction tools to interaction models --- where prediction plots make visible something that coefficient tables can only hint at. Tutorials 20 and 21 carry the same workflow to binary outcomes: logistic regression coefficients tell you direction and significance but not effect size, making prediction plots not just useful but necessary.
+
+## Submit Your Work
+
+When you have completed all exercises in this tutorial, generate your submission code using the button below. Copy the full code that appears and paste it into the Canvas submission box for this tutorial.
+
+```{r encode-logic-17, context="server"}
+learnrhash::encoder_logic()
+```
+
+```{r encode-ui-17, echo=FALSE}
+learnrhash::encoder_ui(
+  ui_before = shiny::div(
+    shiny::p("Click the button below to generate your submission code.
+              Copy the full code and paste it into Canvas.")
+  )
+)
+```
+
+```{r tutorial-success-banner-17, results="asis", echo=FALSE}
+cat('
+<p class="tutorial-complete"
+   role="status"
+   aria-label="Excellent work! You can now translate regression coefficients into concrete predicted comparisons using predict() and plot_model().">
+  <span aria-hidden="true">📊</span>
+  Excellent work! You can now translate regression coefficients into concrete predicted comparisons --- and that changes what it means to understand a model.
+</p>
+')
+```

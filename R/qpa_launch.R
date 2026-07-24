@@ -4,7 +4,7 @@
 #' way to run tutorials if you are using assistive technology or prefer working
 #' in a browser rather than RStudio's internal viewer.
 #'
-#' @param tutorial A number (1-20) or a name matching part of the tutorial
+#' @param tutorial A number (1-21) or a name matching part of the tutorial
 #'   folder name (e.g., "bivariateCat", "regression", "logit").
 #'
 #' @examples
@@ -12,7 +12,9 @@
 #' qpa_launch(1)               # R Basics Part 1
 #' qpa_launch(7)               # Bivariate Description: Categorical
 #' qpa_launch("bivariateCat")  # same as above, by name
-#' qpa_launch("regression")    # matches first tutorial with "regression" in name
+#' qpa_launch(17)              # From Coefficients to Predicted Values
+#' qpa_launch(18)              # Interactions in Multiple Regression
+#' qpa_launch(19)              # Prediction Plots for Interaction Models
 #' }
 #'
 #' @export
@@ -34,10 +36,11 @@ qpa_launch <- function(tutorial) {
     "14-HypTestsTwoInterval",
     "15-regressionSimple",
     "16-regressionMultiple",
-    "17-regressionInteractions",
-    "18-regressionPredictions",
-    "19-logit",
-    "20-logitPredictions"
+    "17-regressionPredictions",
+    "18-regressionInteractions",
+    "19-regressionPredictionsInteractions",
+    "20-logit",
+    "21-logitPredictions"
   )
   if (is.numeric(tutorial)) {
     if (tutorial < 1 || tutorial > length(tutorials)) {
@@ -65,7 +68,6 @@ qpa_launch <- function(tutorial) {
     stop("'tutorial' must be a number or a character string.")
   }
   options(shiny.launch.browser = TRUE)
-
   learnr::run_tutorial(
     name = dir_name,
     package = "QPATutorialsCourse",
