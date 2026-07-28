@@ -15,10 +15,10 @@ description: >
 
 This is the first in a series of tutorials you will work through over the course of the semester. The tutorials are designed to teach you the ins and outs of data analysis in R. This tutorial introduces some basic principles of using R and provides background knowledge that will underlie the code you write throughout the semester.
 
-Each tutorial typically begins with examples you will run to see how code works, followed by exercises in which you complete or modify code, and finally exercises in which you produce code from scratch. A **Hint** button is available on graded exercises if you get stuck.
+Each tutorial typically begins with examples you will run to see how code works, followed by exercises in which you complete or modify code, and finally exercises in which you produce code from scratch. A "Hint" button is available on graded exercises if you get stuck.
 
 ::: {.tip}
-**Run Code vs. Submit Answer:** These two buttons do very different things. **Run Code** simply executes whatever is in the box and shows you the result --- you can use it as many times as you like to experiment without any consequences. Only **Submit Answer** checks your work. Get in the habit of using **Run Code** freely to try things out before you submit. If something does not work the way you expected, that is useful information --- try to understand why before moving on.
+**Run Code vs. Submit Answer:** These two buttons do very different things. "Run Code" simply executes whatever is in the box and shows you the result --- you can use it as many times as you like to experiment without any consequences. Only "Submit Answer" checks your work. Get in the habit of using "Run Code" freely to try things out before you submit. If something does not work the way you expected, that is useful information --- try to understand why before moving on.
 :::
 
 You should work through the tutorials from beginning to end, completing each exercise. If you run out of time, or just need a break, you can exit and return later. Your progress will be saved when you return.
@@ -37,7 +37,12 @@ In this tutorial you will learn:
 * How to determine the class of an object with the `class()` function
 * How to create and use vectors using the `c()` function
 * How to select and replace elements of a vector using indexing
+* How to apply an arithmetic operation to every element of a vector at once
+* How to summarize a vector with `length()`, `min()`, `max()`, `range()`, `mean()`, and `sum()`
+* How to recognize missing values and handle them with the `na.rm` argument
+* How to supply arguments by name and rely on default values, as with `seq()`
 * How to install packages with `install.packages()` and load them with `library()`
+* How to annotate your code with comments
 
 ::: {.important-note}
 **Function restriction:** For the graded exercises in this tutorial, stay within the tools introduced here. Use only the functions, arguments, and approaches covered in this tutorial, and do not use functions from packages that are not loaded here. This helps ensure the grader is checking the same skills the tutorial is teaching. If you are unsure whether a function or approach is permitted, check whether it appears in this tutorial before using it.
@@ -50,30 +55,46 @@ library(gradethis)
 library(learnrhash)
 options(lifecycle_verbosity = "quiet")   # suppress tidyselect deprecation warnings from gradethis
 options(help_type = "text")
-tutorial_options(exercise.checker = gradethis::grade_learnr)
+tutorial_options(exercise.checker = gradethis::grade_learnr, exercise.completion = FALSE)
 knitr::opts_chunk$set(error = TRUE)
 dem.pres.vote.share <- c(0.448, 0.408, 0.461, 0.535, 0.547, 0.503, 0.488, 0.537, 0.520, 0.511, 0.513, 0.493)
 first.6.candidates <- c("Carter", "Mondale", "Dukakis", "Clinton", "Clinton", "Gore")
 last.6.candidates <- c("Kerry","Obama","Obama", "Clinton", "Biden", "Harris")
 dem.candidates <- c(first.6.candidates, last.6.candidates)
-num.list<-c(1,2,3,4,5)
 my.first.object <- 5 + 3
 another.object <- "100"
+make_pos_table <- function(positions, values, label) {
+  cat('<div class="table-container">')
+  cat(sprintf('<table role="table" aria-label="%s">', label))
+  cat('<thead><tr>')
+  for (p in positions) cat(sprintf('<th scope="col">[%d]</th>', p))
+  cat('</tr></thead><tbody><tr>')
+  for (v in values) cat(sprintf('<td>%s</td>', v))
+  cat('</tr></tbody></table></div>')
+}
 ```
 
-## R as a calculator
+## Roadmap
+
+Almost everything you will do in R comes down to two moves: storing values in named objects, and applying functions to those objects. This tutorial builds both from the ground up.
+
+We start with R as a calculator, because it asks nothing new of you --- type an expression, R evaluates it, the answer appears. From there we introduce objects, so that a result can be kept and reused rather than recomputed every time you need it. Once values have names, we introduce functions, which are how you do something to them. Vectors come next, and they are the reason the rest of the course works the way it does: political data arrives as many values of the same kind, and R is built to operate on all of them at once rather than one at a time. The remaining sections fill in what you need to work with vectors comfortably --- pulling out particular elements, transforming them, summarizing them, and handling values that are missing.
+
+By the end you will have written code that stores real election data, modifies it, and summarizes it. Almost everything in the tutorials that follow is a variation on those same moves.
+
+## R as a Calculator
 
 It is easy to use R like a calculator. Here's an example of adding 2 numbers.
 You can add/subtract, multiply/divide, or raise a number to a power using `+`,
 `-`, `*`, `/`, `^`.
 
-**Explore: Basic arithmetic in R**
+**Explore 1: Basic arithmetic in R**
 
 Try running the code below, then change the numbers and operators to practice
 different calculations. Use the "Run Code" button to execute your code. Note
 that R ignores spaces, so 14 + 2000 will produce the same output as 14+2000.
 
-```{r calculator-practice, exercise=TRUE, exercise.cap="Explore: Basic arithmetic in R"}
+```{r calculator-practice, exercise=TRUE, exercise.cap="Explore 1"}
 14 + 2000
 ```
 
@@ -81,7 +102,7 @@ The `[1]` you see at the start of the output line is just R telling you that the
 
 ## Objects
 
-**R can store information as an [object]{.important-text} with a name of your
+**R can store information as an [**object**]{.important-text} with a name of your
 choice. Once you have created an R object, you can refer to it by name.**
 
 Picking a name for your object:
@@ -98,57 +119,48 @@ In a regular RStudio session, the Global Environment pane will show a list of
 all the objects you have created. This pane is not visible inside these
 tutorials, but you will use it constantly when working on your own.
 
-**We use the [assignment operator]{.important-text} `<-` to assign some value to
+**We use the [**assignment operator**]{.important-text} `<-` to assign some value to
 an object.**
 
-**Run and observe: Create your first object**
+**Run and observe 2: Create your first object**
 
 Let's store the sum of 5+3 by assigning it an object called **my.first.object**. Use the
 "Run Code" button to execute the following code and see how assignment works.
 
-```{r objects-create-first, exercise=TRUE, exercise.cap="Run and observe: Creating and assigning an object"}
+```{r objects-create-first, exercise=TRUE, exercise.cap="Run and observe 2"}
 my.first.object <- 5 + 3
 ```
 
 Notice that the result is not displayed in this case. We can see the value of an
 object only by asking R to show it to us. Simply enter the object name.
 
+**Run and observe 3: Display an object's value**
 
-**Run and observe: Display an object's value**
-
-Use the "Run Code" button to see how to display what's stored in an object:
-
-```{r objects-print-value, exercise=TRUE, exercise.cap="Run and observe: Displaying an object's value"}
+```{r objects-print-value, exercise=TRUE, exercise.cap="Run and observe 3"}
 my.first.object
 ```
 
 If we assign a different value to the same object name, the value of the object
 will change.
 
-**Run and observe: Reassign an object**
+**Run and observe 4: Reassign an object**
 
-Use the "Run Code" button to see what happens when you assign a new value to an
-existing object:
-
-```{r objects-reassign, exercise=TRUE, exercise.cap="Run and observe: Reassigning an object to a new value"}
+```{r objects-reassign, exercise=TRUE, exercise.cap="Run and observe 4"}
 my.first.object <- 50 + 30
 my.first.object
 ```
 
 The second line displays `80` because the new assignment replaces the old value
-stored in `my.first.object`. R does not keep both values under the same object
+stored in **my.first.object**. R does not keep both values under the same object
 name; the most recent assignment is the one that matters.
 
 Object names are case sensitive: **my.first.object** is different from
 **MY.FIRST.OBJECT**. Try asking R to tell you the value of **MY.FIRST.OBJECT**.
 What happens?
 
-**Run and observe: Test case sensitivity**
+**Run and observe 5: Test case sensitivity**
 
-Use the "Run Code" button to see what error occurs with incorrect
-capitalization:
-
-```{r objects-case-error, exercise=TRUE, exercise.cap="Run and observe: R's case sensitivity produces an error"}
+```{r objects-case-error, exercise=TRUE, exercise.cap="Run and observe 5"}
 MY.FIRST.OBJECT
 ```
 
@@ -160,26 +172,13 @@ looking at the Global Environment pane, where you would see that
 
 ### Storing Character Strings as Objects
 
-To assign a string of characters to an object, we use quotation marks. Spaces are allowed inside the quotation marks.
+To assign a string of characters to an object, we use quotation marks. Spaces are allowed inside the quotation marks. R will treat numbers as characters too if we enclose them in quotes --- watch what the second pair of lines below produces.
 
-**Run and observe: Create a character object**
+**Run and observe 6: Create character objects**
 
-Use the **Run Code** button to see how to store text as an object using quotation marks:
-
-```{r objects-create-string, exercise=TRUE, exercise.cap="Run and observe: Storing text as a character object"}
+```{r objects-create-string, exercise=TRUE, exercise.cap="Run and observe 6"}
 this.class <- "PLSC 309"
 this.class
-```
-
-R treats numbers like characters if we tell it to do so by enclosing them in
-quotes:
-
-**Run and observe: Numbers as characters**
-
-Observe what happens when you put numbers in quotation marks. Use the "Run Code"
-button to execute the code:
-
-```{r objects-number-as-string, exercise=TRUE, exercise.cap="Run and observe: Numbers stored as character strings"}
 another.object <- "100"
 another.object
 ```
@@ -188,12 +187,9 @@ If you refer to an object that is a character string in an arithmetic operation,
 you will see an error message. See what happens if you try to divide "100" by
 10:
 
-**Run and observe: Arithmetic error with character strings**
+**Run and observe 7: Arithmetic error with character strings**
 
-Use the "Run Code" button to see the error when trying arithmetic with character
-strings:
-
-```{r objects-string-arithmetic-error, exercise=TRUE, exercise.cap="Run and observe: Arithmetic error with a character object"}
+```{r objects-string-arithmetic-error, exercise=TRUE, exercise.cap="Run and observe 7"}
 another.object / 10
 ```
 
@@ -206,12 +202,12 @@ the quotation marks tell R to treat it as text.
 ## Functions
 
 Functions are very important in R. They can be used to perform a variety of
-tasks. **A [function]{.important-text} takes one or more inputs and returns some
+tasks. **A [**function**]{.important-text} takes one or more inputs and returns some
 output.** For example, the `sqrt()` function takes as its input some number or
 numeric object for which we want to know the square root. The output is the
 square root of that number or object.
 
-An **[argument]{.important-text}** is the information you put inside the
+An [**argument**]{.important-text} is the information you put inside the
 parentheses of a function so R knows what to do. In R, the syntax is generally
 `function_name(input)`, where `function_name` is the name of the function and
 `input` is the argument you are giving the function. Some functions take no
@@ -222,13 +218,12 @@ comma or having unbalanced parentheses are common sources of error.
 The function `sqrt()` takes one argument, named `x`, which is the number or
 object for which we want the square root.
 
-**Practice: Calculate a square root**
+**Practice 8: Calculate a square root**
 
 Enter code that calculates the square root of 4 using the `sqrt()` function.
-Use **Run Code** to test your code before clicking **Submit Answer** to check
-your work. Two hints are available if you get stuck.
+Two hints are available. Click "Submit Answer" to check your work.
 
-```{r functions-square-root, exercise=TRUE, exercise.cap="Practice: Calculate the square root of 4 using sqrt()"}
+```{r functions-square-root, exercise=TRUE, exercise.cap="Practice 8"}
 
 ```
 
@@ -248,7 +243,7 @@ ___(4)
 ```{r functions-square-root-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("sqrt\\s*\\(", code_no_comments)) {
     fail("Make sure you are using the sqrt() function.")
@@ -266,15 +261,12 @@ grade_this({
 })
 ```
 
-
 To see what arguments a function accepts, use the `args()` function. Type the name of the function you want to learn about inside its parentheses, without adding parentheses after that name. Here we use `args()` to examine the `round()` function, which rounds a number to a
 specified number of decimal places.
 
-**Run and observe: Explore function arguments**
+**Run and observe 9: Explore function arguments**
 
-Use the **Run Code** button to see what arguments the `round()` function accepts.
-
-```{r functions-explore-args, exercise=TRUE, exercise.cap="Run and observe: Examining function arguments with args()"}
+```{r functions-explore-args, exercise=TRUE, exercise.cap="Run and observe 9"}
 args(round)
 ```
 
@@ -300,11 +292,11 @@ arguments mean, and what it returns --- type `?` followed immediately by the
 function name with no space and no parentheses. Get in the habit of checking the
 help page for new functions you encounter.
 
-**Run and observe: Access function help**
+**Run and observe 10: Access function help**
 
 Run the code below to pull up help for the `round()` function.
 
-```{r functions-get-help, exercise=TRUE, exercise.cap="Run and observe: Accessing help documentation with ?"}
+```{r functions-get-help, exercise=TRUE, exercise.cap="Run and observe 10"}
 ?round
 ```
 
@@ -323,31 +315,30 @@ If you receive an error such as "No documentation for 'funcname'," the function
 may belong to a package that is not loaded. In that case you can try `??funcname`
 to search more broadly, or install and load the relevant package first.
 
+## Classes of Objects
 
-## Classes of objects
-
-Every object in R has a *[class]{.important-text}* --- a label that tells R what
+Every object in R has a [**class**]{.important-text} --- a label that tells R what
 kind of value it contains and what operations it can perform on it. Numbers and
 text, for example, are treated very differently.
 
-You can check the class of any object using the `class()` function: type the object's name inside the parentheses. In R, giving a function its input this way is called *passing* an argument to the function --- you will see that term throughout this course. For `my.first.object` and `another.object`, this is straightforward. For `sqrt`, there is one trap to watch out for: because you are used to calling `sqrt` by writing `sqrt()`, it is tempting to write `class(sqrt())` --- but that tells R to run `sqrt` first and then check the class of its output, which is not what you want. Write `class(sqrt)` instead, with no parentheses after `sqrt`, to ask about the function itself.
+You can check the class of any object using the `class()` function: type the object's name inside the parentheses. In R, giving a function its input this way is called *passing* an argument to the function --- you will see that term throughout this course. For **my.first.object** and **another.object**, this is straightforward. For `sqrt`, there is one trap to watch out for: because you are used to calling `sqrt` by writing `sqrt()`, it is tempting to write `class(sqrt())` --- but that tells R to run `sqrt` first and then check the class of its output, which is not what you want. Write `class(sqrt)` instead, with no parentheses after `sqrt`, to ask about the function itself.
 
-**Practice: Determine object classes**
+**Practice 11: Determine object classes**
 
 Use the `class()` function to find the class of each of the following. Write one line of code for each --- you can enter them in any order.
 
-* `my.first.object`
-* `another.object`
+* **my.first.object**
+* **another.object**
 * `sqrt`
 
-Click "Submit Answer" to check your work. Two hints are available.
+Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r prepare-classes, echo=FALSE}
 my.first.object <- 50 + 30
 another.object <- "100"
 ```
 
-```{r classes-determine-types, exercise=TRUE, exercise.setup="prepare-classes", exercise.cap="Practice: Determine the class of three R objects"}
+```{r classes-determine-types, exercise=TRUE, exercise.setup="prepare-classes", exercise.cap="Practice 11"}
 
 ```
 
@@ -367,7 +358,7 @@ class(___)
 ```{r classes-determine-types-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   has_first  <- grepl("class\\s*\\(\\s*my\\.first\\.object\\s*\\)", code_no_comments)
   has_second <- grepl("class\\s*\\(\\s*another\\.object\\s*\\)", code_no_comments)
@@ -390,7 +381,7 @@ There are many other classes of objects in R. We will encounter more in future l
 
 ## Vectors
 
-Next, we will enter some data into R as a *numeric vector object*. A **[vector]{.important-text}** stores multiple values together in a single object, in a specific order. For example, a variable in a data set is usually stored as a vector: one value for each case in the data set. In this section, we will work with numeric vectors, which contain numbers.
+Next, we will enter some data into R as a *numeric vector object*. A [**vector**]{.important-text} stores multiple values together in a single object, in a specific order. For example, a variable in a data set is usually stored as a vector: one value for each case in the data set. In this section, we will work with numeric vectors, which contain numbers.
 
 To create a vector in R, we use the `c()` function (short for "concatenate") and place multiple values inside the parentheses, separated by commas. For example, `c(1, 2, 3)` creates a numeric vector with three values. Simply using parentheses alone (like `(1, 2, 3)`) will **not** create a vector --- `c()` is required.
 
@@ -398,20 +389,20 @@ We then assign the result to an object using `<-` so we can work with it later.
 
 **Any time you want to work with more than one value at once, you will use this approach to combine them into a single object.** This is one of the small building blocks that will show up again and again, so it is worth getting comfortable with it now.
 
-**Practice: Create your first vector**
+**Practice 12: Create your first vector**
 
-The code below is partially written for you. Replace the `___` inside `c()` with 5 numbers of your choice, separated by commas. (Remember: Including the object name on the second line displays the results on the screen.) Then click "Submit Answer" to check your work. Two hints are available.
+The code below is partially written for you. Replace the `___` inside `c()` with 5 numbers of your choice, separated by commas. (Remember: Including the object name on the second line displays the results on the screen.) Two hints are available. Click "Submit Answer" to check your work.
 
-```{r vectors-create-first, exercise=TRUE, exercise.cap="Practice: Create a numeric vector with five elements"}
+```{r vectors-create-first, exercise=TRUE, exercise.cap="Practice 12"}
 my.first.vector <- c(___)
 my.first.vector
 ```
 
 ```{r vectors-create-first-hint-1}
 # Hint 1 of 2
-# Replace the ___ with numbers separated by commas.
-# For example, c(10, 20, 30, 40, 50) would work,
-# but use any 5 numbers you like.
+# Replace the ___ with five numbers, separating
+# adjacent values with commas. Which five numbers
+# you choose is entirely up to you.
 ```
 
 ```{r vectors-create-first-hint-2}
@@ -423,7 +414,7 @@ my.first.vector
 ```{r vectors-create-first-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("my\\.first\\.vector\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign your vector to an object called my.first.vector.")
@@ -447,7 +438,7 @@ grade_this({
 })
 ```
 
-Now let’s try something a bit more interesting: using a vector to store real political data.
+Now let's try something a bit more interesting: using a vector to store real political data.
 
 Here are the two-party vote shares won by the Democratic presidential candidate in the last 12 presidential elections:
 
@@ -484,11 +475,11 @@ Here are the two-party vote shares won by the Democratic presidential candidate 
 
 We can enter the share of the two-party vote won by the Democratic presidential candidates in the last 12 elections as elements of a single vector we will name **dem.pres.vote.share**.
 
-**Practice: Create a data vector**
+**Practice 13: Create a data vector**
 
-The code below gives you the structure. Replace `___(___)` with the correct function call containing all 12 vote share values from the table above, in chronological order. Listing the object name in the second line displays the vector on the screen so you can check your work. Click "Submit Answer" when ready. Three hints are available.
+The code below gives you the structure. Replace `___(___)` with the correct function call containing all 12 vote share values from the table above, in chronological order. Listing the object name in the second line displays the vector on the screen so you can check your work. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r vectors-election-data, exercise=TRUE, exercise.cap="Practice: Create the Democratic vote share vector"}
+```{r vectors-election-data, exercise=TRUE, exercise.cap="Practice 13"}
 dem.pres.vote.share <- ___(___)
 dem.pres.vote.share
 ```
@@ -516,14 +507,13 @@ dem.pres.vote.share <- c(0.448, 0.408, 0.461, 0.535,
 dem.pres.vote.share
 ```
 
-
 ```{r vectors-election-data-check}
 grade_this({
   correct_vals <- c(0.448, 0.408, 0.461, 0.535, 0.547, 0.503, 0.488,
                     0.537, 0.520, 0.511, 0.513, 0.493)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("dem\\.pres\\.vote\\.share\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the result to an object called dem.pres.vote.share.")
@@ -565,11 +555,11 @@ grade_this({
 
 The `c()` function can also be used to combine multiple vectors into a single larger one.
 
-**Practice: Create the first group of candidate names**
+**Practice 14: Create the first group of candidate names**
 
-Using the Democratic candidate column in the table above, create a character vector called **first.6.candidates** containing the last names of the Democratic candidates for the first 6 elections (1980--2000). Display it by typing its name to check your work. Click "Submit Answer" when ready. Three hints are available.
+Using the Democratic candidate column in the table above, create a character vector called **first.6.candidates** containing the last names of the Democratic candidates for the first 6 elections (1980--2000). Display it by typing its name. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r vectors-first-candidates, exercise=TRUE, exercise.cap="Practice: Create a character vector of the first six Democratic candidates"}
+```{r vectors-first-candidates, exercise=TRUE, exercise.cap="Practice 14"}
 
 ```
 
@@ -599,7 +589,7 @@ grade_this({
   correct_vals <- c("Carter", "Mondale", "Dukakis",
                     "Clinton", "Clinton", "Gore")
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
   if (!grepl("first\\.6\\.candidates\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the result to an object called first.6.candidates.")
   }
@@ -625,11 +615,11 @@ grade_this({
 })
 ```
 
-**Practice: Create the second group of candidate names**
+**Practice 15: Create the second group of candidate names**
 
-Now create a character vector called **last.6.candidates** containing the last names of the Democratic candidates for the final 6 elections (2004--2024). Display it by typing its name to check your work. Click "Submit Answer" when ready. Two hints are available.
+Now create a character vector called **last.6.candidates** containing the last names of the Democratic candidates for the final 6 elections (2004--2024). Display it by typing its name. Two hints are available. Click "Submit Answer" to check your work.
 
-```{r vectors-last-candidates, exercise=TRUE, exercise.cap="Practice: Create a character vector of the last six Democratic candidates"}
+```{r vectors-last-candidates, exercise=TRUE, exercise.cap="Practice 15"}
 
 ```
 
@@ -652,7 +642,7 @@ grade_this({
   correct_vals <- c("Kerry", "Obama", "Obama",
                     "Clinton", "Biden", "Harris")
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
   if (!grepl("last\\.6\\.candidates\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the result to an object called last.6.candidates.")
   }
@@ -678,17 +668,16 @@ grade_this({
 })
 ```
 
-**Practice: Combine the two vectors**
+**Practice 16: Combine the two vectors**
 
-Now we can put the two pieces together. Combine **first.6.candidates** and **last.6.candidates** into a single vector called **dem.candidates** and display it by typing its name. Click "Submit Answer" when ready. Three hints are available.
-
+Now we can put the two pieces together. Combine **first.6.candidates** and **last.6.candidates** into a single vector called **dem.candidates** and display it by typing its name. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r prepare-vectors-first-last, echo=FALSE}
 first.6.candidates <- c("Carter", "Mondale", "Dukakis", "Clinton", "Clinton", "Gore")
 last.6.candidates <- c("Kerry", "Obama", "Obama", "Clinton", "Biden", "Harris")
 ```
 
-```{r vectors-combine-names, exercise=TRUE, exercise.setup="prepare-vectors-first-last", exercise.cap="Practice: Combine two vectors into dem.candidates"}
+```{r vectors-combine-names, exercise=TRUE, exercise.setup="prepare-vectors-first-last", exercise.cap="Practice 16"}
 
 ```
 
@@ -720,7 +709,7 @@ grade_this({
   correct_vals <- c("Carter", "Mondale", "Dukakis", "Clinton", "Clinton", "Gore",
                     "Kerry", "Obama", "Obama", "Clinton", "Biden", "Harris")
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
   if (!grepl("dem\\.candidates\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the result to an object called dem.candidates.")
   }
@@ -759,11 +748,10 @@ dem.pres.vote.share <- c(0.448, 0.408, 0.461, 0.535, 0.547, 0.503, 0.488,
                          0.537, 0.520, 0.511, 0.513, 0.493)
 ```
 
-
 ## Indexing Vectors
 
 Once you have values stored in a vector, the next useful skill is learning how to pull out the pieces you need. **To select a specific element in a vector, you use square brackets `[ ]`.** The
-number inside the brackets is called the *[index]{.important-text}* --- it tells
+number inside the brackets is called the [**index**]{.important-text} --- it tells
 R which position in the vector you want. Position 1 is the first element,
 position 2 is the second, and so on. Here is a quick reference showing the index
 position of each value in **dem.pres.vote.share**:
@@ -771,16 +759,6 @@ position of each value in **dem.pres.vote.share**:
 ```{r vectors-position-table, echo=FALSE, results='asis'}
 vals <- c(0.448, 0.408, 0.461, 0.535, 0.547, 0.503,
           0.488, 0.537, 0.520, 0.511, 0.513, 0.493)
-
-make_pos_table <- function(positions, values, label) {
-  cat('<div class="table-container">')
-  cat(sprintf('<table role="table" aria-label="%s">', label))
-  cat('<thead><tr>')
-  for (p in positions) cat(sprintf('<th scope="col">[%d]</th>', p))
-  cat('</tr></thead><tbody><tr>')
-  for (v in values) cat(sprintf('<td>%s</td>', v))
-  cat('</tr></tbody></table></div>')
-}
 
 make_pos_table(1:6, vals[1:6],
   "Index positions 1 through 6 of dem.pres.vote.share")
@@ -790,11 +768,11 @@ make_pos_table(7:12, vals[7:12],
 
 To extract an element, place its index number inside square brackets after the vector name: `dem.pres.vote.share[3]` returns the third value, 0.461.
 
-**Practice: Access a single vector element**
+**Practice 17: Access a single vector element**
 
-The code below extracts the first element. Modify it to extract Hillary Clinton's vote share instead. Click "Submit Answer" to check your work. Two hints are available.
+The code below extracts the first element. Modify it to extract Hillary Clinton's vote share instead. Two hints are available. Click "Submit Answer" to check your work.
 
-```{r vectors-access-single, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Practice: Extract Hillary Clinton's vote share by index position"}
+```{r vectors-access-single, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Practice 17"}
 dem.pres.vote.share[1]
 ```
 
@@ -813,10 +791,10 @@ dem.pres.vote.share[___]
 ```{r vectors-access-single-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("\\[\\s*10\\s*\\]", code_no_comments)) {
-    fail("Make sure you are using index position 10 inside the square brackets.")
+    fail("Not quite. Use the position table above to find which index position corresponds to the 2016 election.")
   }
 
   if (is.null(.result)) {
@@ -845,11 +823,11 @@ grade_this({
 
 We can extract more than one element by placing multiple index positions inside the square brackets. Because R expects a single object inside the brackets, we combine those positions using the `c()` function: `vectorname[c(2, 5, 7)]` extracts the elements at positions 2, 5, and 7 in that order.
 
-**Practice: Access multiple vector elements**
+**Practice 18: Access multiple vector elements**
 
-What was the vote share won by the Democrat in the last 5 elections? Use the position table above to find the correct index positions. Click "Submit Answer" to check your work. Three hints are available.
+What was the vote share won by the Democrat in the last 5 elections? Use the position table above to find the correct index positions. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r vectors-access-multiple, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Practice: Extract the last five Democratic vote shares"}
+```{r vectors-access-multiple, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Practice 18"}
 
 ```
 
@@ -875,7 +853,7 @@ dem.pres.vote.share[c(___, ___, ___, ___, ___)]
 ```{r vectors-access-multiple-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
   expected <- c(0.537, 0.520, 0.511, 0.513, 0.493)
   if (!grepl("\\[", code_no_comments) || !grepl("c\\s*\\(", code_no_comments)) {
     fail("Make sure you are using square brackets with c() inside to select multiple elements.")
@@ -893,24 +871,13 @@ grade_this({
 })
 ```
 
-Note that the order in which you list the index numbers determines the order of the output --- `dem.pres.vote.share[c(9, 5)]` and `dem.pres.vote.share[c(5, 9)]` return the same two values but in opposite order.
+The brackets can do two more things. First, the order in which you list index numbers determines the order of the output, so `dem.pres.vote.share[c(9, 5)]` and `dem.pres.vote.share[c(5, 9)]` return the same two values in opposite order. Second, a minus sign removes an element rather than selecting it --- `dem.pres.vote.share[-12]` returns every value except the last election.
 
-**Run and observe: Order of index numbers**
+**Run and observe 19: Index order and negative indexing**
 
-Use the **Run Code** button to see this in action:
-
-```{r vectors-order-matters, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Run and observe: Index order determines output order"}
+```{r vectors-order-matters, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Run and observe 19"}
 dem.pres.vote.share[c(9, 5)]
 dem.pres.vote.share[c(5, 9)]
-```
-
-We can also use a minus sign in the index to remove an element from a vector. For example, to return all values except the last election (2024, position 12):
-
-**Run and observe: Remove vector elements**
-
-Use the **Run Code** button to see how negative indexing works:
-
-```{r vectors-remove-elements, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Run and observe: Negative indexing removes an element"}
 dem.pres.vote.share[-12]
 ```
 
@@ -918,11 +885,11 @@ dem.pres.vote.share[-12]
 
 We can apply arithmetic operations on a numeric vector. *The operation will be repeated for each element of the vector.* We will often want to do this as part of creating new variables that are a function of variables in a data set.
 
-**Practice: Convert vote shares to percentages**
+**Practice 20: Convert vote shares to percentages**
 
-Create a new vector called **dem.pres.vote.percent** that converts **dem.pres.vote.share** to the percent of the 2-party vote won by the Democratic candidate. Display it by typing its name to check your work. Click "Submit Answer" when ready. Three hints are available.
+Create a new vector called **dem.pres.vote.percent** that converts **dem.pres.vote.share** to the percent of the 2-party vote won by the Democratic candidate. Display it by typing its name. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r vectors-convert-percent, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Practice: Convert vote shares to percentages"}
+```{r vectors-convert-percent, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Practice 20"}
 
 ```
 
@@ -951,7 +918,7 @@ grade_this({
   expected <- c(0.448, 0.408, 0.461, 0.535, 0.547, 0.503, 0.488,
                 0.537, 0.520, 0.511, 0.513, 0.493) * 100
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
   if (!grepl("dem\\.pres\\.vote\\.percent\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the result to an object called dem.pres.vote.percent.")
   }
@@ -977,13 +944,13 @@ grade_this({
 })
 ```
 
-Vector arithmetic can also express each value relative to a reference point — subtracting a single baseline value from every element. This is useful any time you want to know not just what a value is, but how much it differs from a particular starting point, such as the first year in a series, a control group mean, or a historical benchmark.
+Vector arithmetic can also express each value relative to a reference point --- subtracting a single baseline value from every element. This is useful any time you want to know not just what a value is, but how much it differs from a particular starting point, such as the first year in a series, a control group mean, or a historical benchmark.
 
-**Practice: Calculate differences from baseline**
+**Practice 21: Calculate differences from baseline**
 
-Create a vector showing how each election's Democratic vote share compares to 1980. Click "Submit Answer" when ready. Three hints are available.
+Create a vector called **compared.to.1980** showing how each election's Democratic vote share compares to 1980. Display it by typing its name. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r vectors-compare-baseline, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Practice: Calculate each election's vote share relative to 1980"}
+```{r vectors-compare-baseline, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Practice 21"}
 
 ```
 
@@ -1015,7 +982,7 @@ grade_this({
   expected <- baseline - baseline[1]
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("compared\\.to\\.1980\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the result to an object called compared.to.1980.")
@@ -1060,7 +1027,6 @@ grade_this({
 })
 ```
 
-
 ## Modifying Vectors
 
 We can also use indexing to change selected values in a vector. Instead of using square brackets only to look at certain positions, we can use them together with the assignment operator to replace the values stored in those positions. The general pattern is `vector_name[position] <- new_value`. When we want to replace more than one value at once, we can put several positions inside `c()` and provide the same number of replacement values.
@@ -1071,27 +1037,17 @@ Below is a position reference table for **dem.candidates**.
 vals <- c("Carter", "Mondale", "Dukakis", "Clinton", "Clinton", "Gore",
           "Kerry", "Obama", "Obama", "Clinton", "Biden", "Harris")
 
-make_pos_table <- function(positions, values, label) {
-  cat('<div class="table-container">')
-  cat(sprintf('<table role="table" aria-label="%s">', label))
-  cat('<thead><tr>')
-  for (p in positions) cat(sprintf('<th scope="col">[%d]</th>', p))
-  cat('</tr></thead><tbody><tr>')
-  for (v in values) cat(sprintf('<td>%s</td>', v))
-  cat('</tr></tbody></table></div>')
-}
-
 make_pos_table(1:6, vals[1:6],
   "Index positions 1 through 6 of dem.candidates")
 make_pos_table(7:12, vals[7:12],
   "Index positions 7 through 12 of dem.candidates")
 ```
 
-**Practice: Replace vector elements**
+**Practice 22: Replace vector elements**
 
-Replace the three `"Clinton"` entries in **dem.candidates** with their full names: `"Bill Clinton"` for the two earlier Clinton entries and `"Hillary Clinton"` for the later Clinton entry. Use the position reference table above to find the correct index positions. Display the result by typing its name to check your work. Click "Submit Answer" when ready. Three hints are available.
+Replace the three `"Clinton"` entries in **dem.candidates** with their full names: `"Bill Clinton"` for the two earlier Clinton entries and `"Hillary Clinton"` for the later Clinton entry. Use the position reference table above to find the correct index positions. Display the result by typing its name to check your work. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r vectors-replace-elements, exercise=TRUE, exercise.setup="prepare-vectors-combine-names", exercise.cap="Practice: Replace the Clinton entries with full names"}
+```{r vectors-replace-elements, exercise=TRUE, exercise.setup="prepare-vectors-combine-names", exercise.cap="Practice 22"}
 
 ```
 
@@ -1117,7 +1073,6 @@ dem.candidates[c(___, ___, ___)] <- c("Bill Clinton", "___", "Hillary Clinton")
 dem.candidates
 ```
 
-
 ```{r vectors-replace-elements-check}
 grade_this({
   expected <- c("Carter", "Mondale", "Dukakis", "Bill Clinton",
@@ -1125,7 +1080,7 @@ grade_this({
                 "Hillary Clinton", "Biden", "Harris")
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("dem\\.candidates\\s*\\[", code_no_comments)) {
     fail("Use square bracket indexing on dem.candidates to replace specific positions, like dem.candidates[...] <- ...")
@@ -1166,7 +1121,6 @@ grade_this({
 })
 ```
 
-
 ## Summary Functions
 
 Now that you have worked with vectors, you are ready for a few functions that summarize them. These functions are simple to use, and they will become part of your regular R toolkit.
@@ -1181,12 +1135,11 @@ Now that you have worked with vectors, you are ready for a few functions that su
 
 Many summary functions include an argument called `na.rm`, which stands for "remove missing values" and has a default value of `FALSE`. When `na.rm = FALSE`, missing values are left in place, and functions such as `mean()` will usually return `NA` if any value is missing. The `length()` function is different: it simply counts elements, including any `NA` values.
 
-**Run and observe: Apply summary functions**
+**Run and observe 23: Apply summary functions**
 
-Use the **Run Code** button to see each function applied to the vote data. This
-exercise produces several lines of output, so read them one at a time:
+This exercise produces several lines of output, so read them one at a time:
 
-```{r functions-summary-stats, exercise=TRUE, exercise.setup="prepare-vectors-combine-names", exercise.cap="Run and observe: Summary functions applied to vote data"}
+```{r functions-summary-stats, exercise=TRUE, exercise.setup="prepare-vectors-combine-names", exercise.cap="Run and observe 23"}
 length(dem.candidates)
 min(dem.pres.vote.share)
 max(dem.pres.vote.share)
@@ -1198,9 +1151,9 @@ abs(-0.055)
 
 The last two expressions are worth noting. The second-to-last shows that the mean can also be calculated by hand as the sum of all values divided by the number of values --- it should match the `mean()` output just above it. The final expression shows that `abs()` removes the negative sign: `-0.055` and `0.055` both return `0.055`. This is useful any time you need a difference but do not care about direction, such as a margin of victory. Notice also that `range()` returns two numbers --- the minimum and maximum --- not a single value.
 
-### Default values and named arguments
+### Default Values and Named Arguments
 
-Every argument either has a **[default value]{.important-text}** or is
+Every argument either has a [**default value**]{.important-text} or is
 **required**. When an argument has a default, you only need to specify it if you
 want something different from the default behavior. When an argument has no
 default, you must supply a value or R will return an error.
@@ -1209,11 +1162,9 @@ You saw this earlier when you ran `args(round)`. The output showed two arguments
 
 You can supply arguments in two ways. The first is **positional** --- R matches your inputs to arguments in the order they are listed in `args()`. The second is **by name** --- you explicitly write `argument = value`, which allows you to supply arguments in any order. For all arguments after the first, it is good practice to use names, both to avoid mistakes and to make your code easier to read.
 
-**Run and observe: Default values and named arguments**
+**Run and observe 24: Default values and named arguments**
 
-Use the **Run Code** button to see these ideas in action:
-
-```{r functions-named-args-demo, exercise=TRUE, exercise.cap="Run and observe: Default values and named arguments with round()"}
+```{r functions-named-args-demo, exercise=TRUE, exercise.cap="Run and observe 24"}
 round(3.14159)
 round(3.14159, digits = 2)
 round(digits = 2, x = 3.14159)
@@ -1223,15 +1174,15 @@ All three calls produce sensible results. The first uses the default for `digits
 
 ## Missing Values
 
-Real data often contains **[missing values]{.important-text}**, which R
+Real data often contains [**missing values**]{.important-text}, which R
 represents as `NA`. When a vector contains `NA`, most summary functions return
 `NA` by default rather than attempting to compute a result from incomplete data.
 
-**Run and observe: Missing values**
+**Run and observe 25: Missing values**
 
-Use the **Run Code** button to see what happens when a vector contains a missing value, and how `na.rm = TRUE` fixes it:
+Watch what happens when a vector contains a missing value, and how `na.rm = TRUE` changes the result:
 
-```{r functions-missing-values, exercise=TRUE, exercise.cap="Run and observe: How NA affects summary functions and how na.rm fixes it"}
+```{r functions-missing-values, exercise=TRUE, exercise.cap="Run and observe 25"}
 vote.with.missing <- c(0.448, 0.408, NA, 0.535, 0.547)
 mean(vote.with.missing)
 mean(vote.with.missing, na.rm = TRUE)
@@ -1245,22 +1196,20 @@ None of the vectors created here have missing values, so the default behavior is
 
 As we just saw, functions can take more than one argument. The `seq()` function is a good example --- it generates a sequence of numbers using three arguments: `from` (where to start), `to` (where to end), and `by` (the step size).
 
-**Run and observe: Create a number sequence**
+**Run and observe 26: Create a number sequence**
 
-Use the **Run Code** button to see `seq()` in action:
-
-```{r functions-create-sequence, exercise=TRUE, exercise.cap="Run and observe: Creating a sequence with seq()"}
+```{r functions-create-sequence, exercise=TRUE, exercise.cap="Run and observe 26"}
 my.sequence <- seq(from = 1, to = 10, by = 2)
 my.sequence
 ```
 
 Notice that all three arguments are named explicitly. This is good practice with multi-argument functions --- it makes the code easy to read and protects against mistakes from argument order.
 
-**Practice: Create election year sequence**
+**Practice 27: Create election year sequence**
 
-Using `seq()`, create a vector called **elect.year** containing every presidential election year from 1980 to 2024. Display it by typing its name to check your work. Click "Submit Answer" when ready. Three hints are available.
+Using `seq()`, create a vector called **elect.year** containing every presidential election year from 1980 to 2024. Display it by typing its name. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r functions-election-years, exercise=TRUE, exercise.cap="Practice: Create a sequence of presidential election years"}
+```{r functions-election-years, exercise=TRUE, exercise.cap="Practice 27"}
 
 ```
 
@@ -1289,7 +1238,7 @@ grade_this({
   expected <- seq(from = 1980, to = 2024, by = 4)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("elect\\.year\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the result to an object called elect.year.")
@@ -1301,7 +1250,7 @@ grade_this({
 
   if (grepl("by\\s*=\\s*2(\\s*,|\\s*\\)|$)", code_no_comments) ||
       grepl("seq\\s*\\([^)]*,\\s*[^)]*,\\s*2\\s*\\)", code_no_comments)) {
-    fail("Check your step size --- presidential elections are 4 years apart, so the by argument should be 4.")
+    fail("Check your step size --- how many years pass between one presidential election and the next?")
   }
 
   if (grepl("from\\s*=\\s*1(\\s*,|\\s*\\)|$)", code_no_comments) ||
@@ -1330,7 +1279,7 @@ grade_this({
   }
 
   if (length(.result) != length(expected)) {
-    fail("Check your step size --- presidential elections are 4 years apart.")
+    fail("Your sequence has the wrong number of values. Check the interval you used between elections.")
   }
 
   if (!isTRUE(all.equal(.result, expected))) {
@@ -1345,11 +1294,9 @@ Note that decreasing sequences work the same way with a negative `by` value.
 This is useful when the order itself matters, such as listing years from most
 recent to oldest.
 
-**Run and observe: Create a decreasing sequence**
+**Run and observe 28: Create a decreasing sequence**
 
-Use the **Run Code** button to see a sequence that counts backwards:
-
-```{r functions-decreasing-sequence, exercise=TRUE, exercise.cap="Run and observe: A sequence counting backwards"}
+```{r functions-decreasing-sequence, exercise=TRUE, exercise.cap="Run and observe 28"}
 seq(from = 2024, to = 1980, by = -4)
 ```
 
@@ -1359,11 +1306,9 @@ The `names()` function lets you assign labels to the elements of a vector. Names
 elect.year <- seq(from = 1980, to = 2024, by = 4)
 ```
 
-**Run and observe: Assign names to a vector**
+**Run and observe 29: Assign names to a vector**
 
-Use the **Run Code** button to see how names are assigned and displayed:
-
-```{r functions-assign-names, exercise=TRUE, exercise.setup="functions-prepare-names", exercise.cap="Run and observe: Assigning names to vector elements"}
+```{r functions-assign-names, exercise=TRUE, exercise.setup="functions-prepare-names", exercise.cap="Run and observe 29"}
 names(dem.pres.vote.share)
 names(dem.pres.vote.share) <- elect.year
 names(dem.pres.vote.share)
@@ -1374,7 +1319,7 @@ The first line confirms there are no names yet. The second assigns the election 
 
 ## Packages
 
-Base R contains many functions, but it does not contain everything we might want to use. Much of R's power comes from **[packages]{.important-text}**, which are add-ons that bundle together code, data, and help files. You can think of a package like an app on your phone: installing it puts it on your device, but opening it is what makes it available to use. In R, `install.packages()` installs a package, and `library()` loads it for the current R session.
+Base R contains many functions, but it does not contain everything we might want to use. Much of R's power comes from [**packages**]{.important-text}, which are add-ons that bundle together code, data, and help files. You can think of a package like an app on your phone: installing it puts it on your device, but opening it is what makes it available to use. In R, `install.packages()` installs a package, and `library()` loads it for the current R session.
 
 There are tens of thousands of packages written for R, many of them contributed to the Comprehensive R Archive Network (CRAN). R does not automatically install or load all of them, because that would take unnecessary space and memory. Instead, you install the packages you need and load them when you want to use them.
 
@@ -1382,21 +1327,21 @@ For example, we will use the `ggplot()` function from the [ggplot2]{.package-nam
 
 If you try to use a function from a package that is not loaded, R will return an error.
 
-**Run and observe: See a package error**
+**Run and observe 30: See a package error**
 
-Use the **Run Code** button to see what happens when you call a function from an unloaded package:
+```{r prepare-package-error, echo=FALSE}
+if ("package:ggplot2" %in% search()) detach("package:ggplot2")
+```
 
-```{r packages-error-demo, exercise=TRUE, exercise.cap="Run and observe: Error from calling a function in an unloaded package"}
+```{r packages-error-demo, exercise=TRUE, exercise.setup="prepare-package-error", exercise.cap="Run and observe 30"}
 ggplot()
 ```
 
 Any time you see an error that begins "could not find function," the most likely cause is that you have not loaded the package that contains it.
 
-**Run and observe: Load a package and use a function**
+**Run and observe 31: Load a package and use a function**
 
-Use the **Run Code** button to see what happens when you load the package first:
-
-```{r packages-load-demo, exercise=TRUE, exercise.cap="Run and observe: Loading a package with library() and calling a function"}
+```{r packages-load-demo, exercise=TRUE, exercise.cap="Run and observe 31"}
 library(ggplot2)
 ggplot()
 ```
@@ -1404,12 +1349,10 @@ ggplot()
 You will see a blank gray plotting canvas --- that is normal. The `ggplot()` function creates an empty canvas waiting for data and plot specifications. The important thing is that it runs without error, confirming the package loaded successfully.
 
 To get help with an entire package, use the `help()` function with the `package` argument set to the package name in quotes. The output looks cleaner in RStudio than it does here. Do not try to read every line now; just notice that package help gives you a list of available functions, documentation, and examples.
-**Run and observe: Get package help**
 
-Use the **Run Code** button to access help for the [ggplot2]{.package-name} package:
+**Run and observe 32: Get package help**
 
-
-```{r packages-get-help, exercise=TRUE, exercise.cap="Run and observe: Package-level help with help(package = ...)"}
+```{r packages-get-help, exercise=TRUE, exercise.cap="Run and observe 32"}
 help(package = "ggplot2")
 ```
 
@@ -1417,11 +1360,9 @@ help(package = "ggplot2")
 
 You can add comments to your code using the `#` symbol. Anything on a line after `#` is ignored by R and will not be executed. Comments are useful for noting why you wrote a particular piece of code, what a function does, or what arguments it takes.
 
-**Run and observe: Use code comments**
+**Run and observe 33: Use code comments**
 
-Use the **Run Code** button to see how comments work alongside executable code:
-
-```{r comments-demo, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Run and observe: Comments alongside executable code"}
+```{r comments-demo, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Run and observe 33"}
 # Calculate the mean Democratic vote share across all elections
 mean(dem.pres.vote.share, na.rm = TRUE)
 ```
@@ -1432,11 +1373,11 @@ Notice that the comment line is ignored entirely and only the `mean()` call prod
 
 The following exercises combine concepts you have learned throughout this tutorial. Take your time and think through each problem step by step. You have seen all of the pieces already; the work now is deciding how to put them together.
 
-**Apply: Calculate Republican vote shares**
+**Apply 34: Calculate Republican vote shares**
 
-Create a vector called **rep.pres.vote.share** containing the share of the two-party vote received by the Republican presidential candidate. Display it by typing its name. You do not need to type in the vote shares --- in a two-party race you can calculate them directly from the Democratic vote shares. Click "Submit Answer" when ready. Three hints are available.
+Create a vector called **rep.pres.vote.share** containing the share of the two-party vote received by the Republican presidential candidate. Display it by typing its name. You do not need to type in the vote shares --- in a two-party race you can calculate them directly from the Democratic vote shares. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r practice-republican-shares, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Apply: Calculate Republican two-party vote shares"}
+```{r practice-republican-shares, exercise=TRUE, exercise.setup="prepare-vectors-election-data", exercise.cap="Apply 34"}
 
 ```
 
@@ -1461,7 +1402,6 @@ rep.pres.vote.share <- ___ - dem.pres.vote.share
 rep.pres.vote.share
 ```
 
-
 ```{r practice-republican-shares-check}
 grade_this({
   dem <- c(0.448, 0.408, 0.461, 0.535, 0.547, 0.503, 0.488,
@@ -1469,7 +1409,7 @@ grade_this({
   expected <- 1 - dem
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("rep\\.pres\\.vote\\.share\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the result to an object called rep.pres.vote.share.")
@@ -1480,7 +1420,7 @@ grade_this({
   }
 
   if (!grepl("1\\s*-\\s*dem\\.pres\\.vote\\.share", code_no_comments)) {
-    fail("Use the form 1 - dem.pres.vote.share to calculate the Republican vote share.")
+    fail("Your calculation does not have the right form. In a two-party race, what must the two shares add up to?")
   }
 
   if (!grepl("rep\\.pres\\.vote\\.share\\s*$", trimws(code_no_comments))) {
@@ -1499,16 +1439,16 @@ grade_this({
   }
 
   if (!isTRUE(all.equal(.result, expected, tolerance = 0.001))) {
-    fail("Your values do not look right. Remember that Republican share equals 1 minus the Democratic share.")
+    fail("Your values do not look right. Check what the two vote shares must sum to in a two-party race.")
   }
 
   pass("Well done! Republican candidates averaged about 50.3% of the two-party vote across these 12 elections.")
 })
 ```
 
-**Apply: Calculate victory margins**
+**Apply 35: Calculate victory margins**
 
-Create a vector called **victory.margin** that contains the margin of victory for each election --- that is, the absolute difference between the two parties' vote shares. You will need the `abs()` function, which returns the absolute value of a number. Display it by typing its name. Click "Submit Answer" when ready. Three hints are available.
+Create a vector called **victory.margin** that contains the margin of victory for each election --- that is, the absolute difference between the two parties' vote shares. You will need the `abs()` function, which returns the absolute value of a number. Display it by typing its name. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r practice-setup-for-margins, echo=FALSE}
 dem.pres.vote.share <- c(0.448, 0.408, 0.461, 0.535, 0.547, 0.503, 0.488,
@@ -1516,7 +1456,7 @@ dem.pres.vote.share <- c(0.448, 0.408, 0.461, 0.535, 0.547, 0.503, 0.488,
 rep.pres.vote.share <- 1 - dem.pres.vote.share
 ```
 
-```{r practice-victory-margins, exercise=TRUE, exercise.setup="practice-setup-for-margins", exercise.cap="Apply: Calculate the margin of victory in each election"}
+```{r practice-victory-margins, exercise=TRUE, exercise.setup="practice-setup-for-margins", exercise.cap="Apply 35"}
 
 ```
 
@@ -1550,7 +1490,7 @@ grade_this({
   expected <- abs(rep_share - dem)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("victory\\.margin\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the result to an object called victory.margin.")
@@ -1560,12 +1500,9 @@ grade_this({
     fail("Make sure you are using the abs() function to ensure all margins are positive.")
   }
 
-  if (!grepl("rep\\.pres\\.vote\\.share", code_no_comments)) {
-    fail("Make sure you are using rep.pres.vote.share in your calculation.")
-  }
-
-  if (!grepl("dem\\.pres\\.vote\\.share", code_no_comments)) {
-    fail("Make sure you are using dem.pres.vote.share in your calculation.")
+  if (!grepl("rep\\.pres\\.vote\\.share", code_no_comments) &&
+      !grepl("dem\\.pres\\.vote\\.share", code_no_comments)) {
+    fail("Make sure you are calculating the margin from the vote share vectors rather than typing the values manually.")
   }
 
   if (!grepl("victory\\.margin\\s*$", trimws(code_no_comments))) {
@@ -1599,11 +1536,11 @@ grade_this({
 })
 ```
 
-**Apply: Create Republican candidate names**
+**Apply 36: Create Republican candidate names**
 
-Create a character vector called **rep.names** containing the last names of the Republican candidates in order from 1980 to 2024: Reagan, Reagan, Bush, Bush, Dole, Bush, Bush, McCain, Romney, Trump, Trump, Trump. Display it by typing its name. Click "Submit Answer" when ready. Three hints are available.
+Create a character vector called **rep.names** containing the last names of the Republican candidates in order from 1980 to 2024: Reagan, Reagan, Bush, Bush, Dole, Bush, Bush, McCain, Romney, Trump, Trump, Trump. Display it by typing its name. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r practice-republican-names, exercise=TRUE, exercise.cap="Apply: Create a vector of Republican candidate names"}
+```{r practice-republican-names, exercise=TRUE, exercise.cap="Apply 36"}
 
 ```
 
@@ -1635,7 +1572,7 @@ grade_this({
                 "Bush", "McCain", "Romney", "Trump", "Trump", "Trump")
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("rep\\.names\\s*(<-|=)", code_no_comments)) {
     fail("Make sure you assign the names to an object called rep.names.")
@@ -1662,11 +1599,11 @@ grade_this({
 })
 ```
 
-**Apply: Calculate mean Republican vote share**
+**Apply 37: Calculate mean Republican vote share**
 
-Using the object **rep.pres.vote.share** you just created, find the mean share of the two-party vote received by Republican candidates. There are no missing values, so you do not need to specify `na.rm`. Click "Submit Answer" when ready. Two hints are available.
+Using the object **rep.pres.vote.share** you just created, find the mean share of the two-party vote received by Republican candidates. There are no missing values, so you do not need to specify `na.rm`. Two hints are available. Click "Submit Answer" to check your work.
 
-```{r practice-mean-republican, exercise=TRUE, exercise.setup="practice-setup-for-margins", exercise.cap="Apply: Find the mean Republican two-party vote share"}
+```{r practice-mean-republican, exercise=TRUE, exercise.setup="practice-setup-for-margins", exercise.cap="Apply 37"}
 
 ```
 
@@ -1689,7 +1626,7 @@ grade_this({
   expected <- mean(1 - dem)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("mean\\s*\\(", code_no_comments)) {
     fail("Make sure you are using the mean() function.")
@@ -1712,11 +1649,11 @@ grade_this({
 })
 ```
 
-**Apply: Find Republican vote share range**
+**Apply 38: Find Republican vote share range**
 
-Using the object **rep.pres.vote.share** you just created, find the range of the two-party vote share received by Republican candidates. Click "Submit Answer" when ready. Two hints are available.
+Using the object **rep.pres.vote.share** you just created, find the range of the two-party vote share received by Republican candidates. Two hints are available. Click "Submit Answer" to check your work.
 
-```{r practice-range-republican, exercise=TRUE, exercise.setup="practice-setup-for-margins", exercise.cap="Apply: Find the range of Republican two-party vote shares"}
+```{r practice-range-republican, exercise=TRUE, exercise.setup="practice-setup-for-margins", exercise.cap="Apply 38"}
 
 ```
 
@@ -1739,7 +1676,7 @@ grade_this({
   expected <- range(1 - dem)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("range\\s*\\(", code_no_comments)) {
     fail("Make sure you are using the range() function.")
@@ -1767,15 +1704,109 @@ grade_this({
 })
 ```
 
+The remaining questions ask you to step back from writing code and think about
+what R is actually doing. In each one the code runs without an error --- the
+problem is that the result is not what the person thinks it is.
+
+Start with what happens when a variable is stored in a form that does not match
+what you want to do with it.
+
+**Apply 39: Diagnose a failed calculation**
+
+```{r question-class-mismatch, echo=FALSE}
+question("A student enters responses to a 5-point survey question by typing them with quotation marks --- \"1\", \"2\", \"3\", \"4\", \"5\" --- and stores them in a vector called **responses**. When they run `mean(responses)`, R returns an error instead of a number. What went wrong?",
+  correct = "Right. The quotation marks made these character strings.",
+  answer("The quotation marks stored the values as character strings, and `mean()` requires numeric values.", correct = TRUE,
+         message = "Anything typed inside quotation marks is stored as text, even when it looks like a number. R has no way to know the student meant these as quantities --- `class(responses)` would return `character`, and arithmetic on character values is not defined. The values would need to be entered without quotation marks to be treated as numbers."),
+  answer("R recognizes that a 5-point survey scale is a set of categories and refuses to average categories.",
+         message = "R does not know anything about survey scales or measurement levels --- it only knows the class of the object. The error here comes from the values being stored as text, not from any judgment R made about what the variable means. If the same responses were entered without quotation marks, `mean()` would run without complaint, whether or not averaging them is a good idea substantively."),
+  answer("The vector contains a missing value, so `na.rm = TRUE` is needed.",
+         message = "A missing value produces a different outcome: `mean()` would return `NA` rather than an error. An error message about arithmetic points to the class of the object instead."),
+  answer("`mean()` cannot be applied to a vector this short.",
+         message = "The length of a vector does not affect whether `mean()` works. `mean()` will happily compute the mean of a single numeric value. The problem is the class of the values, not how many there are."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Incorrect. Try again."
+)
+```
+
+Next, think about what actually happens at the moment you assign one object
+using another.
+
+**Apply 40: Diagnose a stale result**
+
+```{r question-assignment-snapshot, echo=FALSE}
+question("A student creates **dem.share** with the 12 Democratic vote shares, then creates **rep.share** by running `rep.share <- 1 - dem.share`. Later they notice that one value in **dem.share** was typed incorrectly and fix it. Without running anything else, they report the Republican shares from **rep.share**. Why are the reported values wrong?",
+  correct = "Right. **rep.share** holds values calculated at the moment it was created.",
+  answer("**rep.share** stores the values that existed when it was created. Correcting **dem.share** afterwards does not change them, so **rep.share** has to be calculated again.", correct = TRUE,
+         message = "Assignment stores a result, not a relationship. When `1 - dem.share` was evaluated, R computed 12 numbers and put those numbers in **rep.share**. It kept no record of where they came from. Nothing about **rep.share** changes when **dem.share** changes, which is why the corrected value never reached it. This is worth remembering whenever you build one object out of another: if the input changes, every object derived from it has to be rebuilt."),
+  answer("R keeps **rep.share** linked to **dem.share** and updates it automatically, so the student must have made a different error.",
+         message = "R does not maintain links between objects. This is a reasonable expectation if you are used to spreadsheets, where a cell containing a formula recalculates whenever its inputs change. R works differently: `<-` evaluates the right-hand side once and stores the result."),
+  answer("Fixing one element of **dem.share** changed the vector's length, so the subtraction no longer lines up.",
+         message = "Replacing a value at one position does not change how many elements a vector has. Even if the length had changed, that would not affect **rep.share**, which was already calculated and stored."),
+  answer("The correction was made incorrectly --- assigning to a single position replaces the entire vector.",
+         message = "Indexed assignment replaces only the position named inside the square brackets and leaves everything else intact. That is exactly what you did when you replaced the Clinton entries earlier in this tutorial."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Incorrect. Try again."
+)
+```
+
+Now think about reading output carefully --- specifically, what a function
+actually hands back to you.
+
+**Apply 41: Read the output of a function**
+
+```{r question-range-output, echo=FALSE}
+question("A student wants a single number describing how spread out Republican vote shares are. They run `range(rep.pres.vote.share)`, see `0.453 0.592` in the output, and report that the spread is 0.453. What went wrong?",
+  correct = "Right. `range()` returned two values, not one.",
+  answer("`range()` returns the minimum and the maximum. The student reported the minimum as if it were a measure of spread; a single spread number would be the difference between the two values.", correct = TRUE,
+         message = "This is why it is worth checking what a function hands back rather than assuming. `range()` returns a two-element vector --- the smallest value and the largest value --- so `0.453` is the lowest Republican share in the data and `0.592` is the highest. Subtracting one from the other gives 0.139, which is a single number describing spread. Reading only the first value reports where the distribution starts, not how wide it is."),
+  answer("`range()` returned an error because the vector has 12 values.",
+         message = "There is no error here. `range()` ran successfully and produced exactly what it is designed to produce; the difficulty is in how the output was read."),
+  answer("The first number is the mean and the second is the spread.",
+         message = "`range()` does not return a mean. Both numbers it returns are values that actually appear in the data --- the smallest and the largest."),
+  answer("`range()` needs `na.rm = TRUE` to return a single value.",
+         message = "`na.rm` controls how missing values are handled and has no effect on how many values `range()` returns. With or without it, `range()` returns two numbers."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Incorrect. Try again."
+)
+```
+
+Finally, think about what R is telling you when a summary function hands back
+something other than a number.
+
+**Apply 42: Interpret an unexpected result**
+
+```{r question-na-diagnosis, echo=FALSE}
+question("You create a vector called **income** holding the annual income reported by 1,500 survey respondents. When you run `mean(income)`, R returns `NA`. What does this suggest?",
+  correct = "Right. At least one income value is missing.",
+  answer("At least one respondent's income is missing, and `mean()` returns `NA` whenever any value is missing unless you tell it otherwise.", correct = TRUE,
+         message = "`NA` here is R declining to compute a mean from incomplete data rather than quietly working around the gap. Adding `na.rm = TRUE` will produce a number, but it is worth being clear about what that number is: the mean among respondents who answered the income question, not the mean among all 1,500 respondents. With income in particular that difference matters, because people who decline to report income are not a random subset of respondents."),
+  answer("Every value in the vector is missing.",
+         message = "A single missing value is enough to produce this result. `mean()` does not distinguish between one missing value and a thousand --- either way it returns `NA` unless told to remove them."),
+  answer("The incomes were entered as text rather than as numbers.",
+         message = "That would produce a different outcome. Arithmetic on character values returns an error message, not `NA`. Getting `NA` back means the calculation was attempted and could not be completed with the values present."),
+  answer("`mean()` always returns `NA` unless `na.rm = TRUE` is specified.",
+         message = "`mean()` returns a number perfectly well without `na.rm` when nothing is missing --- you saw that earlier in this tutorial with the vote share data. The argument matters only when missing values are present."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Incorrect. Try again."
+)
+```
+
 ## The Takeaways
 
 This tutorial introduced you to the fundamental building blocks of working with data in R. These concepts will underlie everything you do in this course.
 
-R serves two roles simultaneously: it is a calculator that performs mathematical operations, and a programming environment that stores, manipulates, and analyzes data. The bridge between these two roles is the **object** --- a named container that holds any kind of value. You assign values to objects with `<-`, and R keeps track of each object's **class** so it knows what operations are valid. The three classes you encountered here are numeric, character, and function.
+R serves two roles simultaneously: it is a calculator that performs mathematical operations, and a programming environment that stores, manipulates, and analyzes data. The bridge between these two roles is the [**object**]{.important-text} --- a named container that holds any kind of value. You assign values to objects with `<-`, and R keeps track of each object's [**class**]{.important-text} so it knows what operations are valid. The three classes you encountered here are numeric, character, and function.
 
-Most real data analysis involves working with many values at once, which is why **vectors** are so central to R. You create them with `c()`, access individual elements with square bracket indexing [], and apply arithmetic operations that automatically repeat across every element. These simple building blocks --- creating, indexing, and transforming vectors --- will appear in nearly every piece of code you write this semester.
+Most real data analysis involves working with many values at once, which is why [**vectors**]{.important-text} are so central to R. You create them with `c()`, access individual elements with square bracket indexing `[]`, and apply arithmetic operations that automatically repeat across every element. These simple building blocks --- creating, indexing, and transforming vectors --- will appear in nearly every piece of code you write this semester.
 
-**Functions** are what make R powerful. Every function takes one or more arguments and returns an output. You learned to use `args()` to see what arguments a function accepts, `?` to read what a function does, and the distinction between required arguments and optional ones with default values. When a function lives in a package rather than base R, you install it once with `install.packages()` and load it each session with `library()`.
+[**Functions**]{.important-text} are what make R powerful. Every function takes one or more arguments and returns an output. You learned to use `args()` to see what arguments a function accepts, `?` to read what a function does, and the distinction between required arguments and optional ones with default values --- along with the habit of supplying arguments by name, as you did with `seq()`, so that argument order cannot trip you up. When a function lives in a package rather than base R, you install it once with `install.packages()` and load it each session with `library()`.
+
+Once you have a vector, a small set of functions will tell you most of what you need to know about it: `length()`, `min()`, `max()`, `range()`, `mean()`, and `sum()`. Two habits are worth carrying forward from them. The first is to check what a function actually returns rather than assuming --- `range()` hands back two numbers, the minimum and the maximum, not a single measure of spread. The second is that real data contains [**missing values**]{.important-text}, which R represents as `NA`. Most summary functions return `NA` when any value is missing, and `na.rm = TRUE` tells them to set those cases aside. That produces a number, but it also changes which cases the number describes --- a distinction worth keeping in view every time you use it.
 
 One theme runs through all of this: R requires precision. Mismatched parentheses, a missing comma, a misspelled object name --- any of these will produce an error. This is not a sign that you are bad at R. It is just how programming works, and you will get faster at spotting these issues with practice. The fact that you have worked through this tutorial means you already have the foundation you need to keep building.
 
@@ -1783,11 +1814,11 @@ One theme runs through all of this: R requires precision. Mismatched parentheses
 
 When you have completed all exercises in this tutorial, generate your submission code using the button below. Copy the full code that appears and paste it into the Canvas submission box for this tutorial. The code can be long --- make sure you have copied all of it before submitting.
 
-```{r encode-logic, context="server"}
+```{r encode-logic-01, context="server"}
 learnrhash::encoder_logic()
 ```
 
-```{r encode, echo=FALSE}
+```{r encode-ui-01, echo=FALSE}
 learnrhash::encoder_ui(
   ui_before = shiny::div(
     shiny::p("Click the button below to generate your submission code.

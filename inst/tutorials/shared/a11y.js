@@ -58,8 +58,8 @@
         '<div id="a11y-content" style="display:none;padding:0 16px 16px 16px;">' +
           '<p><strong>Keyboard navigation:</strong></p>' +
           '<ul>' +
-            '<li>Tab moves between section headings</li>' +
-            '<li>Enter jumps to selected heading</li>' +
+            '<li>Tab moves between interactive elements</li>' +
+            '<li>Enter activates buttons</li>' +
             '<li>Ctrl + F searches within tutorial</li>' +
           '</ul>' +
           '<p><strong>Important:</strong></p>' +
@@ -109,20 +109,10 @@
     safe(function () {
       if (window.MathJax && window.MathJax.Hub) {
         // MathJax v2 HTML-CSS renderer
-        window.MathJax.Hub.Queue(["Typeset", window.MathJax.Hub], function() {
-          // Fix inline math sizing after typesetting
-          document.querySelectorAll('span.MathJax:not(.MathJax_Display)').forEach(function(el) {
-            el.style.fontSize = '0.85em';
-          });
-        });
+        window.MathJax.Hub.Queue(["Typeset", window.MathJax.Hub]);
       } else if (window.MathJax && window.MathJax.typesetPromise) {
         // MathJax v3 fallback
-        window.MathJax.typesetPromise().then(function() {
-          document.querySelectorAll('mjx-container:not([display="true"])').forEach(function(el) {
-            el.style.fontSize = '0.85em';
-            el.style.verticalAlign = 'middle';
-          });
-        });
+        window.MathJax.typesetPromise();
       }
     });
   }
@@ -161,10 +151,19 @@
     setInterval(function () { safe(enhanceMessages); }, 1500);
     setTimeout(retypeset, 1000); // initial render
 
-    // Override Safari's native blue focus ring with amber
+    // Override Safari's native blue focus ring with amber.
+    // Scoped to genuinely interactive elements so that containers and other
+    // nodes that receive focus programmatically do not pick up a stray ring.
+    var INTERACTIVE = "a[href], button, input, textarea, select, " +
+                      "[tabindex]:not([tabindex='-1']), .btn, .tutorial-panel-name";
+
+    function isInteractive(el) {
+      return !!(el && el.matches && el.matches(INTERACTIVE));
+    }
+
     document.addEventListener("focusin", function(e) {
       var el = e.target;
-      if (el && el.style) {
+      if (isInteractive(el) && el.style) {
         el.style.outline = "3px solid #b45309";
         el.style.outlineOffset = "2px";
         el.style.borderRadius = "4px";
@@ -173,7 +172,7 @@
 
     document.addEventListener("focusout", function(e) {
       var el = e.target;
-      if (el && el.style) {
+      if (isInteractive(el) && el.style) {
         el.style.outline = "";
         el.style.outlineOffset = "";
         el.style.borderRadius = "";

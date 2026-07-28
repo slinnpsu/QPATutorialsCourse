@@ -13,24 +13,18 @@ description: >
 
 ## Overview {#main-content}
 
-The multiple-regression models in Tutorial 16 assumed that each predictor's slope remained constant across values of the other predictors. Tutorial 17 made that additive assumption visible through parallel prediction lines. This tutorial relaxes it. In many political and social relationships, the slope of one variable depends on the level of another --- and a model that ignores this may misrepresent the relationship.
+Tutorial 15 introduced regression slopes, and Tutorial 16 extended them to additive multiple-regression models. In those additive models, each predictor has a single, stable estimated association with the outcome across values of the other predictors. Tutorial 17 made that assumption visible: when an interval predictor is plotted for different values or categories of another predictor, the fitted lines are parallel.
 
-When the slope of one variable depends on the value of another, we say the relationship is [**conditional**]{.important-text} or [**interactive**]{.important-text}. Estimating a conditional relationship in R requires adding one new ingredient to the model: a term multiplying the two variables together, created with the `*` operator. The estimation commands --- `lm()`, `summary()` --- work exactly as before, but the coefficients must now be interpreted conditionally rather than as slopes that remain constant across all values of the other predictor. That change in interpretation is what this tutorial focuses on.
+This tutorial relaxes it. Many political and social relationships are conditional --- the estimated association between one variable and the outcome depends on the level of another variable. When that is the case, a model that ignores the dependence may seriously misrepresent what is happening.
 
-::: {.tip}
-**A note on the word "conditional."** In Tutorial 16, "conditional" meant estimating a coefficient while holding the other variables in the model constant --- an all-else-equal association. Here it has a more specific meaning: the slope itself changes depending on the value of another variable. Both uses are standard, but they are distinct. In this tutorial, a [**conditional effect**]{.important-text} is the conventional statistical term for a slope at a particular value of another predictor. It describes an estimated association and does not by itself imply a causal effect.
-:::
-
-Conditional relationships are most clearly communicated through prediction plots showing how one variable's slope changes across values of the other. Tutorial 19 will build those. Here we focus on the coefficients first, which is the foundation you need to read those plots meaningfully.
-
-As in the previous tutorials, the hypothesis tests are interpreted as evidence about broader political processes rather than only the particular observations in these datasets. Missingness varies across examples --- Example 2 has only 116 complete cases, so its estimates require particular caution.
+This tutorial introduces interaction models: how to recognize when they are needed, how to interpret their coefficients, and how to compute conditional estimated associations at meaningful values of the interacting predictors. Tutorial 19 will then build prediction plots that make those conditional associations visible across the full observed range.
 
 In this tutorial, you will learn to estimate and interpret conditional relationships in multiple regression. Specifically, we will cover:
 
 * How to recognize when a relationship is likely to be conditional and what to ask before estimating an interaction model
+* How to understand what interaction coefficients and conditional slopes mean, for both interval × interval and categorical × interval interactions
 * How to include an interaction term in a regression formula using the `*` operator in `lm()`
-* How to interpret the coefficients on the interacting variables and the interaction term itself
-* How to compute and interpret the conditional slope of one variable at meaningful values of another, and how to read the model in both directions
+* How to compute and interpret the conditional estimated association of one variable at meaningful values of another, and how to read the model in both directions
 
 ```{r setup, include=FALSE}
 library(learnr)
@@ -64,35 +58,43 @@ model_fhrol_additive <- lm(fh_rol ~ wdi_fertility + democ_f, data = qog)
 
 ## What Is a Conditional Relationship?
 
-If the slope of $X_1$ on $Y$ differs based on the value of $X_2$, the relationship is conditional. $X_2$ moderates or conditions the slope of $X_1$ --- and because the relationship is symmetric, $X_1$ conditions the slope of $X_2$ at the same time.
+Consider a simple question: is income associated with voter turnout? The answer from an additive model is a single estimated association that applies equally at every unemployment level. But you might reasonably expect the income-turnout relationship to look different when unemployment is high than when it is low. When unemployment is high, even relatively wealthy people may feel economically anxious --- narrowing the gap in turnout between high- and low-income residents. When unemployment is low, the association between income and turnout may be stronger --- income may be a better signal of who has the resources and motivation to vote. In an additive model with income entered as an interval predictor, the answer is a single slope --- an estimated income association that applies equally at every unemployment level. If the estimated income association changes depending on the level of unemployment, the relationship is conditional, and that single-slope model may miss what is actually happening.
+
+More formally: if the estimated association of $X_1$ with $Y$ differs based on the value of $X_2$, the relationship is [**conditional**]{.important-text} or [**interactive**]{.important-text}. $X_2$ conditions the association of $X_1$ --- and because the relationship is symmetric, $X_1$ conditions the association of $X_2$ at the same time.
 
 ```{r diagram-conditional-t18, echo=FALSE, out.width="70%", fig.align="center"}
 knitr::include_graphics("images/conditional.png")
 ```
 
-If you estimate a model that includes $X_1$ and $X_2$ as separate predictors but omits the interaction term $X_1 \times X_2$, the model forces $X_1$ to have the same slope at every value of $X_2$ --- which may badly misrepresent the pattern in the data. You cannot identify a conditional relationship by looking at the main effects alone.
+If you estimate a model that includes $X_1$ and $X_2$ as separate predictors but omits the interaction term $X_1 \times X_2$, the model forces $X_1$ to have the same estimated association at every value of $X_2$ --- which may badly misrepresent the pattern in the data. A model containing only the two constituent terms cannot estimate how one association changes across values of the other predictor. You need an interaction term to represent that pattern.
 
-### One question to ask before specifying an interaction
+::: {.tip}
+**A note on the word "conditional."** In Tutorial 16, "conditional" meant estimating a coefficient while holding the other variables in the model constant --- an all-else-equal association. Here it has a more specific meaning: the estimated association itself changes depending on the value of another variable. Both uses are standard, but they are distinct. In this tutorial, a [**conditional effect**]{.important-text} is the conventional statistical term for an estimated association at a particular value of another predictor. It describes a model-implied relationship and does not by itself imply a causal effect. When one predictor is interval, we will often call it a conditional slope to emphasize what is being calculated --- the two terms refer to the same thing.
+:::
 
-Before estimating a conditional model, think through what you expect the slope of $X_1$ to do as $X_2$ increases. Three possibilities:
+This tutorial covers two of the three possible interaction types: interval × interval (Example 1) and categorical × interval (Examples 2 and 3). A third type --- two categorical variables interacting --- is also possible and follows the same conceptual logic. You would ask how the association between one categorical variable and the outcome differs across categories of the other. In practice, you would compute predicted outcomes for each combination of categories and compare them to see where the associations differ. We do not cover this case in detail because working through all category combinations simultaneously requires care, but the approach should be familiar once you have worked through the examples here.
 
-- The slope could become **more positive** as $X_2$ increases.
-- The slope could become **more negative** as $X_2$ increases.
-- The slope could remain roughly **unchanged**.
+## Understanding Interaction Coefficients and Conditional Slopes
 
-Depending on the slope's starting value, a changing slope may become stronger, weaker, or even reverse direction. The key question is simply: *how do you expect the slope of $X_1$ to change as $X_2$ increases?* Having an expectation gives you something concrete to check against the results.
+Both interaction types covered in this tutorial follow the same underlying structure. Before studying the examples, it helps to see that structure clearly.
 
-You may not have clear expectations. Your expectations may turn out to be wrong. When they are, report what you find honestly and think carefully about alternative explanations.
+### The Common Logic
 
-## Interpreting Interaction Coefficients
+Two quantities to keep distinct --- this distinction is the most important idea in the tutorial:
 
-Before seeing the rules, two plain-language definitions:
+[**Interaction coefficient**]{.important-text}: the estimated difference in one predictor's slope across values or categories of the other predictor. It is a rate of change in a slope, or a difference between slopes.
 
-[**Interaction coefficient**]{.important-text}: the estimated change in the slope of one predictor associated with a one-unit increase in the other predictor.
+[**Conditional slope**]{.important-text} (also called a [**conditional effect**]{.important-text}): the estimated slope of one predictor at a specific value or category of another predictor.
 
-[**Conditional effect**]{.important-text}: the estimated slope of one predictor at a particular value of another predictor.
+The interaction coefficient is not itself a slope. It is what you add to a baseline slope to get the conditional slope at a different value or category. Confusing these two quantities is the most common error students make in this topic.
 
-The interaction coefficient is a rate of change in a slope. The conditional effect is a slope. They are different things --- and confusing them is the most common error students make in this topic.
+In both interaction types, the logic is the same:
+
+> Begin with a baseline slope and add the contribution represented by the interaction term.
+
+The baseline slope is the main-effect coefficient on the interval predictor. The interaction term adjusts that baseline for different values or categories of the other variable.
+
+### Interval × Interval Interactions
 
 For a model with two interval predictors and an interaction term:
 
@@ -103,28 +105,83 @@ the coefficients are interpreted as follows:
 1. $\hat{\beta}_1$ is the slope of $X_1$ [**when $X_2 = 0$**]{.important-text}.
 2. $\hat{\beta}_2$ is the slope of $X_2$ [**when $X_1 = 0$**]{.important-text}.
 3. $\hat{\beta}_3$ is the estimated change in the slope of $X_1$ associated with a one-unit increase in $X_2$ --- and equivalently, the estimated change in the slope of $X_2$ associated with a one-unit increase in $X_1$.
-4. The [**conditional effect of $X_1$**]{.important-text} at any given value of $X_2$ is: $\hat{\beta}_1 + \hat{\beta}_3 X_2$.
-5. The [**conditional effect of $X_2$**]{.important-text} at any given value of $X_1$ is: $\hat{\beta}_2 + \hat{\beta}_3 X_1$.
+4. The [**conditional slope of $X_1$**]{.important-text} at any given value of $X_2$ is: $\hat{\beta}_1 + \hat{\beta}_3 X_2$.
+5. The [**conditional slope of $X_2$**]{.important-text} at any given value of $X_1$ is: $\hat{\beta}_2 + \hat{\beta}_3 X_1$.
 
-In most applications, begin with the conditional-effect formula for the predictor that is central to your substantive question. Rule 1 is the special case of Rule 4 when $X_2 = 0$: the slope of $X_1$ at that value is simply $\hat{\beta}_1$. The same logic applies in reverse to the slope of $X_2$: Rule 2 is the special case of Rule 5 when $X_1 = 0$. Whether zero is a substantively meaningful value depends on the observed range of each predictor.
+In most applications, begin with the conditional-slope formula for whichever predictor your research question is primarily about --- but remember that the interaction is symmetric and the model can be read in either direction. Rule 1 is the special case of Rule 4 when $X_2 = 0$: the slope of $X_1$ at that value is simply $\hat{\beta}_1$. Whether zero is a substantively meaningful value depends on the observed range of each predictor.
 
-## Do Mortality Risk and Wage Growth Conditionally Predict Clinton's Vote?
+### Categorical × Interval Interactions
 
-In Tutorial 16, both **mortality_risk_25_45** and **wage_growth** significantly predicted **dem2p_percent** as separate predictors. Here we ask a different question: does the relationship between mortality risk and Clinton's vote vary depending on the level of wage growth?
+When one predictor is categorical and the other is interval, the same baseline-plus-adjustment logic applies --- but now the adjustment is determined by category membership rather than a numerical value.
 
-Counties with similar mortality risk may respond differently politically depending on their economic circumstances. Wage growth could weaken or strengthen the association between mortality risk and Clinton's vote, so we estimate an interaction to determine whether the mortality-risk slope varies across levels of wage growth. We have reason to expect the relationship to be conditional, but not a sufficiently strong theoretical basis for predicting whether the mortality-risk slope will become more or less negative as wage growth increases. We therefore state a nondirectional hypothesis.
+For a model with a binary categorical variable $X_1$ (coded 0 for the reference category, 1 for the other) and an interval variable $X_2$:
+
+$$Y = \hat{\alpha} + \hat{\beta}_1 X_1 + \hat{\beta}_2 X_2 + \hat{\beta}_3 X_1 X_2 + \ldots + \varepsilon$$
+
+1. $\hat{\beta}_2$ is the slope of $X_2$ [**for the reference category**]{.important-text}.
+2. $\hat{\beta}_2 + \hat{\beta}_3$ is the slope of $X_2$ [**for the non-reference category**]{.important-text}. This is the step most often missed: the main effect alone gives the reference slope; you must add the interaction coefficient to get the non-reference slope.
+3. $\hat{\beta}_3$ is the difference between the two slopes --- how much steeper or shallower the non-reference slope is compared to the reference slope.
+4. $\hat{\beta}_1$ is the gap between the two categories **when $X_2 = 0$.** Whether that is substantively meaningful depends on the scale and observed range of $X_2$.
+
+A simple table summarizes the relationship:
+
+| | Slope of $X_2$ |
+|:--|:--|
+| Reference-category slope | $\hat{\beta}_2$ |
+| Non-reference-category slope | $\hat{\beta}_2 + \hat{\beta}_3$ |
+| Difference between slopes | $\hat{\beta}_3$ |
+
+A positive $\hat{\beta}_3$ means the non-reference category's slope is more positive than the reference category's slope. A negative $\hat{\beta}_3$ means it is more negative. To determine whether either slope is actually positive or negative, you must calculate the slopes themselves --- the sign of $\hat{\beta}_3$ alone does not tell you.
+
+::: {.tip}
+**Think of it this way.** In a model without an interaction, the two categories share the same slope on $X_2$; only the intercept differs. An interaction term lets the slopes differ too. Always compute both slopes before interpreting the interaction: the reference slope directly from the output, and the non-reference slope by adding the interaction coefficient. You cannot assess the pattern from the interaction coefficient alone.
+:::
+
+When the categorical predictor has more than two categories, the same logic extends: there is one interaction coefficient for each non-reference category, each giving the difference between that category's slope and the reference slope. You will see this in Example 3.
+
+### What to Ask Before Estimating an Interaction
+
+Before estimating an interaction model, think through how you expect the relationship between one predictor and the outcome to differ across values or categories of the other predictor.
+
+**When both predictors are interval variables**, ask how you expect the slope of $X_1$ to change as $X_2$ increases. Three possibilities:
+
+- The slope could become **more positive** as $X_2$ increases.
+- The slope could become **more negative** as $X_2$ increases.
+- The slope could remain roughly **unchanged**.
+
+Depending on the slope's starting value, a changing slope may become stronger, weaker, or even reverse direction.
+
+**When one predictor is categorical and the other is interval**, ask how you expect the interval slope to differ across categories. You may expect it to be steeper in one category, shallower in another, or even to change direction.
+
+In either case, having an expectation gives you something concrete to check against the results. You may not have clear expectations. Your expectations may turn out to be wrong. When they are, report what you find honestly and think carefully about alternative explanations.
+
+## Specifying Interaction Models in R
+
+Adding an interaction to a regression model in R requires one new ingredient in the formula: a term that multiplies the two variables together. The `*` operator handles this automatically. Writing `X1 * X2` in a formula tells `lm()` to include both main effects and the interaction term --- it is exactly equivalent to writing `X1 + X2 + X1:X2`. The output will include a row labeled `X1:X2` for the interaction coefficient. Everything else --- `lm()`, `summary()`, `stargazer()` --- works exactly as before.
+
+::: {.tip}
+**Always include the constituent terms alongside the interaction.** If you omit either $X_1$ or $X_2$ while retaining the interaction term $X_1 \times X_2$, you impose strong restrictions on the model and the coefficients will no longer have the interpretations described above. The `*` operator handles this automatically. If you ever write an interaction by hand using `X1:X2`, you must add `+ X1 + X2` yourself.
+:::
+
+## Does the Mortality Risk Association with Clinton's Vote Depend on Wage Growth?
+
+County-level mortality risk and wage growth are both associated with Hillary Clinton's 2016 two-party vote share --- but does the association between mortality risk and the vote depend on local economic conditions? The theoretical argument is that mortality risk may carry different political meaning under different economic circumstances. In counties where wages are growing, residents may see economic opportunity as available to those willing to work, and attribute poor health outcomes to individual choices --- weakening the connection between community health and political backlash. In counties where wages are stagnant or declining, those same health outcomes may feel more like a structural failure that working people have no control over --- producing a stronger political response against the incumbent party's candidate. If this reasoning is right, the estimated association between mortality risk and Clinton's vote should vary with the level of wage growth.
+
+The data frame **counties** contains three variables central to this question:
+
+- **dem2p_percent**: Clinton's percent of the two-party vote
+- **mortality_risk_25_45**: mortality risk for working-age adults (percent)
+- **wage_growth**: recent wage growth (percent)
+
+Several demographic variables serve as controls: **college_grad_percent**, **hispanic_percent**, **white_percent**, and **Black_percent**.
+
+We have reason to expect the relationship to be conditional, but not a sufficiently strong theoretical basis for predicting which direction the interaction takes. We therefore state a nondirectional hypothesis.
 
 ::: {.hypothesis}
-In a comparison of counties, the association between mortality risk and Hillary Clinton's percent of the two-party vote varies with the level of wage growth.
+In a comparison of counties, the estimated association between mortality risk and Hillary Clinton's percent of the two-party vote varies with the level of wage growth.
 :::
 
 ### Estimate the Regression
-
-In R, the `*` operator between two variables in a formula tells `lm()` to include both main effects and the interaction term automatically. Writing `X1 * X2` is exactly equivalent to writing `X1 + X2 + X1:X2`. The output will include a row labeled `X1:X2` for the interaction coefficient.
-
-::: {.tip}
-**As a general rule, always include the constituent terms --- $X_1$ and $X_2$ separately --- alongside the interaction term $X_1 \times X_2$.** If you omit either constituent term while retaining the interaction, you impose strong restrictions on the model and the coefficients will no longer have the interpretations described above. The `*` operator handles this automatically in R, but if you ever write an interaction formula by hand using `X1:X2`, you must add `+ X1 + X2` yourself.
-:::
 
 **Run and observe: Estimate the interaction model**
 
@@ -153,7 +210,7 @@ question("The interaction coefficient in the row labeled **mortality_risk_25_45*
          message = "-0.139 is the interaction coefficient, not the conditional slope of mortality risk at the mean. The conditional slope depends on the level of wage growth and is computed using the formula: main effect + interaction coefficient * wage growth."),
   answer("For each additional percentage point of mortality risk, Clinton's vote falls by 0.139 percentage points, controlling for wage growth",
          message = "That would be the main-effect coefficient on mortality risk, which appears on its own separate row. The interaction coefficient (-0.139) tells you how the mortality-risk slope changes as wage growth changes, not what the slope itself is."),
-  answer("This coefficient is the combined effect of both mortality risk and wage growth when both are non-zero",
+  answer("This coefficient is the combined result of both mortality risk and wage growth when both are non-zero",
          message = "The interaction term is not a combined effect. The main-effect coefficients describe the relevant slope or category difference at the model's reference condition; the interaction term tells you how much one variable's slope changes with a one-unit increase in the other variable."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -163,57 +220,55 @@ question("The interaction coefficient in the row labeled **mortality_risk_25_45*
 
 ### What the Main-Effect Coefficients Tell Us
 
-From rule 1: the coefficient on **mortality_risk_25_45** (-2.494) is the slope of mortality risk when wage growth equals zero. From rule 2: the coefficient on **wage_growth** (0.753) is the slope of wage growth when mortality risk equals zero. These are anchor points for the formulas, not typical-county summaries. Wage growth of zero falls within the observed range (about −69 to +63) but is not representative; mortality risk of zero is outside the observed range entirely. Conditional effects evaluated at meaningful or commonly observed values are more informative, as you will see in the next section.
+From rule 1: the coefficient on **mortality_risk_25_45** (-2.494) is the slope of mortality risk when wage growth equals zero. From rule 2: the coefficient on **wage_growth** (0.753) is the slope of wage growth when mortality risk equals zero. These are anchor points for the formulas, not typical-county summaries. Wage growth of zero falls within the observed range (about −69 to +63) but is not representative; mortality risk of zero is outside the observed range entirely. Conditional slopes evaluated at meaningful or commonly observed values are more informative, as you will see in the next section.
 
 ```{r quiz-interpret-maineffects, echo=FALSE}
 question("Which statements correctly describe what the coefficients on mortality_risk_25_45 and wage_growth tell us in this model? Select all that apply.",
   correct = "Right. Both main-effect coefficients are anchor points --- the slope of each variable when the other equals zero.",
-  answer("The coefficient on mortality_risk_25_45 (-2.494) is the slope of mortality risk when wage growth equals zero --- an anchor point for the conditional effect formula, not the slope in a typical county",
+  answer("The coefficient on mortality_risk_25_45 (-2.494) is the slope of mortality risk when wage growth equals zero --- an anchor point for the conditional slope formula, not the slope in a typical county",
          correct = TRUE,
-         message = "In a county with flat wages, each additional percentage point of mortality risk is associated with about 2.5 fewer percentage points of Clinton's vote. Wage growth of zero is within the observed range and is substantively interpretable as flat wages --- but the mean is 4.3, so it is not a typical county. The conditional effect formula gives the slope at any specific value of wage growth."),
+         message = "In a county with flat wages, each additional percentage point of mortality risk is associated with about 2.5 fewer percentage points of Clinton's vote. Wage growth of zero is within the observed range and is substantively interpretable as flat wages --- but the mean is 4.3, so it is not a typical county. The conditional slope formula gives the slope at any specific value of wage growth."),
   answer("The coefficient on wage_growth (0.753) is the slope of wage growth when mortality risk equals zero --- which is outside the observed range of the data",
          correct = TRUE,
-         message = "Mortality risk ranges from about 1.1 to 8.4 in this dataset --- it is never zero. The coefficient on wage_growth is a mathematical anchor point, not a substantively meaningful prediction for any real county. The conditional effect formula is more useful."),
+         message = "Mortality risk ranges from about 1.1 to 8.4 in this dataset --- it is never zero. The coefficient on wage_growth is a mathematical anchor point, not a substantively meaningful prediction for any real county. The conditional slope formula is more useful."),
   answer("The coefficient on mortality_risk_25_45 is the average slope of mortality risk across all counties in the sample",
-         message = "In an interaction model, the main-effect coefficient is not an average across all conditions. It is the slope specifically when the other interacting variable equals zero. The conditional slope at any other value of wage growth is found using the formula: -2.494 + (-0.139)(wage growth)."),
-  answer("The two main-effect coefficients together give the full picture of how mortality risk and wage growth predict Clinton's vote",
-         message = "In an interaction model, the main-effect coefficients are the slopes only when the other variable equals zero. To understand how each variable predicts the vote at observed values of the other, you need the conditional effect formula."),
+         message = "In an interaction model, there is no single average slope --- the slope differs across counties depending on their wage growth level. The main-effect coefficient is the slope only when wage growth equals zero."),
+  answer("The coefficient on wage_growth represents the direct effect of wage growth after removing the effect of mortality risk",
+         message = "In an interaction model, the main-effect coefficient on wage growth is its slope when mortality risk equals zero --- not an average or a direct association across all mortality-risk levels. The interaction term means the slope changes with mortality risk."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: in an interaction model, each main-effect coefficient is the slope of that variable when the other equals zero --- an anchor point, not a typical-county summary."
+  try_again = "Hint: in an interaction model, both main-effect coefficients are conditional on the other variable equaling zero."
 )
 ```
 
-### Conditional Effects of Mortality Risk
+### Conditional Slopes of Mortality Risk
 
-The interaction coefficient tells us the *rate* at which the mortality-risk slope changes. To see *what the slope actually is* at specific values of wage growth, apply rule 4:
+Using the formula from the Understanding Interaction Coefficients section:
 
-$$\text{Conditional effect of mortality risk} = -2.494 + (-0.139)(\text{wage growth})$$
+$$\text{Conditional slope of mortality risk} = -2.494 + (-0.139)(\text{wage growth})$$
 
-The table below shows the conditional effect of a one-percentage-point increase in mortality risk at three values of wage growth:
+| Wage growth | Calculation | Conditional slope of mortality risk |
+|:------------|:------------|------------------------------------:|
+| −4.7 (25th percentile) | $-2.494 + (-0.139)(-4.7)$ | $-1.84$ |
+| 4.3 (mean) | $-2.494 + (-0.139)(4.3)$ | $-3.09$ |
+| 12.7 (75th percentile) | $-2.494 + (-0.139)(12.7)$ | $-4.26$ |
 
-| Wage growth | Calculation | Conditional effect of mortality risk |
-|------------:|:-----------:|-------------------------------------:|
-| 0 (flat wages) | $-2.494 + (-0.139)(0)$ | $-2.49$ |
-| 4.3 (approximate mean) | $-2.494 + (-0.139)(4.3)$ | $-3.09$ |
-| 8 (strong growth) | $-2.494 + (-0.139)(8)$ | ? |
+The slope becomes more negative as wage growth increases. Mortality risk is more strongly associated with lower Clinton support in high-wage-growth counties than in low-wage-growth counties.
 
-Across these values, the estimated mortality-risk slope becomes increasingly negative as wage growth rises. Now compute the missing entry.
-
-**Practice: Compute the conditional effect of mortality risk at high wage growth**
+**Practice: Compute the conditional slope of mortality risk at high wage growth**
 
 ```{r quiz-conditional-mortality, echo=FALSE}
-question("Using the formula $-2.494 + (-0.139)(\\text{wage growth})$, what is the conditional effect of a one-percentage-point increase in mortality risk in a county where wage growth is 8?",
+question("Using the formula $-2.494 + (-0.139)(\\text{wage growth})$, what is the conditional slope of a one-percentage-point increase in mortality risk in a county where wage growth is 8?",
   correct = "Right: -2.494 + (-0.139)(8) = -3.606.",
   answer("About -3.61 percentage points",
          correct = TRUE,
          message = "The mortality-risk slope is -3.61 in a strong-growth county, compared to -2.49 when wage growth is zero and -3.09 at the mean. The slope becomes more negative as wage growth increases --- mortality risk is more strongly associated with lower Clinton support in counties with stronger economic growth."),
   answer("About -2.494 percentage points",
-         message = "That is the main-effect coefficient on mortality risk, which is its conditional effect only when wage growth equals zero --- the top row of the table. Substitute 8: -2.494 + (-0.139)(8)."),
+         message = "That is the main-effect coefficient on mortality risk, which is its conditional slope only when wage growth equals zero --- the top row of the table. Substitute 8: -2.494 + (-0.139)(8)."),
   answer("About -1.382 percentage points",
          message = "Check the sign on the interaction term. The coefficient is -0.139, not +0.139. Substituting: -2.494 + (-0.139)(8) = -2.494 - 1.112 = -3.606, not -2.494 + 1.112."),
   answer("About -3.09 percentage points",
-         message = "That is the conditional effect at the mean wage growth (4.3) --- the middle row of the table. Substitute 8, not 4.3: -2.494 + (-0.139)(8) = -3.606."),
+         message = "That is the conditional slope at the mean wage growth (4.3) --- the middle row of the table. Substitute 8, not 4.3: -2.494 + (-0.139)(8) = -3.606."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: substitute 8 directly into the formula: $-2.494 + (-0.139)(8)$."
@@ -222,9 +277,9 @@ question("Using the formula $-2.494 + (-0.139)(\\text{wage growth})$, what is th
 
 ### Extension: Reading the Model in Reverse
 
-Although mortality risk has been our focal predictor, the same model also tells us how the wage-growth slope changes with mortality risk.
+Although we have been reading the model from the mortality risk perspective, the same model also tells us how the wage-growth slope changes with mortality risk --- a reminder that the interaction is symmetric.
 
-The conditional effect of wage growth at a given level of mortality risk is $0.753 + (-0.139)(\text{mortality risk})$. At the mean mortality-risk value of 3.1: $0.753 + (-0.139)(3.1) = 0.753 - 0.431 = 0.322$. A one-point increase in wage growth is associated with about a 0.32 point increase in Clinton's vote in a county at the mean mortality risk. As mortality risk rises, that estimated positive association becomes smaller.
+The conditional slope of wage growth at a given level of mortality risk is $0.753 + (-0.139)(\text{mortality risk})$. At the mean mortality-risk value of 3.1: $0.753 + (-0.139)(3.1) = 0.753 - 0.431 = 0.322$. A one-point increase in wage growth is associated with about a 0.32 point increase in Clinton's vote in a county at the mean mortality risk. As mortality risk rises, that estimated positive association becomes smaller.
 
 ::: {.tip}
 **Extension: Where does the slope cross zero?** Setting $0.753 + (-0.139)(\text{mortality risk}) = 0$ gives a crossover at approximately 5.4. Above that value, the point estimates imply a negative wage-growth slope --- wage growth would be associated with lower rather than higher Clinton vote. This is near the upper end of the observed distribution (about 95% of counties fall below 5.4). This calculation uses point estimates only; Tutorial 19 will introduce prediction plots that help assess uncertainty around conditional relationships.
@@ -234,44 +289,18 @@ The conditional effect of wage growth at a given level of mortality risk is $0.7
 
 The interaction term is statistically significant (p = .004). The negative interaction coefficient indicates that the estimated association between mortality risk and Clinton's vote becomes more negative as wage growth increases. Thus, higher mortality risk is more strongly associated with lower Clinton support in counties with greater wage growth. The additive model in Tutorial 16 constrained that slope to remain constant across all levels of wage growth; the interaction model provides evidence that it varies. Why this pattern occurs is a separate question that the regression cannot answer. Poor health outcomes may carry different political meaning under different economic conditions, but testing that explanation would require additional evidence.
 
-## Interpreting Categorical × Interval Interactions
+## Applying the Same Logic to a Categorical × Interval Interaction
 
-With a categorical × interval interaction, the model estimates a [**separate slope of the interval predictor for each category**]{.important-text} of the categorical variable. The key practical difference from Example 1 is how you read those slopes from the output.
+In Example 1, the conditional slope was calculated by substituting a specific numerical value of wage growth into the formula. The same baseline-plus-adjustment logic applies when one predictor is categorical --- the difference is that category membership now determines which adjustment is added to the reference-category slope.
 
-Two quantities to keep distinct --- the same distinction as in Example 1:
-
-- The [**interaction coefficient**]{.important-text} tells you how much the slope of the interval predictor changes between one category and the reference category. It is a *difference in slopes*.
-- The [**conditional effect**]{.important-text} of the interval predictor within each category is a *slope itself*, computed from the coefficients in the output.
-
-For a model with a binary categorical variable $X_1$ (coded 0 for the reference category, 1 for the other) and an interval variable $X_2$:
-
-$$Y = \hat{\alpha} + \hat{\beta}_1 X_1 + \hat{\beta}_2 X_2 + \hat{\beta}_3 X_1 X_2 + \ldots + \varepsilon$$
-
-1. $\hat{\beta}_2$ is the slope of $X_2$ [**for the reference category**]{.important-text}.
-2. $\hat{\beta}_2 + \hat{\beta}_3$ is the slope of $X_2$ [**for the non-reference category**]{.important-text}. This is the step most often missed: the main effect alone gives the reference slope; you must add the interaction coefficient to get the non-reference slope.
-3. $\hat{\beta}_3$ is the difference between the two slopes --- how much steeper or shallower the non-reference slope is compared to the reference slope.
-4. $\hat{\beta}_1$ is the gap between the two categories **when $X_2 = 0$.** Whether that is substantively meaningful depends on the scale and observed range of $X_2$.
-
-::: {.tip}
-**Think of it this way.** In a model without an interaction, the two categories share the same slope on $X_2$; only the intercept differs. An interaction term lets the slopes differ too. Always compute both slopes before interpreting the interaction: the reference slope directly from the output, and the non-reference slope by adding the interaction coefficient. You cannot assess the pattern from the interaction coefficient alone.
-:::
-
-A simple table summarizes the relationship between the coefficients and the slopes:
-
-| | Slope of $X_2$ |
-|:--|:--|
-| Reference-category slope | $\hat{\beta}_2$ |
-| Non-reference-category slope | $\hat{\beta}_2 + \hat{\beta}_3$ |
-| Difference between slopes | $\hat{\beta}_3$ |
-
-A positive $\hat{\beta}_3$ means the non-reference category's slope is more positive than the reference category's slope. A negative $\hat{\beta}_3$ means the non-reference category's slope is more negative than the reference category's slope. To determine whether either slope is actually positive or negative, however, you must calculate the slopes themselves --- the sign of $\hat{\beta}_3$ alone does not tell you.
+The reference category uses the interval predictor's main-effect coefficient as its slope directly. A comparison category adds its interaction coefficient to that baseline. The interaction coefficient remains a difference between slopes, not a slope itself. You will apply these rules immediately in the next example.
 
 ## Do Political Rights Condition the Relationship Between Trade Openness and Environmental Performance?
 
-Trade openness may be associated with environmental performance differently across political contexts. International economic connections could be particularly consequential where domestic political rights are limited, although the regression cannot identify the mechanism producing any difference. We estimate an interaction to determine whether the trade-openness slope varies across the two rights categories.
+Does the estimated association between international trade and environmental performance depend on a country's political context? In countries with well-developed political rights, civil society organizations, free media, and political competition give citizens tools to hold governments and firms accountable for environmental outcomes --- regardless of how open the economy is to trade. Citizens can organize, advocate, and vote in ways that impose costs on environmentally destructive behavior. In countries where political rights are limited, those domestic accountability mechanisms are weak or absent. International economic integration may then serve as one of the few external pressures that can improve environmental behavior: firms seeking access to global markets face reputational and regulatory expectations from trading partners that domestic politics cannot enforce. If this argument is right, the estimated association between trade openness and environmental performance should be stronger in countries with fewer political rights, where trade exposure substitutes for missing domestic accountability.
 
 ::: {.hypothesis}
-In a comparison of countries, the association between trade openness and environmental performance varies with the level of political rights.
+In a comparison of countries, the estimated association between trade openness and environmental performance varies with the level of political rights.
 :::
 
 The data frame **qog** contains **epi_epi**, an overall environmental performance index ranging from about 27 to 87, where higher values indicate better performance. The predictors are:
@@ -280,13 +309,13 @@ The data frame **qog** contains **epi_epi**, an overall environmental performanc
 - **ipi_tradeopen**: trade openness, scored 1 (least open) to 10 (most open)
 - **hf_efiscore**: overall economic freedom, scored 0 to 100 --- included as a control; we will not interpret its coefficient in detail
 
-Note that substantial missingness reduces the effective sample to 116 countries, so results should be interpreted with that limitation in mind.
+Missingness reduces the effective sample to 116 countries, so results should be interpreted with that limitation in mind.
 
 ### Create the Factor Variable
 
-Tutorial 16 introduced `factor()` and `levels()` for creating named factor variables — the same approach applies here. The variable **rights** is coded 0 (few political rights) and 1 (many political rights). We could wrap it in `factor()` directly inside the `lm()` formula — Tutorial 16 also showed this approach --- but that produces output rows labeled `factor(rights)1` and `factor(rights)1:ipi_tradeopen`. Those are hard to track when you need to combine two rows to find the non-reference slope. Creating a named factor first means the output will show `rights_fMany Rights` and `rights_fMany Rights:ipi_tradeopen`, making the connection between them much clearer.
+Tutorial 16 introduced `factor()` and `levels()` for creating named factor variables — the same approach applies here. The variable **rights** is coded 0 (few political rights) and 1 (many political rights). We could wrap it in `factor()` directly inside the `lm()` formula --- Tutorial 16 also showed this approach --- but that produces output rows labeled `factor(rights)1` and `factor(rights)1:ipi_tradeopen`. Those are hard to track when you need to combine two rows to find the non-reference slope. Creating a named factor first means the output will show `rights_fMany Rights` and `rights_fMany Rights:ipi_tradeopen`, making the connection between them much clearer.
 
-**Few Rights** becomes the reference category because it is coded 0 and therefore appears first in the factor levels --- and as you saw in the categorical × interval rules above, the reference category's slope on **ipi_tradeopen** appears directly as $\hat{\beta}_2$ in the output. Use `levels()` to confirm this before estimating the model.
+**Few Rights** becomes the reference category because it is coded 0 and therefore appears first in the factor levels --- and as you saw in the Understanding Interaction Coefficients section above, the reference category's slope on **ipi_tradeopen** appears directly as $\hat{\beta}_2$ in the output. Use `levels()` to confirm this before estimating the model.
 
 **Run and observe: Create rights_f and check its levels**
 
@@ -328,7 +357,7 @@ summary(model_env)
 ```{r exercise-regression-env-interaction-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
   if (!grepl("lm\\s*\\(", code_no_comments)) {
     fail("Use lm() to estimate the regression.")
   }
@@ -336,7 +365,7 @@ grade_this({
     fail("Assign your model to an object called model_env.")
   }
   if (!grepl("epi_epi\\s*~", code_no_comments)) {
-    fail("The dependent variable should be epi_epi --- environmental performance is what we are trying to explain.")
+    fail("The outcome variable should be epi_epi --- environmental performance is what we are trying to explain.")
   }
   if (!grepl("rights_f\\s*\\*\\s*ipi_tradeopen|ipi_tradeopen\\s*\\*\\s*rights_f", code_no_comments)) {
     fail("Use * between rights_f and ipi_tradeopen to include both the main effects and the interaction term.")
@@ -371,7 +400,7 @@ grade_this({
 
 ### Identify the Two Conditional Slopes
 
-With the model estimated, the first task is to identify the slope of trade openness for each group. The `ipi_tradeopen` coefficient gives the Few Rights slope directly. To get the Many Rights slope, find the `rights_fMany Rights:ipi_tradeopen` row and combine it with `ipi_tradeopen` using the rule from the Interpreting Categorical × Interval Interactions section above. Note that if you wrote the formula as `ipi_tradeopen * rights_f` rather than `rights_f * ipi_tradeopen`, the interaction row may instead be labeled `ipi_tradeopen:rights_fMany Rights` --- the coefficient value is identical either way.
+With the model estimated, the first task is to identify the slope of trade openness for each group. The `ipi_tradeopen` coefficient gives the Few Rights slope directly. To get the Many Rights slope, find the `rights_fMany Rights:ipi_tradeopen` row and combine it with `ipi_tradeopen` using the rule from the Understanding Interaction Coefficients section above. Note that if you wrote the formula as `ipi_tradeopen * rights_f` rather than `rights_f * ipi_tradeopen`, the interaction row may instead be labeled `ipi_tradeopen:rights_fMany Rights` --- the coefficient value is identical either way.
 
 **Practice: Compute the slope of trade openness for Many Rights countries**
 
@@ -380,7 +409,7 @@ question("Using the coefficients in your output, what is the slope of ipi_tradeo
   correct = "Right. The two slopes are strikingly different.",
   answer("About 0.12 --- the estimated trade-openness slope is close to zero in Many Rights countries",
          correct = TRUE,
-         message = "For Few Rights countries the slope is 4.750: each additional point of trade openness predicts about 4.75 more points on the EPI. For Many Rights countries the slope is 4.750 + (-4.629) = 0.121 --- close to zero. The two estimated slopes differ substantially."),
+         message = "For Few Rights countries the slope is 4.750: each additional point of trade openness is associated with about 4.75 more points on the EPI. For Many Rights countries the slope is 4.750 + (-4.629) = 0.121 --- close to zero. The two estimated slopes differ substantially."),
   answer("About 4.750 --- the ipi_tradeopen coefficient is the slope for all countries regardless of rights status",
          message = "In an interaction model, the ipi_tradeopen coefficient is the slope only for the reference category (Few Rights). To find the Many Rights slope, add the interaction coefficient to that value."),
   answer("About -4.629 --- the interaction coefficient is the slope for Many Rights countries",
@@ -497,11 +526,15 @@ question("Look at the Multiple R-squared, Adjusted R-squared, and the residual s
 
 The interaction term is statistically significant (p < .001). The estimated slope of trade openness is 4.750 for countries with limited political rights and 0.121 for countries with broad political rights --- a difference of -4.629, which is the interaction coefficient. The point estimate is large and positive in the limited-rights group but close to zero in the broad-rights group. The interaction test provides strong evidence that these two slopes differ. An additive model would have constrained the two groups to share a common trade-openness slope, masking this difference entirely. Whether the mechanism producing this difference involves international exposure, domestic accountability channels, or something else entirely is a question the regression cannot answer.
 
+## Extending the Logic to a Multicategory Factor
+
+Nothing fundamentally changes when the categorical variable has three or more groups. The model still estimates a separate slope of the interval predictor for each category; the output now has one interaction row for each non-reference category instead of one --- each giving the difference between that category's slope and the reference slope. You will apply the same three-step approach: identify each category's slope, interpret each interaction coefficient as a slope difference, and assess statistical support using both individual interaction coefficients and a joint F-test.
+
+With more than two categories, individual p-values test whether each non-reference category's slope differs from the reference slope, but they do not jointly test whether the slopes are all equal across groups. The joint F-test --- comparing the additive and interaction models using `anova()` --- answers that broader question. Both tests are needed for a complete assessment.
+
 ## Does the Fertility–Rule of Law Relationship Depend on Regime Type?
 
-Nothing fundamentally changes when the categorical variable has three groups rather than two. The model still estimates a separate slope of the interval predictor for each category; the output now has two interaction rows instead of one --- one for each non-reference category compared to the reference.
-
-From Tutorial 16 you already know that **wdi_fertility** and **democ_f** both predict **fh_rol** as separate predictors. Here we ask whether their relationship is simply additive, or whether the fertility slope varies across regime types.
+From Tutorial 16 you already know that **wdi_fertility** and **democ_f** both have estimated associations with **fh_rol** in the additive model. Here we ask whether their relationship is simply additive, or whether the fertility slope varies across regime types.
 
 There is a plausible reason to test for an interaction. Political institutions may shape how governments respond to the social and economic conditions associated with higher fertility, but the direction of that difference is not clear in advance. We estimate the model and report what we find.
 
@@ -513,173 +546,78 @@ The data frame **qog** contains **fh_rol** (Freedom House Rule of Law, 0--16) an
 
 | Row label | Meaning |
 |:----------|:--------|
-| `wdi_fertility:democ_fPartial Democracy` | How much the Partial Democracy fertility slope differs from the Autocracy slope |
-| `wdi_fertility:democ_fDemocracy` | How much the Democracy fertility slope differs from the Autocracy slope |
+| `democ_fPartial Democracy:wdi_fertility` | Difference between Partial Democracy slope and Autocracy slope |
+| `democ_fDemocracy:wdi_fertility` | Difference between Democracy slope and Autocracy slope |
 
 ### Estimate the Regression
 
-**Practice: Estimate the interaction model**
+**Run and observe: Estimate the additive and interaction models**
 
-Write the code from scratch to estimate the model, assigning it to **model_fhrol**, then display the results. Three hints are available. Click "Submit Answer" to check your work.
-
-```{r exercise-regression-fhrol-interaction, exercise=TRUE, exercise.cap="Practice: Estimate the rule of law interaction model"}
-
-```
-
-```{r exercise-regression-fhrol-interaction-hint-1}
-# Hint 1 of 3
-# Look back at the hypothesis. Which variable is the outcome?
-# Which two variables are interacting? Think about what you
-# did in Examples 1 and 2.
-```
-
-```{r exercise-regression-fhrol-interaction-hint-2}
-# Hint 2 of 3
-# The * operator and the data frame are the same as in
-# Example 2. democ_f is already in the qog environment.
-# Assign your model to model_fhrol and pass it to summary().
-```
-
-```{r exercise-regression-fhrol-interaction-hint-3}
-# Hint 3 of 3: fill in the blanks
-model_fhrol <- lm(___ ~ ___ * ___, data = qog)
+```{r exercise-fhrol-models, exercise=TRUE, exercise.cap="Run and observe: Estimate the additive and interaction models for fertility and rule of law"}
+model_fhrol_additive <- lm(fh_rol ~ wdi_fertility + democ_f, data = qog)
+model_fhrol <- lm(fh_rol ~ wdi_fertility * democ_f, data = qog)
 summary(model_fhrol)
 ```
 
-```{r exercise-regression-fhrol-interaction-check}
-grade_this({
-  code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
-  if (!grepl("lm\\s*\\(", code_no_comments)) {
-    fail("Use lm() to estimate the regression.")
-  }
-  if (!grepl("model_fhrol\\s*(<-|=)", code_no_comments)) {
-    fail("Assign your model to an object called model_fhrol.")
-  }
-  if (!grepl("fh_rol\\s*~", code_no_comments)) {
-    fail("The dependent variable should be fh_rol.")
-  }
-  if (!grepl("wdi_fertility\\s*\\*\\s*democ_f|democ_f\\s*\\*\\s*wdi_fertility", code_no_comments)) {
-    fail("Use * between wdi_fertility and democ_f to include both main effects and the interaction terms.")
-  }
-  if (!grepl("data\\s*=\\s*qog", code_no_comments)) {
-    fail("Set data = qog.")
-  }
-  if (!grepl("summary\\s*\\(", code_no_comments)) {
-    fail("Call summary() on your saved model object to display the results.")
-  }
-  expected <- lm(fh_rol ~ wdi_fertility * democ_f, data = qog)
-  result_coef <- if (inherits(.result, "summary.lm")) {
-    setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
-  } else {
-    coef(.result)
-  }
-  if (is.null(result_coef)) {
-    fail("Make sure you display the results by calling summary() on your model object.")
-  }
-  if (!isTRUE(all.equal(
-    sort(as.numeric(result_coef)),
-    sort(as.numeric(coef(expected))),
-    tolerance = 1e-6))) {
-    fail("Check that your model includes fh_rol as the outcome and wdi_fertility * democ_f as the interaction, using the qog data.")
-  }
-  pass("Correct! Your output has six rows in the Coefficients table. Find the two interaction rows (labeled either wdi_fertility:democ_f... or democ_f...:wdi_fertility depending on your formula order) and look at their signs, magnitudes, and p-values before moving on.")
-})
-```
+Before answering the questions below, locate the two interaction rows in your output and note their signs and magnitudes.
 
 ### Identify the Three Conditional Slopes
 
-With the model estimated, begin by computing the fertility slope for each regime type. The Autocracy slope is the `wdi_fertility` main effect directly. For Partial Democracy and Democracy, add the relevant interaction coefficient to that main effect. Note that the interaction rows may be labeled `wdi_fertility:democ_fPartial Democracy` or `democ_fPartial Democracy:wdi_fertility` depending on the order you wrote the formula --- the values are identical either way.
+Applying the categorical × interval rules to three groups:
 
-**Practice: Compute and compare the three conditional slopes**
+**Practice: Identify the three fertility slopes**
 
 ```{r quiz-fhrol-slopes, echo=FALSE}
-question("Using the coefficients in your output, which set of conditional slopes is correct?",
-  correct = "Right. All three slopes are negative, with the Democracy slope the most negative.",
-  answer("Autocracy: about -0.54; Partial Democracy: about -0.28; Democracy: about -1.25",
+question("Using the coefficients in your output, which statement correctly identifies the three conditional slopes of wdi_fertility?",
+  correct = "Right. The Autocracy slope is the main effect; the other two add the relevant interaction coefficient.",
+  answer("Autocracy: the wdi_fertility main effect directly; Partial Democracy: wdi_fertility + the Partial Democracy interaction coefficient; Democracy: wdi_fertility + the Democracy interaction coefficient",
          correct = TRUE,
-         message = "All three point estimates are negative, and the Democracy slope is the most negative (-0.544 + (-0.706) = -1.250). The next section asks whether the estimated differences are statistically distinguishable from zero."),
-  answer("Autocracy: about -0.54; Partial Democracy: about -0.54; Democracy: about -0.54",
-         message = "These would be the three slopes if there were no interaction --- if all three regime types shared the same fertility slope. In an interaction model, each category has its own slope: add the relevant interaction coefficient to the main effect to find it."),
-  answer("Autocracy: about 0.26; Partial Democracy: about -0.71; Democracy: about -0.54",
-         message = "These look like the interaction coefficients themselves, not the conditional slopes. The slopes are the main effect of wdi_fertility plus each interaction coefficient: add 0.261 to the main effect for Partial Democracy, and add -0.706 to the main effect for Democracy."),
-  answer("Autocracy: about -0.54; Partial Democracy: about -0.81; Democracy: about 0.16",
-         message = "Check the signs. For Partial Democracy: -0.544 + 0.261 = -0.283, not -0.810. For Democracy: -0.544 + (-0.706) = -1.250, not a positive value."),
+         message = "This is the three-category extension of the rule you applied in Example 2. The Autocracy slope is the baseline (the main effect of wdi_fertility). Each other category's slope adds that category's interaction coefficient. Compute all three before interpreting the pattern."),
+  answer("All three slopes equal the wdi_fertility main effect because the interaction coefficients adjust the intercepts, not the slopes",
+         message = "In an interaction model, the interaction coefficients adjust the slopes, not the intercepts. The wdi_fertility main effect is the Autocracy slope only; the other categories have different slopes."),
+  answer("Autocracy: the interaction coefficient for Partial Democracy; Partial Democracy: the wdi_fertility main effect; Democracy: the interaction coefficient for Democracy",
+         message = "The main effect of wdi_fertility is always the reference category's slope (Autocracy here). The interaction coefficients are differences from that baseline, not the slopes themselves for other categories."),
+  answer("Each regime type's slope equals its interaction coefficient with wdi_fertility",
+         message = "The interaction coefficients are differences between each non-reference slope and the Autocracy slope --- not the non-reference slopes themselves. Add the interaction coefficient to the Autocracy slope to get each other category's slope."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: the Autocracy slope is the wdi_fertility main effect directly; for the other categories, add the relevant interaction coefficient to that main effect."
+  try_again = "Hint: use the same rule as Example 2 --- the reference category (Autocracy) uses the main effect directly; add the interaction coefficient for each other category."
 )
 ```
 
 ### What the Interaction Coefficients Tell Us
 
-Now that you have the three slopes, a table makes the structure clear. The Autocracy slope is the baseline; the Partial Democracy and Democracy slopes are found by adding their interaction coefficients to that baseline:
+**Practice: Interpret the interaction coefficients**
 
-| Regime type | Calculation | Fertility slope |
-|:------------|:-----------:|----------------:|
-| Autocracy (reference) | $-0.544$ | $-0.54$ |
-| Partial Democracy | $-0.544 + 0.261$ | $-0.28$ |
-| Democracy | $-0.544 + (-0.706)$ | $-1.25$ |
-
-Each slope came from adding an interaction coefficient to the Autocracy baseline. Those interaction coefficients each tell you how much one category's slope differs from the Autocracy slope:
-
-| Interaction row | Value | Meaning |
-|:----------------|------:|:--------|
-| `wdi_fertility:democ_fPartial Democracy` | 0.261 | Partial Democracy slope is 0.261 less negative than Autocracy slope |
-| `wdi_fertility:democ_fDemocracy` | -0.706 | Democracy slope is 0.706 more negative than Autocracy slope |
-
-**Practice: Interpret the two interaction coefficients**
-
-```{r quiz-fhrol-interactions, echo=FALSE}
-question("Look at the two interaction rows in your output. Which statements are true? Select all that apply.",
-  correct = "Right: each interaction coefficient is the difference between one category's slope and the Autocracy slope.",
-  answer("The **wdi_fertility**:**democ_fPartial Democracy** coefficient (0.261) tells us the Partial Democracy fertility slope is 0.261 points less negative than the Autocracy slope",
+```{r quiz-fhrol-interaction, echo=FALSE}
+question("Suppose the wdi_fertility coefficient is -0.54, the Partial Democracy interaction coefficient is 0.26, and the Democracy interaction coefficient is -0.71. Which statement correctly describes the three conditional slopes?",
+  correct = "Right: Autocracy -0.54, Partial Democracy -0.28, Democracy -1.25.",
+  answer("Autocracy: -0.54; Partial Democracy: -0.54 + 0.26 = -0.28; Democracy: -0.54 + (-0.71) = -1.25",
          correct = TRUE,
-         message = "The Autocracy slope is -0.544; the Partial Democracy slope is -0.544 + 0.261 = -0.283. The positive interaction coefficient means the negative fertility association is slightly weaker in Partial Democracies than in Autocracies."),
-  answer("The **wdi_fertility**:**democ_fDemocracy** coefficient (-0.706) tells us the Democracy fertility slope is 0.706 points more negative than the Autocracy slope",
-         correct = TRUE,
-         message = "The Autocracy slope is -0.544; the Democracy slope is -0.544 + (-0.706) = -1.250. The negative interaction coefficient means the estimated fertility slope is more negative in full democracies than in autocracies."),
-  answer("The two interaction coefficients together tell us the average effect of fertility on rule of law across all countries",
-         message = "The average effect across all countries is not what the interaction terms measure. The main effect of wdi_fertility gives the slope for the reference category (Autocracies); the interaction terms measure how each other category's slope differs from that baseline."),
-  answer("A positive interaction coefficient for Partial Democracy means higher fertility is associated with stronger rule of law in partial democracies",
-         message = "The interaction coefficient (0.261) means the slope for partial democracies is 0.261 less negative than for autocracies --- not that fertility has a positive association with rule of law. The full slope for partial democracies is -0.544 + 0.261 = -0.283, which is still negative."),
+         message = "All three slopes are negative --- higher fertility is associated with lower rule of law in every regime type. The slopes differ in magnitude: the Partial Democracy slope is similar to the Autocracy slope, while the Democracy slope is considerably more negative. But whether these differences are statistically supported is a separate question."),
+  answer("Autocracy: -0.54; Partial Democracy: 0.26; Democracy: -0.71",
+         message = "The interaction coefficients are differences from the Autocracy slope, not the slopes themselves. The Partial Democracy slope is -0.54 + 0.26 = -0.28, and the Democracy slope is -0.54 + (-0.71) = -1.25."),
+  answer("Autocracy: 0; Partial Democracy: 0.26; Democracy: -0.71",
+         message = "The Autocracy slope is the wdi_fertility main effect (-0.54), not zero. The interaction coefficients tell you how much each other category's slope differs from the Autocracy slope."),
+  answer("Autocracy: -0.54; Partial Democracy: -0.54 - 0.26 = -0.80; Democracy: -0.54 - (-0.71) = 0.17",
+         message = "Add the interaction coefficients, do not subtract them. The Partial Democracy slope is -0.54 + 0.26 = -0.28; the Democracy slope is -0.54 + (-0.71) = -1.25."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: each interaction coefficient is the difference between one category's slope and the Autocracy slope --- not the slope itself."
+  try_again = "Hint: Autocracy slope = wdi_fertility main effect. Each other slope = Autocracy slope + that category's interaction coefficient."
 )
 ```
 
 ### Test the Interaction as a Whole
 
-With a three-category factor, we also need to ask whether the interaction as a whole adds anything to the additive model. The individual p-values each test whether one category's slope differs from the Autocracy reference slope, but they do not jointly test whether the fertility slope varies across all three regime types simultaneously.
+With two interaction terms, individual p-values test whether each non-reference slope differs from the Autocracy slope. But they do not jointly test whether the fertility slope varies across all three regime types simultaneously. The joint F-test compares the additive and interaction models.
 
-For that, we compare the additive model (no interaction) to the interaction model using `anova()`. This F-test asks whether adding the two interaction terms significantly improves fit --- equivalently, whether the data provide evidence that the fertility slopes are not all equal across the three regime types.
+**Run and observe: Joint F-test for the fertility × regime type interaction**
 
-**Run and observe: Joint F-test for the interaction**
-
-```{r exercise-anova-fhrol, exercise=TRUE, exercise.cap="Run and observe: Joint F-test comparing additive and interaction models"}
+```{r exercise-fhrol-anova, exercise=TRUE, exercise.cap="Run and observe: Joint F-test comparing additive and interaction models"}
 anova(model_fhrol_additive, model_fhrol)
 ```
 
-The output shows the residual sum of squares for each model and the F-statistic and p-value for the improvement from adding the two interaction terms. If the F-test p-value is above .05, the data do not provide sufficient evidence to conclude that the fertility slope varies across regime types as a whole --- even if one individual contrast looks suggestive.
-
-```{r quiz-fhrol-anova, echo=FALSE}
-question("Look at the F-test p-value from the anova() output. Which statement best describes what the joint test tells you?",
-  correct = "Right. The joint test does not support the interaction as a whole.",
-  answer("The joint F-test p-value is above .05, meaning the data do not provide sufficient evidence that the fertility slope varies across regime types as a whole --- the two interaction terms together do not significantly improve fit over the additive model",
-         correct = TRUE,
-         message = "The joint test evaluates whether adding both interaction terms together is warranted. A non-significant F-test means we cannot conclude the fertility slope differs across regime types as a whole --- even though the Democracy contrast (p = .055) is suggestive when examined individually."),
-  answer("The joint F-test is unnecessary because the individual p-values already tell us everything we need to know about the interaction",
-         message = "Individual p-values each test whether one category's slope differs from the reference. The joint F-test asks whether the interaction as a whole is supported --- a different and necessary question when the factor has more than two categories."),
-  answer("The joint F-test p-value below .05 confirms that at least one fertility slope differs significantly from the Autocracy slope",
-         message = "Check the F-test p-value in your output. For this model and sample, the joint test does not reach the conventional .05 threshold."),
-  answer("A significant joint F-test would prove all three fertility slopes are different from each other",
-         message = "A significant joint F-test would indicate that at least one slope differs from the reference (Autocracy). It would not establish that all pairwise comparisons are significant --- that requires inspecting the individual coefficients."),
-  allow_retry = TRUE,
-  random_answer_order = TRUE,
-  try_again = "Hint: look at the p-value in the last column of the anova() output --- that is the joint test for the two interaction terms together."
-)
-```
+The F-statistic tests whether the two interaction terms together add significant explanatory power over the additive model. If the p-value is below .05, the data provide evidence that the fertility slope varies across regime types as a whole.
 
 ### Assess the Evidence for the Interaction
 
@@ -694,7 +632,7 @@ question("Based on the p-values for both interaction terms, which statement best
   answer("The interaction is confirmed because all three conditional slopes are negative and differ numerically",
          message = "An interaction concerns whether the slopes differ, not whether they share the same sign or merely have different point estimates. The interaction p-values assess the evidence that the population slope differences are not zero --- and neither reaches the conventional threshold."),
   answer("The interaction should be dropped entirely because the p-values are above 0.05",
-         message = "A p-value just above 0.05 does not automatically mean a term should be dropped. Here, the weak evidence simply means we should report the finding cautiously rather than treating the interaction as established."),
+         message = "A p-value just above 0.05 does not automatically mean a term should be dropped. Here, the weak evidence simply means we should report the finding cautiously rather than concluding that the interaction is clearly supported."),
   answer("The near-unchanged Adjusted R-squared proves neither interaction term is statistically significant",
          message = "The R-squared change and the significance test address separate questions. The p-values are the direct evidence about whether the slopes differ; the R-squared change tells us about overall fit. They are consistent here but do not prove each other."),
   allow_retry = TRUE,
@@ -705,8 +643,7 @@ question("Based on the p-values for both interaction terms, which statement best
 
 ### What We Learned About Fertility, Regime Type, and Rule of Law
 
-Three observations summarize the findings. First, the point estimates: the fertility slope is -0.54 for Autocracies, -0.28 for Partial Democracies, and -1.25 for full Democracies --- all negative. Second, the evidence: the joint F-test for the two interaction terms does not reach the conventional .05 threshold, meaning the data do not provide sufficient evidence that the fertility slope varies across regime types as a whole. Neither individual interaction term reaches .05 (p = .649 and p = .055); the Partial Democracy comparison provides little evidence of a difference, while the Democracy comparison is suggestive but inconclusive. Third, the appropriate conclusion: the interaction is not clearly supported by the available evidence. This does not demonstrate that the slopes are equal --- the Democracy estimate in particular suggests a potentially meaningful difference, but the uncertainty in this sample is too large to draw a firm conclusion. A non-significant interaction is not a failed analysis; it tells us that the available evidence is not strong enough to establish a difference in slopes.
-
+Three observations summarize the findings. First, the point estimates: the fertility slope is -0.54 for Autocracies, -0.28 for Partial Democracies, and -1.25 for full Democracies --- all negative. Second, the evidence: the joint F-test for the two interaction terms does not reach the conventional .05 threshold, meaning the data do not provide sufficient evidence that the fertility slope varies across regime types as a whole. Neither individual interaction term reaches .05 (p = .649 and p = .055); the Partial Democracy comparison provides little evidence of a difference, while the Democracy comparison is suggestive but inconclusive. Third, the appropriate conclusion: the interaction is not clearly supported by the available evidence. This does not demonstrate that the slopes are equal --- the Democracy estimate in particular suggests a potentially meaningful difference, but the uncertainty in this sample is too large to draw a firm conclusion. A non-significant interaction is not a failed analysis; it tells us that the available evidence is not strong enough to provide a clear conclusion that the slopes differ.
 
 ## Check Your Understanding
 
@@ -734,29 +671,27 @@ question("Which statements correctly interpret this equation? Select all that ap
          message = "The X1 coefficient (2.8) is the gap between categories when X2 = 0. Because zero is an observed and meaningful endpoint of the scale (no economic anxiety), this coefficient gives the predicted category gap among people reporting no economic anxiety."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: make sure to select all true statements."
+  try_again = "Hint: identify the reference category's slope, then add the interaction coefficient to get the non-reference slope. The X1 coefficient is the category gap when X2 = 0."
 )
 ```
 
-**Apply: Compute conditional effects in an interval × interval interaction**
+**Apply: Compute a conditional slope**
 
-A researcher models voter turnout ($Y$) as a function of unemployment rate ($X_1$) and mean years of education in the district ($X_2$). The fitted equation is:
+Use the same fitted equation: $\hat{Y} = 4.2 + 2.8 \, X_1 + 0.6 \, X_2 - 0.9 \, X_1 X_2$.
 
-$$\hat{Y} = 55.0 - 1.8 \, X_1 + 2.1 \, X_2 + 0.4 \, X_1 X_2$$
+Education ranges from 8 to 16 years in the sample. The conditional slope of unemployment at a given level of education is $-1.8 + 0.4(\text{education})$.
 
-Education ranges from 8 to 16 years in the sample. The conditional effect of unemployment at a given level of education is $-1.8 + 0.4(\text{education})$.
-
-```{r quiz-cyu-intint, echo=FALSE}
-question("Using the formula $-1.8 + 0.4(\\text{education})$<span style='display:inline-block;width:1.0em'></span>, what are the conditional effects at education = 8 and at education = 16?",
+```{r quiz-cyu-condslope, echo=FALSE}
+question("Using the formula $-1.8 + 0.4(\\text{education})$, what are the conditional slopes at education = 8 and at education = 16?",
   correct = "Right: the estimated unemployment slope is positive at both values and becomes more positive as education increases.",
-  answer("At education = 8: 1.4 percentage points; at education = 16: 4.6 percentage points --- unemployment is associated with higher turnout at both values, and the effect grows stronger with education",
+  answer("At education = 8: 1.4 percentage points; at education = 16: 4.6 percentage points --- unemployment is associated with higher turnout at both values, and the estimated association grows stronger with education",
          correct = TRUE,
          message = "The estimated unemployment slope is 1.4 at education = 8 and 4.6 at education = 16. The estimated slope is positive at both values and grows larger with education --- the positive association between unemployment and turnout is larger in districts with more education."),
   answer("At education = 8: -1.8 percentage points; at education = 16: -1.8 percentage points --- the main effect applies regardless of education",
-         message = "-1.8 is the conditional effect only when education equals zero, which is outside the observed range. At observed values, the interaction term changes the slope substantially. Substitute 8 and 16 into the formula: -1.8 + 0.4(education)."),
+         message = "-1.8 is the conditional slope only when education equals zero, which is outside the observed range. At observed values, the interaction term changes the slope substantially. Substitute 8 and 16 into the formula: -1.8 + 0.4(education)."),
   answer("At education = 8: 0.4 percentage points; at education = 16: 0.4 percentage points --- the interaction coefficient is the same at every value",
          message = "0.4 is the interaction coefficient --- the rate at which the unemployment slope changes, not the conditional slope itself. Compute the conditional slope at each value: -1.8 + 0.4(8) and -1.8 + 0.4(16)."),
-  answer("At education = 8: 1.4 percentage points; at education = 16: -1.4 percentage points --- unemployment has opposite effects at the two extremes",
+  answer("At education = 8: 1.4 percentage points; at education = 16: -1.4 percentage points --- unemployment has opposite estimated associations at the two extremes",
          message = "Check the calculation at education = 16: -1.8 + 0.4(16) = -1.8 + 6.4 = 4.6, not -1.4. The positive interaction coefficient means the slope becomes more positive as education increases, not more negative."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -766,18 +701,16 @@ question("Using the formula $-1.8 + 0.4(\\text{education})$<span style='display:
 
 **Apply: Decide when an interaction is warranted**
 
-The two questions above gave you specific scenarios to work through. This one asks you to step back and think about the general principle.
-
 ```{r quiz-cyu-judgment, echo=FALSE}
 question("A researcher estimates a model with two predictors and finds both are statistically significant. A colleague suggests adding an interaction term. Which of the following is the strongest reason to do so?",
   correct = "Right: theory is the primary justification for specifying an interaction.",
-  answer("The researcher has a theoretical reason to expect that the effect of one predictor depends on the level of the other",
+  answer("The researcher has a theoretical reason to expect that the estimated association of one predictor depends on the level of the other",
          correct = TRUE,
          message = "A substantive expectation that one slope varies with another predictor is the strongest justification. Exploratory interactions can also be examined, but they should be identified as exploratory rather than selected only because they improve fit or produce a small p-value."),
   answer("The adjusted R-squared of the additive model is low, suggesting the model is missing something",
          message = "A low R-squared might mean any number of things --- an omitted variable, a nonlinear relationship, measurement error --- most of which an interaction term would not fix. Low R-squared alone is not a reason to add an interaction."),
-  answer("One predictor is statistically significant and the other is not, suggesting their effects may depend on each other",
-         message = "A difference in significance between two predictors does not imply that their effects are conditional on each other. Significance depends on effect size, sample size, and standard error --- none of which tell you whether a slope varies across values of another variable. That requires a theoretical expectation."),
+  answer("One predictor is statistically significant and the other is not, suggesting their estimated associations may depend on each other",
+         message = "A difference in significance between two predictors does not imply that their estimated associations are conditional on each other. Significance depends on effect size, sample size, and standard error --- none of which tell you whether a slope varies across values of another variable. That requires a theoretical expectation."),
   answer("An interaction between these two predictors was statistically significant in a previous study using a similar dataset",
          message = "A prior result in a comparable study is a legitimate reason to test whether the interaction replicates. In this question, however, a clear substantive expectation about why one slope should vary with the other predictor provides the strongest general justification --- it grounds the interaction in theory rather than only in precedent."),
   allow_retry = TRUE,
@@ -786,40 +719,30 @@ question("A researcher estimates a model with two predictors and finds both are 
 )
 ```
 
-
 ## The Takeaways
 
-[**Conditional relationships**]{.important-text} arise when the slope of one predictor depends on the value of another. Estimating them requires adding one new ingredient to the model: a term multiplying the two predictors together, created with the `*` operator in R.
+[**Conditional relationships**]{.important-text} arise when the estimated association of one predictor with the outcome changes across values or categories of another. Estimating them requires adding a term multiplying the two predictors together, created with the `*` operator in R.
 
 ::: {.tip}
-**Always include the constituent terms alongside the interaction.** The `*` operator handles this automatically — `X1 * X2` expands to `X1 + X2 + X1:X2`. Retaining both main effects allows the interaction coefficient to represent how a slope changes across values of the other predictor. If you omit a constituent term, the coefficients will no longer have the interpretations described below.
+**Always include the constituent terms alongside the interaction.** The `*` operator handles this automatically --- `X1 * X2` expands to `X1 + X2 + X1:X2`. Retaining both main effects allows the interaction coefficient to represent how a slope changes across values of the other predictor. If you omit a constituent term, the coefficients will no longer have the interpretations described in this tutorial.
 :::
+
+Both interaction types follow the same underlying logic: begin with a baseline slope and add the contribution represented by the interaction term.
 
 Two quantities to keep distinct:
 
-- The [**interaction coefficient**]{.important-text} ($\hat{\beta}_3$) tells you how much the slope of one predictor changes for each one-unit increase in the other. It is a rate of change in a slope.
-- The [**conditional effect**]{.important-text} tells you what the slope actually is at a specific value of the other predictor: $\hat{\beta}_1 + \hat{\beta}_3 X_2$.
+- The [**interaction coefficient**]{.important-text} tells you how much the slope of one predictor differs across values or categories of the other. It is a difference between slopes, not a slope itself.
+- The [**conditional slope**]{.important-text} (or [**conditional effect**]{.important-text}) tells you what the slope actually is at a specific value or category: for interval × interval, $\hat{\beta}_1 + \hat{\beta}_3 X_2$; for categorical × interval, $\hat{\beta}_2$ (reference) or $\hat{\beta}_2 + \hat{\beta}_3$ (non-reference).
 
-The interpretation rules differ depending on the level of measurement:
+The interpretation rules by type:
 
-For [**interval × interval**]{.important-text} interactions, each main-effect coefficient is the slope of that variable *when the other equals zero* --- an anchor point for the conditional effect formula, not necessarily a substantively useful summary. Use the conditional effect formula --- $\hat{\beta}_1 + \hat{\beta}_3 X_2$ --- to find the slope at any meaningful value of $X_2$. A table of conditional effects at several values of the moderator, as in Example 1, often communicates the pattern more clearly than any single number.
+For [**interval × interval**]{.important-text} interactions, each main-effect coefficient is the slope of that variable *when the other equals zero* --- an anchor point for the conditional slope formula, not necessarily a substantively useful summary. Use the conditional slope formula to find the slope at any meaningful value. A table of conditional slopes at several values, as in Example 1, often communicates the pattern more clearly than any single number.
 
-For [**categorical × interval**]{.important-text} interactions, the interval main-effect coefficient is the slope for the *reference category*. Every non-reference category's slope is that coefficient plus the relevant interaction coefficient. The categorical main-effect coefficient is the gap between categories *when the interval variable equals zero* --- whether that is substantively meaningful depends on the scale and observed range of the interval variable. The same three-step approach applies for all group sizes:
+For [**categorical × interval**]{.important-text} interactions, the interval main-effect coefficient is the slope for the *reference category*. Every non-reference category's slope is that coefficient plus the relevant interaction coefficient. Always compute all slopes before interpreting. For a factor with more than two categories, use both a joint F-test and the individual interaction coefficients: the joint test evaluates whether the slopes are all equal across groups; the individual coefficients evaluate specific contrasts with the reference category.
 
-1. Identify the slopes for each category.
-2. Interpret each interaction coefficient as the difference between one category's slope and the reference slope.
-3. Assess whether the differences are statistically supported. For a factor with more than two categories, use both a joint F-test and the individual interaction coefficients. The joint test (`anova()` comparing the additive and interaction models) evaluates the interaction as a whole --- whether the slopes are all equal across groups. The individual coefficients evaluate specific contrasts with the reference category and reveal which group differences drive the pattern.
+[**A significant interaction does not always produce a large improvement in fit**]{.important-text}, as Example 1 showed. Assess evidence that slopes differ using the test of the interaction coefficient --- or a joint F-test when the interaction contributes multiple coefficients --- rather than judging the interaction from the size of the $R^2$ change alone. And [**an interaction predicted by theory may not be clearly supported by the available evidence**]{.important-text}, as Example 3 showed --- report uncertainty honestly rather than forcing a yes-or-no conclusion.
 
-Always compute all slopes before interpreting: you cannot assess the pattern from the interaction coefficient alone.
-
-::: {.tip}
-**Before specifying an interaction, ask one question:** how do you expect the slope of $X_1$ to change as $X_2$ increases? Having a theoretically motivated expectation is the strongest justification for including an interaction term --- and it gives you something concrete to check against the results.
-:::
-
-[**A significant interaction does not always produce a large improvement in fit**]{.important-text}, as Example 1 showed --- the evidence that slopes differ comes from the p-value on the interaction term, not from the R² change. And [**an interaction predicted by theory may not be clearly supported by the available evidence**]{.important-text}, as Example 3 showed --- the joint F-test did not reach the conventional threshold, and neither individual contrast did either. That uncertainty is informative and should be reported rather than forced into a yes-or-no conclusion. The p-value addresses whether the slopes differ; the R² change addresses overall model fit. They answer separate questions and should be interpreted separately.
-
-Tutorial 19 introduces `plot_model()` from the **sjPlot** package, which visualizes conditional effects as prediction plots. After working through three examples numerically, you now have the foundation to read those plots meaningfully --- and to communicate what the slopes mean to an audience more intuitively than a table of coefficients alone can.
-
+Tutorial 19 introduces prediction plots that visualize these conditional associations across the full observed range of the predictors. After working through three examples numerically, you now have the foundation to read those plots meaningfully.
 
 ## Submit Your Work
 

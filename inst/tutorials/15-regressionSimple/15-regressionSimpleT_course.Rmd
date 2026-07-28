@@ -13,20 +13,20 @@ description: >
 
 ## Overview {#main-content}
 
-In Tutorials 7, 8, and 9, you described relationships between variables --- cross-tabulations, group means, and scatter plots. In Tutorials 12, 13, and 14, you tested those relationships formally. Both sets of tutorials left something on the table: they did not provide a single unified framework for estimating how the outcome is associated with different kinds of predictors, or for accounting for other variables that may be confounding what you observe. Regression addresses both of those limitations --- but it requires an interval-level outcome variable. When the outcome variable is categorical, as in Tutorials 7 and 12, a different class of model is needed; you will encounter that in Tutorials 20 and 21. For now, the outcome is interval, and the explanatory variable can be anything.
+In Tutorials 7, 8, and 9, you described relationships between variables --- cross-tabulations, group means, and scatter plots. In Tutorials 12, 13, and 14, you tested those relationships formally. Both sets of tutorials left something on the table: they did not provide a single unified framework for estimating how the outcome is associated with different kinds of explanatory variables --- which in regression are often called [**predictors**]{.important-text} --- or for accounting for other variables that may be confounding what you observe. Regression addresses both of those limitations --- but it requires an interval-level outcome variable. When the outcome variable is categorical, as in Tutorials 7 and 12, a different class of model is needed; you will encounter that in Tutorials 20 and 21. For now, the outcome is interval, and the explanatory variable can be anything.
 
 This is the first of three core tutorials on linear regression, followed by an optional two-tutorial module on interactions. Here we start with the simplest case: one explanatory variable predicting one outcome. Specifically, we will cover:
 
 * How to use the `lm()` function to estimate a regression model and the `summary()` function to display the results
-* How to interpret the intercept and slope when the independent variable is measured at the interval level
-* How to interpret the slope when the independent variable is a two-category nominal variable, and how that differs from interpreting a slope on an interval variable
-* How to calculate the predicted value of the dependent variable for a given value of the independent variable
+* How to interpret the intercept and slope when the explanatory variable (also called the independent variable or predictor) is measured at the interval level
+* How to interpret the slope when the explanatory variable is a two-category nominal variable, and how that differs from interpreting a slope on an interval variable
+* How to calculate the predicted value of the outcome variable (also called the dependent variable) for a given value of the explanatory variable
 * How to use the regression output to test hypotheses about the intercept and slope, interpreting the t-statistic and p-value for each coefficient
 * How to assess model fit using two statistics: $R^2$ and the residual standard error
-* How to create a labeled factor variable with the `factor()` function and use it as a dichotomous independent variable in a regression
+* How to create a labeled factor variable with the `factor()` function and use it as a dichotomous explanatory variable in a regression
 
 ::: {.tip}
-**A note on language throughout the regression tutorials.** We use *effect*, *slope*, and *conditional effect* to describe the model's estimated relationship between a predictor and an outcome. These observational regressions do not by themselves establish causation. In substantive conclusions, we prefer *associated with*, *predicts*, or *relationship* rather than causal language. This convention applies in this tutorial and all remaining tutorials in the course.
+**A note on language throughout the regression tutorials.** In regression, an explanatory variable is often called a [**predictor**]{.important-text} because the fitted model uses its values to calculate predicted outcomes. We therefore use *predictor* and *predicted value* as technical regression terms. When describing the substantive relationship between a predictor and an outcome, we say the predictor is [**associated with**]{.important-text} the outcome. These observational regressions do not by themselves establish causation.
 :::
 
 ```{r setup, include=FALSE}
@@ -49,7 +49,7 @@ counties$White_f <- factor(counties$White, labels = c("Not Majority White", "Maj
 
 ## Estimating and Interpreting a Regression Model
 
-[**Regression**]{.important-text} estimates a line through the data that tells you precisely how much the outcome changes for a one-unit change in the explanatory variable --- and it works whether that explanatory variable is interval, ordinal, or nominal. When the explanatory variable is interval, regression extends correlation by adding the quantity correlation can't give you: the expected change in the outcome for a one-unit change in the explanatory variable. Examples 1 and 2 illustrate this case. When the explanatory variable is a two-category factor, the regression coefficient estimate equals the difference between the two group means, with the intercept equal to the mean of the reference group --- the same comparison as a difference-of-means test, though computed through a different method. Example 3 illustrates that connection.
+[**Regression**]{.important-text} estimates a line through the data that tells you the expected difference in the outcome associated with a one-unit difference in the explanatory variable --- and it works whether that explanatory variable is interval, ordinal, or nominal. When the explanatory variable is interval, regression extends correlation by adding the quantity correlation can't give you: the expected change in the outcome for a one-unit change in the explanatory variable. Examples 1 and 2 illustrate this case. When the explanatory variable is a two-category factor, the regression coefficient estimate equals the difference between the two group means, with the intercept equal to the mean of the reference group --- the same comparison as a difference-of-means test, though computed through a different method. Example 3 illustrates that connection.
 
 A note on the data. The data frames **counties** and **fHouse** cover close to complete populations for their units of analysis --- US counties and most of the world's countries. Neither is a random sample the way a public opinion survey is. What makes hypothesis tests appropriate is that our questions are not really about these specific cases; they are about the political and social processes that generate outcomes like the ones we observe.
 
@@ -69,13 +69,13 @@ where the hats mark estimated rather than true values. [The intercept]{.importan
 
 ### Estimating a Model with `lm()`
 
-The `lm()` function in base R estimates a linear regression model. It takes two main arguments. The first is a formula: the dependent variable, followed by a tilde (`~`), read as "depends on," followed by the independent variable. So `y ~ x` means "$y$ depends on $x$." The second is `data`, which tells R which data frame to search for the variables. Because we supply `data`, we write bare variable names in the formula --- not `dataframe$variable`.
+The `lm()` function in base R estimates a linear regression model. It takes two main arguments. The first is a formula: the outcome variable, followed by a tilde (`~`), read as "is modeled as a function of," followed by the explanatory variable. So `y ~ x` means "$y$ is modeled as a function of $x$." The second is `data`, which tells R which data frame to search for the variables. Because we supply `data`, we write bare variable names in the formula --- not `dataframe$variable`.
 
 `lm()` returns a model object containing the estimated coefficients and everything else R computed. We assign it to a named object with `<-` so we can refer to it again, then pass that object to `summary()` to display the formatted results.
 
 ### Reading the Output
 
-`summary()` produces several pieces of output. Near the top, `Call` repeats the model formula, so you can confirm it matches what you intended. The `Coefficients` table is the part we will use most. It has one row for the `(Intercept)` and one row for each independent variable, with four columns:
+`summary()` produces several pieces of output. Near the top, `Call` repeats the model formula, so you can confirm it matches what you intended. The `Coefficients` table is the part we will use most. It has one row for the `(Intercept)` and one row for each explanatory variable, with four columns:
 
 - `Estimate`: the estimated intercept or slope
 - `Std. Error`: the uncertainty in that estimate
@@ -84,19 +84,19 @@ The `lm()` function in base R estimates a linear regression model. It takes two 
 
 R also prints significance stars next to each p-value as a visual shorthand: `***` for p < .001, `**` for p < .01, `*` for p < .05, and `.` for p < .1. A key at the bottom of the output defines them. The stars are a quick visual cue, but we always rely on the actual p-value rather than the stars alone --- the stars tell you which threshold a p-value clears, not its exact value.
 
-Below the coefficients table, `Residual standard error` gives the estimated standard deviation of the residuals --- the approximate typical distance between observed outcomes and the fitted regression line. `Multiple R-squared` gives the proportion of the variance in $Y$ the model explains; a value of 0.20 means the model accounts for 20% of the variation in the outcome. Finally, there is an `F-statistic` at the very bottom; with only one independent variable it tests the same thing as the slope's t-statistic, so we will return to it in Tutorial 16 when it becomes more useful.
+Below the coefficients table, `Residual standard error` gives the estimated standard deviation of the residuals --- the approximate typical distance between observed outcomes and the fitted regression line. `Multiple R-squared` gives the proportion of the variance in $Y$ the model explains; a value of 0.20 means the model accounts for 20% of the variation in the outcome. Finally, there is an `F-statistic` at the very bottom; with only one explanatory variable it tests the same thing as the slope's t-statistic, so we will return to it in Tutorial 16 when it becomes more useful.
 
 The three examples that follow put all of this to work. Examples 1 and 2 use an interval explanatory variable --- one from American electoral politics, one from a cross-national survey --- and Example 3 introduces a two-category factor variable, connecting regression back to the difference-of-means framework you used in Tutorial 13.
 
-## Does Wage Growth Predict Support for Hillary Clinton?
+## Is Wage Growth Associated with Clinton's Vote Share?
 
-In Tutorial 14, you found a statistically significant positive correlation between wage growth and Clinton's two-party vote share --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. That test established the relationship exists. Regression now lets us ask a more precise question: how much does Clinton's vote share change for each percentage-point increase in wage growth? The hypothesis captures that directional prediction:
+In Tutorial 14, you found a statistically significant positive correlation between wage growth and Clinton's two-party vote share --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. That test provided statistically significant evidence of a positive relationship. Regression now lets us ask a more precise question: how much does Clinton's vote share change for each percentage-point increase in wage growth? The hypothesis captures that directional prediction:
 
 ::: {.hypothesis}
 In a comparison of counties, those with higher wage growth will cast a higher percentage of the two-party vote for Hillary Clinton than those counties with lower wage growth.
 :::
 
-The data frame **counties** contains **wage_growth**, the percent by which wages grew or fell in a county, and **dem2p_percent**, the percent of the two-party vote cast for Hillary Clinton. Both variables are already measured in percentage points, so a one-unit increase in either is a one-*percentage-point* increase --- wage growth moving from 4% to 5%, for example --- not a one-*percent* relative increase on top of whatever the value already was. These sound similar but mean very different things, and the distinction matters when you interpret the slope. We estimate a regression with **dem2p_percent** as the dependent variable and **wage_growth** as the independent variable.
+The data frame **counties** contains **wage_growth**, the percent by which wages grew or fell in a county, and **dem2p_percent**, the percent of the two-party vote cast for Hillary Clinton. Both variables are already measured in percentage points, so a one-unit increase in either is a one-*percentage-point* increase --- wage growth moving from 4% to 5%, for example --- not a one-*percent* relative increase on top of whatever the value already was. These sound similar but mean very different things, and the distinction matters when you interpret the slope. We estimate a regression with **dem2p_percent** as the outcome variable and **wage_growth** as the explanatory variable.
 
 ### Estimate the Regression
 
@@ -133,7 +133,7 @@ question("Look at the Coefficients table in your output. Which statement correct
   answer("The intercept gives the expected percent of the two-party vote for Clinton in a county with one percentage point of wage growth",
          message = "The intercept is the predicted value when the explanatory variable is zero, not one. A county with one percentage point of wage growth would have a predicted percent of the two-party vote for Hillary Clinton higher than the intercept by the amount of the slope --- that is the fitted line evaluated at X = 1, not the intercept."),
   answer("The intercept gives the expected level of wage growth when Clinton's percent of the two-party vote is zero",
-         message = "This reverses the dependent and independent variables. We modeled Clinton's percent of the two-party vote as depending on wage growth --- so the intercept describes the outcome (vote percent) at a given value of the predictor (wage growth = 0), not the predictor at a given value of the outcome."),
+         message = "This reverses the outcome and explanatory variables. We modeled Clinton's percent of the two-party vote as a function of wage growth --- so the intercept describes the outcome (vote percent) at a given value of the explanatory variable (wage growth = 0), not the explanatory variable at a given value of the outcome."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: the intercept is in the row labeled (Intercept). What does it mean when the explanatory variable equals zero?"
@@ -155,7 +155,7 @@ question("Look at the Coefficients table in your output. Which statement correct
   answer("The slope gives the expected percent of the two-party vote for Clinton when wage growth is zero",
          message = "That description belongs to the intercept, not the slope. The slope tells us how Clinton's vote percent changes as wage growth changes --- it is the rate of change. The starting value when wage growth is zero is the intercept."),
   answer("The slope gives the expected change in wage growth for each one-percentage-point increase in Clinton's percent of the two-party vote",
-         message = "This reverses the dependent and independent variables. We modeled wage_growth predicting dem2p_percent, not the reverse. The reverse regression would produce a different slope entirely."),
+         message = "This reverses the outcome and explanatory variables. We modeled dem2p_percent as a function of wage_growth, not the reverse. The reverse regression would produce a different slope entirely."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: the slope is in the row labeled wage_growth. What does it mean for a one-unit change in wage growth?"
@@ -168,7 +168,7 @@ The regression line isn't just a summary of the data --- it's a prediction machi
 
 $$\widehat{\text{dem2p_percent}} = \hat{\alpha} + \hat{\beta}\,\text{wage_growth} = 31.3521 + 0.45582\times(4.3) = 33.31213.$$
 
-Notice what this arithmetic reveals about the slope. If wage growth were 5.3 instead --- one percentage point higher --- the prediction would be $31.3521 + 0.45582 \times 5.3 = 33.768$<span style='display:inline-block;width:1.2em'></span>. The difference between the two predictions is exactly 0.456 --- the slope. That is not a coincidence: the slope *is* the expected change in $\hat{Y}$ for a one-unit increase in X, by definition. For any other change of size $c$, the expected change in $\hat{Y}$ is $\hat{\beta} \times c$ --- the same multiplication, scaled to the size of the change you care about. You will use this directly in Tutorial 16 when interpreting coefficients whose natural unit of change is not one.
+Notice what this arithmetic reveals about the slope. If wage growth were 5.3 instead --- one percentage point higher --- the prediction would be $31.3521 + 0.45582 \times 5.3 = 33.768$. The difference between the two predictions is exactly 0.456 --- the slope. That is not a coincidence: the slope *is* the expected change in $\hat{Y}$ for a one-unit increase in X, by definition. For any other change of size $c$, the expected change in $\hat{Y}$ is $\hat{\beta} \times c$ --- the same multiplication, scaled to the size of the change you care about. You will use this directly in Tutorial 16 when interpreting coefficients whose natural unit of change is not one.
 
 **Practice: Calculate a predicted value**
 
@@ -272,7 +272,7 @@ question("Which of the following statements about model fit are correct? Select 
          message = "This reads R-squared backwards. An R-squared of 0.01746 means wage growth explains about 1.75% of the variation, not that 1.75% is left unexplained. About 98% of the variation in Clinton's vote percent is not accounted for by wage growth alone."),
   answer("The residual standard error shows that in a typical county, the model's prediction of Clinton's percent of the two-party vote is off by about 16 percentage points",
          correct = TRUE,
-         message = "The residual standard error is 15.99 percentage points --- roughly the size of a substantial swing in a county's vote percent. That is a large typical error, consistent with the near-zero R-squared. The model detects a real relationship but predicts individual counties poorly."),
+         message = "The residual standard error is 15.99 percentage points --- roughly the size of a substantial swing in a county's vote percent. That is a large typical error, consistent with the near-zero R-squared. The model detects a statistically distinguishable relationship but predicts individual counties poorly."),
   answer("The residual standard error shows that the model explains about 16% of the variation in Clinton's percent of the two-party vote",
          message = "The residual standard error is not a proportion --- it is measured in the same units as the outcome, here percentage points. It gives the approximate typical distance between observed outcomes and the fitted regression line, not the share of variation explained. That is what R-squared does."),
   allow_retry = TRUE,
@@ -283,15 +283,15 @@ question("Which of the following statements about model fit are correct? Select 
 
 ### What We Learned About Wage Growth and Clinton's Vote Share
 
-So does wage growth predict support for Hillary Clinton? The short answer is yes, but the longer answer is more interesting.
+So is wage growth associated with Clinton's vote share? The short answer is yes, but the longer answer is more interesting.
 
 Wage growth had a positive relationship with the percent of the two party vote Clinton received in 2016 --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. The slope is highly significant: with over 3,100 counties, we are very confident the positive relationship is statistically distinguishable from zero. But the model fit is very poor. The R-squared of 0.017 means wage growth accounts for less than 2% of the county-to-county variation in Clinton's vote, and the residual standard error of about 16 percentage points --- the approximate typical distance between observed vote shares and the fitted regression line --- is large. A significant slope and poor fit are not in tension --- they are answering different questions. The slope tells us the relationship is statistically distinguishable from zero; R-squared tells us how much of the variation it explains. In political science, where outcomes have many causes, a single predictor almost never explains most of the variation, and that is not a sign that something went wrong.
 
-## Does National Freedom Predict Approval of a Strong Leader?
+## Is National Freedom Associated with Approval of a Strong Leader?
 
-The wage growth example showed regression at work on a question about US counties. The same logic applies to any research question with an interval dependent variable --- different data, different variables, different part of the world, same tool. Here we ask whether a country's level of political freedom is associated with its citizens' appetite for concentrated executive power.
+The wage growth example showed regression at work on a question about US counties. The same logic applies to any research question with an interval outcome variable --- different data, different variables, different part of the world, same tool. Here we ask whether a country's level of political freedom is associated with its citizens' appetite for concentrated executive power.
 
-Does how free a country is predict whether its citizens approve of an unconstrained strong leader --- one who doesn't have to bother with elections or a legislature? The theoretical argument is that living under genuinely free institutions builds support for the constraints those institutions impose. Citizens who experience functioning elections, civil liberties, and checks on executive power develop both an appreciation for what those constraints protect and a wariness of leaders who would dismantle them. Countries with lower levels of freedom, conversely, may have populations more accustomed to --- or more open to --- concentrated executive power.
+Is a country's level of freedom associated with whether its citizens approve of an unconstrained strong leader --- one who doesn't have to bother with elections or a legislature? The theoretical argument is that living under genuinely free institutions builds support for the constraints those institutions impose. Citizens who experience functioning elections, civil liberties, and checks on executive power develop both an appreciation for what those constraints protect and a wariness of leaders who would dismantle them. Countries with lower levels of freedom, conversely, may have populations more accustomed to --- or more open to --- concentrated executive power.
 
 ::: {.hypothesis}
 In a comparison of countries, those with higher levels of political freedom will have lower public approval of an unconstrained strong leader than those with lower levels of political freedom.
@@ -394,9 +394,9 @@ question("Which of the following statements correctly interpret the intercept an
          correct = TRUE,
          message = "The slope estimate is -0.229 --- countries with a one-point higher freedom score are predicted to have about 0.229 percentage points lower approval of a strong leader, on average. The negative sign matches the hypothesis."),
   answer("The slope gives the expected difference in a country's Freedom House score associated with a one-percentage-point difference in approval of a strong leader",
-         message = "This reverses the dependent and independent variables. We modeled **Pro.Strong.Leader** as depending on **FHTotalAggr**. The slope tells us the expected difference in approval associated with a one-point difference in the freedom score, not the reverse."),
+         message = "This reverses the outcome and explanatory variables. We modeled **Pro.Strong.Leader** as a function of **FHTotalAggr**. The slope tells us the expected difference in approval associated with a one-point difference in the freedom score, not the reverse."),
   answer("The intercept tells us the average Freedom House score among countries that approve of a strong leader",
-         message = "This reverses the dependent and independent variables. The intercept is a predicted value of the outcome (approval of a strong leader) when the predictor (Freedom House score) equals zero --- it says nothing about the average value of the predictor."),
+         message = "This reverses the outcome and explanatory variables. The intercept is a predicted value of the outcome (approval of a strong leader) when the explanatory variable (Freedom House score) equals zero --- it says nothing about the average value of the explanatory variable."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: there is more than one correct answer. Apply the definitions of intercept and slope to this specific model --- the intercept is the predicted outcome when X = 0, the slope is the change per one-unit increase in X."
@@ -434,7 +434,7 @@ question("Using the intercept and slope from your output, what is the predicted 
 
 ### Conduct Hypothesis Tests
 
-That slope is negative, matching the hypothesis --- but with only 78 countries having data on both variables, is it strong enough to trust, or could it be due to chance? The null hypothesis is $H_0: \beta_{F} = 0$ and the alternative is $H_A: \beta_{F} \ne 0$, where $\beta_F$ is the population slope on **FHTotalAggr**. Find the t-statistic and p-value for the slope in your output.
+That slope is negative, matching the hypothesis --- but with only 78 countries having data on both variables, does it provide sufficient evidence that the population slope differs from zero? The null hypothesis is $H_0: \beta_{F} = 0$ and the alternative is $H_A: \beta_{F} \ne 0$, where $\beta_F$ is the population slope on **FHTotalAggr**. Find the t-statistic and p-value for the slope in your output.
 
 **Practice: Conduct the hypothesis test**
 
@@ -445,14 +445,14 @@ question("Which conclusions follow from the hypothesis test on the slope? Select
   correct = "Right. Both the p-value and the t-statistic lead to the same conclusion: reject the null hypothesis.",
   answer("The p-value is less than 0.05, so we reject the null hypothesis",
          correct = TRUE,
-         message = "The p-value is 0.012 --- a relationship this size would be fairly unlikely to occur by chance if there were truly no relationship in the population. Not as overwhelming as some county-level examples, but still below the 0.05 threshold."),
+         message = "The p-value is 0.012 --- a relationship this size would be fairly unlikely if the population slope were zero. Not as overwhelming as some county-level examples, but still below the 0.05 threshold."),
   answer("The absolute value of the t-statistic exceeds 1.96, which leads to the same conclusion as the p-value",
          correct = TRUE,
          message = "The t-statistic is -2.573, with absolute value above 1.96. The t-statistic and p-value always agree for the same two-tailed test, since both are built from the same estimate and standard error."),
   answer("The significant result proves that living in a free country causes citizens to oppose strong leaders",
          message = "A significant coefficient tells us the relationship is statistically distinguishable from zero. It does not establish causation --- freer countries may differ from less free ones in many other ways that also shape political attitudes."),
   answer("A p-value of 0.012 means there is a 1.2% probability that the null hypothesis is true",
-         message = "This reverses what the p-value measures. The p-value is the probability of observing a result this extreme if the null were true --- not the probability that the null itself is true. A p-value of 0.012 means results this large would occur about 1.2% of the time by chance if there were truly no relationship, not that there is a 1.2% chance the null is correct."),
+         message = "This reverses what the p-value measures. The p-value is the probability of observing a result this extreme if the null were true --- not the probability that the null itself is true. A p-value of 0.012 means results at least this extreme would occur about 1.2% of the time if the population slope were zero --- not that there is a 1.2% chance the null is correct."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: there is more than one correct answer. Check the p-value and the t-statistic in the FHTotalAggr row."
@@ -494,7 +494,7 @@ Countries with higher levels of political freedom show meaningfully lower public
 
 ## Do Majority-White Counties Differ in Their Support for Hillary Clinton?
 
-In Tutorial 13, you tested whether racial majority predicted Democratic vote share using a two-sample t-test, comparing Black Majority and White Majority counties specifically. That test established a significant difference between those two groups. Here we ask a related but different question: does having a white majority at all --- collapsing the four racial majority categories into a simple binary --- predict Clinton's vote? Regression lets us answer that question and gives us the exact magnitude of the gap between the two groups. Both examples so far have used an interval-level explanatory variable; what's new here is how to create a properly labeled categorical variable in R and how to read the slope that results. The mechanics of `lm()` are identical to what you've already seen.
+In Tutorial 13, you tested whether Democratic vote share differed by racial-majority category using a two-sample t-test, comparing Black Majority and White Majority counties specifically. That test provided statistically significant evidence of a difference between those two groups. Here we ask a related but different question: is having a white majority at all --- collapsing the four racial majority categories into a simple binary --- associated with Clinton's vote? Regression lets us answer that question and gives us the exact magnitude of the gap between the two groups. Both examples so far have used an interval-level explanatory variable; what's new here is how to create a properly labeled categorical variable in R and how to read the slope that results. The mechanics of `lm()` are identical to what you've already seen.
 
 ::: {.hypothesis}
 In a comparison of counties, those with a majority-white population will cast a lower percentage of the two-party vote for Hillary Clinton than those counties without a majority-white population.
@@ -554,7 +554,7 @@ grade_this({
     fail("Assign your model to an object called model3.")
   }
   if (!grepl("dem2p_percent\\s*~\\s*White_f", code_no_comments)) {
-    fail("The formula should be dem2p_percent ~ White_f. The dependent variable (dem2p_percent) goes on the left of the ~ and the explanatory variable (White_f) goes on the right.")
+    fail("The formula should be dem2p_percent ~ White_f. The outcome variable (dem2p_percent) goes on the left of the ~ and the explanatory variable (White_f) goes on the right.")
   }
   if (!grepl("data\\s*=\\s*counties", code_no_comments)) {
     fail("Set data = counties so R knows where to find the variables.")
@@ -603,7 +603,7 @@ question("Which of the following statements correctly interpret the regression o
   answer("The slope gives the expected decrease in Clinton's percent of the two-party vote for each one-percentage-point increase in the proportion of white residents",
          message = "White_f is a two-category factor, not a continuous percentage. Its slope gives the difference between the two groups --- majority white versus not majority white --- not the effect of a one-unit change in a continuous variable."),
   answer("The slope tells us that majority-white counties are about 32 percentage points more likely to be majority white than non-majority-white counties",
-         message = "This confuses the dependent and independent variables. The slope describes the difference in the outcome --- Clinton's percent of the two-party vote --- between the two groups defined by the explanatory variable (majority-white status), not the reverse."),
+         message = "This confuses the outcome and explanatory variables. The slope describes the difference in the outcome --- Clinton's percent of the two-party vote --- between the two groups defined by the explanatory variable (majority-white status), not the reverse."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: there is more than one correct answer. The intercept is the reference category mean; the slope is the difference between groups."
@@ -667,9 +667,9 @@ question("Which of the following statements about model fit are correct? Select 
 
 ### What We Learned About Majority-White Status and Clinton's Vote Share
 
-So does majority-white status predict Clinton's vote? Yes, and by a wide margin --- but even a 32-percentage-point gap between groups leaves most of the county-to-county variation unexplained.
+So is majority-white status associated with Clinton's vote? Yes, and by a wide margin --- but even a 32-percentage-point gap between groups leaves most of the county-to-county variation unexplained.
 
-Majority-white counties cast about 32 percentage points fewer votes for Clinton than non-majority-white counties --- a large, highly significant difference. But the fit is weak: the R-squared of 0.18 means majority-white status accounts for only about 18% of the county-to-county variation in Clinton's vote, and the residual standard error of about 15 percentage points means individual county predictions are often substantially off. This is the same pattern we saw in Examples 1 and 2: a statistically significant relationship coexisting with poor to weak fit, because most political outcomes have many causes and a single predictor rarely accounts for most of the variation. Across all three examples, a single predictor explained between 1.7% and 18% of the variation in the outcome --- enough to detect a real relationship with confidence, but far from the whole story.
+Majority-white counties cast about 32 percentage points fewer votes for Clinton than non-majority-white counties --- a large, highly significant difference. But the fit is weak: the R-squared of 0.18 means majority-white status accounts for only about 18% of the county-to-county variation in Clinton's vote, and the residual standard error of about 15 percentage points means individual county predictions are often substantially off. This is the same pattern we saw in Examples 1 and 2: a statistically significant relationship coexisting with poor to weak fit, because most political outcomes have many causes and a single predictor rarely accounts for most of the variation. Across all three examples, a single predictor explained between 1.7% and 18% of the variation in the outcome --- enough to provide strong evidence that the population relationship is not zero, but far from the whole story.
 
 ## Check Your Understanding
 
@@ -741,21 +741,16 @@ question("A regression of county Democratic vote share on **wage_growth** produc
 
 [**Simple linear regression**]{.important-text} unifies two frameworks you already know. When the explanatory variable is interval, regression extends what correlation gave you --- a description of direction and strength --- by adding the quantity correlation cannot: how much the outcome changes for a one-unit increase in the predictor. When the explanatory variable is categorical, regression produces the same result as a difference-of-means test, but inside a framework that generalizes to any level of measurement and any number of predictors. The three examples in this tutorial covered an interval predictor with a positive slope, an interval predictor with a negative slope, and a two-category factor predictor --- three different substantive questions, one framework.
 
-**Estimating a model.** Use `lm()` to estimate a regression model. The first argument is a formula: the dependent variable, a tilde (`~`), and the independent variable. The second argument is `data`, which names the data frame containing the variables --- this means you write bare variable names in the formula, not `dataframe$variable`. Assign the result to a named object with `<-`, then pass that object to `summary()` to display the formatted results. When the independent variable is categorical, use `factor()` to create a properly labeled factor variable before estimating the model. The `factor()` function takes the variable name and a `labels` argument giving category names in order from smallest to largest original value. Use `levels()` afterward to confirm which category R will treat as the reference --- the one it omits from the output, against which all others are compared.
+**Estimating a model.** Use `lm()` to estimate a regression model. The first argument is a formula: the outcome variable, a tilde (`~`), and the explanatory variable (also called the predictor). The second argument is `data`, which names the data frame containing the variables --- this means you write bare variable names in the formula, not `dataframe$variable`. Assign the result to a named object with `<-`, then pass that object to `summary()` to display the formatted results. When the explanatory variable is categorical, use `factor()` to create a properly labeled factor variable before estimating the model. The `factor()` function takes the variable name and a `labels` argument giving category names in order from smallest to largest original value. Use `levels()` afterward to confirm which category R will treat as the reference --- the one it omits from the output, against which all others are compared.
 
-**Interpreting the coefficients.** The intercept and slope have precise meanings that depend on what kind of independent variable you have:
+**Interpreting the coefficients.** The intercept and slope have precise meanings that depend on what kind of explanatory variable you have:
 
-- *Interval independent variable:* The [intercept]{.important-text} ($\hat{\alpha}$) is the predicted value of $Y$ when $X = 0$. The [slope]{.important-text} ($\hat{\beta}$) is the expected change in $Y$ for a one-unit increase in $X$.
-- *Two-category factor independent variable:* The [intercept]{.important-text} is the mean of the reference category. The [slope]{.important-text} is the difference between the two group means --- the mean of the non-reference category minus the mean of the reference category.
+- *Interval explanatory variable:* The [intercept]{.important-text} ($\hat{\alpha}$) is the predicted value of $Y$ when $X = 0$. The [slope]{.important-text} ($\hat{\beta}$) is the expected difference in $Y$ associated with a one-unit difference in $X$.
+- *Two-category factor explanatory variable:* The [intercept]{.important-text} is the mean of the reference category. The [slope]{.important-text} is the difference between the two group means --- the mean of the non-reference category minus the mean of the reference category.
 
 In either case, a predicted value of $Y$ for any specific value of $X$ is obtained by substituting that value into the fitted line: $\hat{Y} = \hat{\alpha} + \hat{\beta} X$.
 
-**Testing the coefficients.** The `summary()` output provides a t-statistic and p-value for each coefficient. These two pieces of evidence always agree for the same two-tailed test:
-
-- If the absolute value of the t-statistic exceeds 1.96, the p-value will be below 0.05 --- reject the null hypothesis that the coefficient is zero in the population.
-- If the absolute value of the t-statistic is below 1.96, the p-value will exceed 0.05 --- fail to reject the null hypothesis.
-
-The 1.96 threshold is an approximation that works well with the large samples in this tutorial; in practice, use the p-value R reports. To compute confidence intervals for the coefficients, use `confint(model_object)` --- they are not shown in `summary()` output but exclude zero whenever the p-value is below 0.05.
+**Testing the coefficients.** The `summary()` output provides a t-statistic and p-value for each coefficient. These two pieces of evidence always agree for the same two-tailed test: if the p-value is below 0.05, reject the null hypothesis that the coefficient is zero in the population; if it is above 0.05, fail to reject. The absolute value of the t-statistic provides the same information --- for the large samples in this tutorial, a t-statistic above approximately 1.96 corresponds to a p-value below 0.05 --- but in practice, use the p-value R reports directly. To compute confidence intervals for the coefficients, use `confint(model_object)` --- they are not shown in `summary()` output but exclude zero whenever the p-value is below 0.05.
 
 We always test a two-tailed alternative ($H_A: \beta \ne 0$) as standard practice for regression coefficients. If we reject the two-tailed null and the sign of the coefficient matches our theoretical prediction, we have implicitly rejected the one-tailed null as well and can make a directional claim in our substantive interpretation.
 
@@ -786,9 +781,9 @@ learnrhash::encoder_ui(
 cat('
 <p class="tutorial-complete"
    role="status"
-   aria-label="Excellent work! You have completed this tutorial and can now estimate and interpret simple regression models, including models with a factor variable as the independent variable.">
+   aria-label="Excellent work! You have completed this tutorial and can now estimate and interpret simple regression models, including models with a factor variable as the explanatory variable.">
   <span aria-hidden="true">📉</span>
-  Excellent work! You can now estimate and interpret simple regression models, including models with a factor variable as the independent variable.
+  Excellent work! You can now estimate and interpret simple regression models, including models with a factor variable as the explanatory variable.
 </p>
 ')
 ```

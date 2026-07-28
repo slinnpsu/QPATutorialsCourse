@@ -1,7 +1,7 @@
 ---
 title: "Logistic Regression"
 tutorial:
-  id: "19-Logistic-Regression"
+  id: "20-Logistic-Regression"
 output: 
   QPATutorialsCourse::qpa_tutorial:
     progressive: true
@@ -13,9 +13,9 @@ description: >
 
 ## Overview {#main-content}
 
-Tutorials 15 through 18 built a complete toolkit for linear regression: estimating models with one or many predictors, interpreting slopes and intercepts, testing hypotheses about coefficients, computing predicted values, and visualizing relationships with prediction plots. All of that work shared one requirement --- an interval-level outcome variable. The percent of the two-party vote a county casts for a candidate, a country's rule of law score, a state's Democratic seat share: these are quantities that can take many values along a continuous scale, and linear regression is well suited to explaining them.
+Tutorials 15 through 17 built a complete toolkit for linear regression: estimating models with one or many predictors, interpreting slopes and intercepts, testing hypotheses about coefficients, computing predicted values, and visualizing relationships with prediction plots. Tutorials 18 and 19 extend that toolkit to interaction models. All of that work shared one requirement --- an interval-level outcome variable. The percent of the two-party vote a county casts for a candidate, a country's rule of law score, a state's Democratic seat share: these are quantities that can take many values along a continuous scale, and linear regression is well suited to explaining them.
 
-Political scientists frequently want to explain outcomes that don't work that way. A county either gave Trump a majority of its vote or it did not. A state either adopted a greenhouse gas emissions cap or it did not. A legislator either cosponsored a bill or did not. For outcomes like these, where the variable can only equal 0 or 1, a different class of model is needed. This tutorial introduces [**logistic regression**]{.important-text}, which is designed specifically for binary outcomes. Tutorial 20 extends that foundation to prediction plots --- doing for logistic regression what Tutorial 18 did for linear regression.
+Political scientists frequently want to explain outcomes that don't work that way. A county either gave Trump a majority of its vote or it did not. A state either adopted a greenhouse gas emissions cap or it did not. A legislator either cosponsored a bill or did not. For outcomes like these, where the variable can only equal 0 or 1, a different class of model is needed. This tutorial introduces [**logistic regression**]{.important-text}, which is designed specifically for binary outcomes. Tutorial 21 extends that foundation to prediction plots --- doing for logistic regression what Tutorial 17 did for linear regression.
 
 In this tutorial, you will learn how to estimate and interpret a logistic regression model. Specifically, we will cover:
 
@@ -24,10 +24,10 @@ In this tutorial, you will learn how to estimate and interpret a logistic regres
 * How to interpret the direction and statistical significance of logistic regression coefficients, and why the magnitude of coefficients cannot be interpreted directly
 * How to conduct hypothesis tests using z-values, applying the five-step procedure from earlier tutorials
 * How to obtain predicted probabilities using `predict()` with `type = "response"`, and why predicted probabilities are necessary to interpret the substantive size of effects
-* How to assess model fit using the `hitmiss()` function --- the confusion matrix, percent correctly predicted, and comparison to the null model
+* How to assess classification performance using the `hitmiss()` function --- the confusion matrix, percent correctly predicted, and comparison to the null model
 
 ::: {.tip}
-**Run Code vs. Submit Answer:** As in earlier tutorials, **Run Code** lets you experiment freely without consequences. Only **Submit Answer** checks your work. Use **Run Code** as often as you like before submitting.
+**"Run Code" vs. "Submit Answer":** As in earlier tutorials, **"Run Code"** lets you experiment freely without consequences. Only **"Submit Answer"** checks your work. Use **"Run Code"** as often as you like before submitting.
 :::
 
 ```{r setup, include=FALSE}
@@ -88,7 +88,7 @@ where $\exp$ denotes $e$ raised to a power. No matter how large or small the lin
 
 ### Interpreting Logistic Regression Coefficients
 
-The `glm()` function with the argument `family = "binomial"` estimates logistic regression in R. The `summary()` output has the same general structure as `lm()`: a coefficients table with one row per predictor, each showing an estimate, a standard error, a test statistic, and a p-value. The coefficient estimates are in [**log-odds**]{.important-text} units rather than the original units of the outcome.
+The `glm()` function with the argument `family = "binomial"` estimates logistic regression in R. The `summary()` output has the same general structure as `lm()`: a coefficients table with one row per non-intercept coefficient --- a categorical predictor contributes one row for each non-reference category --- each showing an estimate, a standard error, a test statistic, and a p-value. The coefficient estimates are in [**log-odds**]{.important-text} units rather than the original units of the outcome.
 
 This creates an important interpretive constraint that differs from linear regression:
 
@@ -96,21 +96,21 @@ This creates an important interpretive constraint that differs from linear regre
 - The **z-value** and **p-value** tell you whether the relationship is statistically distinguishable from zero. Logistic regression uses maximum likelihood estimation rather than ordinary least squares, which means the sampling distribution of the coefficient estimator is approximately standard normal in large samples rather than a t-distribution --- hence z-values rather than t-values. The decision rule is the same: a z-value whose absolute value exceeds 1.96 corresponds approximately to a p-value below .05.
 - The **magnitude** of the coefficient, in log-odds units, does not translate directly into a meaningful statement about the size of the effect on the probability scale.
 
-That last point is critical. In linear regression, a slope of 0.314 meant "a one-unit increase in the predictor is associated with a 0.314-unit increase in the outcome." In logistic regression, the size of the effect on the probability scale depends on where you are on the S-curve --- which depends on the values of all the other predictors. To say anything about the size of an effect, you need predicted probabilities, which we will cover later in this tutorial.
+That last point is critical. In linear regression, a slope of 0.314 meant "a one-unit increase in the predictor is associated with a 0.314-unit increase in the outcome." In logistic regression, the size of the estimated association on the probability scale depends on where you are on the S-curve --- which depends on the values of all the other predictors. To say anything about the size of an estimated association, you need predicted probabilities, which we will cover later in this tutorial.
 
 The other major difference from linear regression is model fit. There is no direct equivalent to $R^2$ for logistic regression. Instead, we assess how well the model classifies cases using a [**confusion matrix**]{.important-text} --- a cross-tabulation of predicted versus actual outcomes --- and compare the percentage of cases correctly predicted to the percentage the null model would get right simply by always predicting the most common outcome category.
 
-The two examples that follow put all of this to work. Each one walks through the same sequence: estimating the model, interpreting the coefficients, testing the hypotheses, presenting the results in a table, obtaining predicted probabilities for specific profiles, and assessing model fit. The first uses county-level data to ask what predicted Trump majorities in 2016; the second turns to state-level data to ask what predicted greenhouse gas cap adoption.
+The two examples that follow put all of this to work. Each one walks through the same sequence: estimating the model, interpreting the coefficients, testing the hypotheses, presenting the results in a table, obtaining predicted probabilities for specific profiles, and assessing model fit. The first uses county-level data to ask what was associated with Trump majorities in 2016; the second turns to state-level data to ask what was associated with greenhouse gas cap adoption.
 
-## Did County-Level Economic Conditions and Demographic Composition Predict Trump Support in 2016?
+## Were County-Level Economic Conditions and Demographic Composition Associated with Trump Support in 2016?
 
 The 2016 presidential election produced one of the most-analyzed results in recent American political history. Donald Trump won the Electoral College while losing the popular vote, assembling a coalition that differed markedly from previous Republican nominees. Understanding which counties gave Trump a majority of their two-party vote --- and why --- offers a window into the political geography of that realignment.
 
 Two theoretical perspectives motivate our model. The first is [**retrospective voting**]{.important-text}: voters reward the incumbent party when economic conditions are good and punish it when conditions are bad. If retrospective voting drove 2016 results, counties that experienced stronger wage growth should have been more likely to support the incumbent party's candidate, Hillary Clinton --- meaning less likely to give Trump a majority. Counties where working-age adults faced higher mortality risk should have been more likely to reject the incumbent party and support Trump.
 
-The second perspective draws on the work of Sides, Tesler, and Vavreck, who argue that Trump's campaign rhetoric activated attitudes about race, immigration, and cultural identity among voters who felt left behind by economic and demographic change. On this account, the racial and geographic composition of a county --- not just its economic trajectory --- should predict Trump support independently.
+The second perspective draws on the work of Sides, Tesler, and Vavreck, who argue that Trump's campaign rhetoric activated attitudes about race, immigration, and cultural identity among voters who felt left behind by economic and demographic change. On this account, the racial and geographic composition of a county --- not just its economic trajectory --- should be associated with Trump support, controlling for the other variables.
 
-Together, these perspectives motivate the following model. The data frame **counties** contains **TrumpMajority**, which equals 1 if Trump won a majority of the two-party vote in the county and 0 otherwise. The independent variables are:
+Together, these perspectives motivate the following model. The data frame **counties** contains **TrumpMajority**, which equals 1 if Trump won a majority of the two-party vote in the county and 0 otherwise. The explanatory variables (predictors) are:
 
 - **wage_growth**: the percent change in average weekly wages in the county --- the retrospective voting predictor; counties with higher wage growth should be less likely to support Trump
 - **mortality_risk_25_45**: the probability (expressed as a percent) that a 25-year-old in the county dies before reaching age 45 --- a measure of community-level health and economic distress, capturing what researchers have called "deaths of despair": premature mortality from drug overdoses, suicide, and alcohol-related illness that rose sharply in economically struggling communities during this period; counties with higher mortality risk should be more likely to support Trump
@@ -130,11 +130,11 @@ In a comparison of counties, those with higher mortality risk among working-age 
 
 ### Estimate the Model
 
-The `glm()` function estimates logistic regression in R. Its formula and data arguments work exactly like `lm()`: the dependent variable goes on the left of `~`, the independent variables go on the right separated by `+`, and `data =` tells R where to find them. The critical difference is the argument `family = "binomial"`, which tells R that the outcome is binary and that the logistic function should be used to model it. Without this argument, `glm()` would default to ordinary linear regression.
+The `glm()` function estimates logistic regression in R. Its formula and data arguments work exactly like `lm()`: the outcome variable goes on the left of `~`, the explanatory variables go on the right separated by `+`, and `data =` tells R where to find them. The critical difference is the argument `family = "binomial"`, which tells R that the outcome is binary and that the logistic function should be used to model it. Without this argument, `glm()` would default to ordinary linear regression.
 
 **Run and observe: Estimate the logistic regression model**
 
-Run the code below to estimate the model and examine the output. Notice that the `Coefficients` table has the same structure as `lm()` output --- one row per predictor with an Estimate, Std. Error, test statistic, and p-value --- but the test statistic column is labeled `z value` rather than `t value`, and there is no $R^2$ at the bottom.
+Run the code below to estimate the model and examine the output. Notice that the `Coefficients` table has the same structure as `lm()` output --- one row per non-intercept coefficient (a categorical predictor contributes one row for each non-reference category), with an Estimate, Std. Error, test statistic, and p-value --- but the test statistic column is labeled `z value` rather than `t value`, and there is no $R^2$ at the bottom.
 
 ```{r exercise-estimate-trump, exercise=TRUE, exercise.cap="Run and observe: Estimate the logistic regression model"}
 model_trump <- glm(TrumpMajority ~ wage_growth + prop_college_grad +
@@ -151,7 +151,7 @@ The coefficients are in log-odds units. You can read the direction of each relat
 
 **Practice: Identify the direction of each relationship**
 
-Look at the sign of each coefficient in your output. Which of the following statements correctly describe the direction of the relationships? Select all that apply.
+Look at the sign of each coefficient in your output before answering.
 
 ```{r quiz-direction-trump, echo=FALSE}
 question("Which of the following statements correctly describe what the coefficients tell us about the direction of each relationship? Select all that apply.",
@@ -182,14 +182,14 @@ In logistic regression the test statistic is a z-value rather than a t-value, bu
 
 **Practice: Test the hypotheses for wage_growth and mortality_risk_25_45**
 
-Using the z-values and p-values from your table, apply the five-step procedure to each predictor. Which of the following statements correctly apply the procedure to **wage_growth** and **mortality_risk_25_45**? Select all that apply.
+Using the z-values and p-values from your table, apply the five-step procedure to each predictor before answering.
 
 ```{r quiz-hyp-test-focal, echo=FALSE}
 question("Which of the following statements correctly apply the five-step procedure to wage_growth and mortality_risk_25_45? Select all that apply.",
   correct = "Right: two statements correctly apply the five-step procedure.",
-  answer("We fail to reject the null hypothesis for wage_growth --- the data do not provide strong evidence that wage growth predicts the probability of a Trump majority after controlling for the other variables",
+  answer("We fail to reject the null hypothesis for wage_growth --- the data do not provide strong evidence that wage growth is associated with the probability of a Trump majority after controlling for the other variables",
          correct = TRUE,
-         message = "The z-statistic for wage_growth is -0.639 and the p-value is 0.523. Both lead to the same conclusion: fail to reject. Wage growth was the central retrospective voting predictor, so this null result is substantively important --- once we account for the demographic and geographic composition of counties, the economic trajectory as measured by wage growth does not significantly predict Trump support."),
+         message = "The z-statistic for wage_growth is -0.639 and the p-value is 0.523. Both lead to the same conclusion: fail to reject. Wage growth was the central retrospective voting predictor, so this null result is substantively important --- once we account for the demographic and geographic composition of counties, the association between wage growth and Trump support is not statistically distinguishable from zero."),
   answer("We reject the null hypothesis for mortality_risk_25_45 --- counties with higher mortality risk among working-age adults were significantly more likely to give Trump a majority after controlling for the other variables",
          correct = TRUE,
          message = "The z-statistic for mortality_risk_25_45 is 3.395 and the p-value is 0.001. Both lead to the same conclusion: reject. The mortality risk finding is consistent with the retrospective voting hypothesis and with the broader literature on deaths of despair: communities experiencing greater working-age mortality were significantly more likely to support Trump, even after controlling for wage growth, education, racial composition, and urbanicity."),
@@ -207,7 +207,7 @@ question("Which of the following statements correctly apply the five-step proced
 
 **Practice: Test the hypotheses for the control variables**
 
-Using the z-values and p-values from your table, apply the five-step procedure to the control variables. Which of the following statements correctly apply the procedure to **prop_college_grad**, **prop_white**, and **rural_cat**? Select all that apply.
+Using the z-values and p-values from your table, apply the five-step procedure to the control variables before answering.
 
 ```{r quiz-hyp-test-controls, echo=FALSE}
 question("Which of the following statements correctly apply the five-step procedure to prop_college_grad, prop_white, and rural_cat? Select all that apply.",
@@ -265,9 +265,9 @@ stargazer(model_trump,
 # Hint 1 of 2
 # You have used stargazer() before to produce regression tables
 # and the arguments work the same way here as in Tutorial 16.
-# You need to supply a title, a label for the dependent variable,
+# You need to supply a title, a label for the outcome variable,
 # and labels for each predictor row. There are six rows to label:
-# one for each independent variable plus two rows for rural_cat
+# one for each predictor coefficient, including two rows for rural_cat
 # (one for Suburban and one for Rural; Urban is the reference
 # category and does not appear as a separate row).
 # Look at the Coefficients table from the exercise above to
@@ -276,25 +276,17 @@ stargazer(model_trump,
 
 ```{r exercise-stargazer-trump-hint-2}
 # Hint 2 of 2
-# The two blanked argument names are: type and title.
-# Fill in the covariate labels in the order the predictors
-# appear in the summary() output.
-stargazer(model_trump,
-          type = "text",
-          title = "___",
-          dep.var.labels = "___",
-          covariate.labels = c("Wage Growth (%)",
-                               "___",
-                               "___",
-                               "___",
-                               "___",
-                               "___"))
+# The two blanked argument names are type and title.
+# covariate.labels needs six entries in formula order:
+# wage_growth, prop_college_grad, prop_white, mortality_risk_25_45,
+# then the two non-reference levels of rural_cat in the order
+# they appear in the summary() output (Suburban before Rural).
 ```
 
 ```{r exercise-stargazer-trump-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("stargazer\\s*\\(", code_no_comments)) {
     fail("Use stargazer() to produce the table.")
@@ -333,7 +325,7 @@ Once a package is loaded with `library()`, all of its functions are available fo
 
 ### What Does the Model Predict?
 
-Coefficients tell you direction and significance. To understand the size of an effect --- how different the probability of a Trump majority actually is between two counties --- you need predicted probabilities. The `predict()` function with `type = "response"` returns predicted probabilities from a logistic regression model. Without `type = "response"`, `predict()` returns predictions on the log-odds scale, which are not directly interpretable.
+Coefficients tell you direction and significance. To understand the size of an estimated association --- how different the probability of a Trump majority actually is between two counties --- you need predicted probabilities. The `predict()` function with `type = "response"` returns predicted probabilities from a logistic regression model. Without `type = "response"`, `predict()` returns predictions on the log-odds scale, which are not directly interpretable.
 
 `predict()` takes the fitted model object as its first argument and requires a `newdata` data frame containing a value for every predictor in the model, named and typed exactly as in the model. For factor variables, you must supply the level as a factor with the same levels as the original variable using `factor("level", levels = levels(data$variable))` --- a bare character string will not work.
 
@@ -357,7 +349,7 @@ predict(model_trump,
 
 **Practice: Interpret the predicted probability**
 
-Look at the predicted probability in your output. Which statement best describes what this value means?
+Look at the predicted probability in your output before answering.
 
 ```{r quiz-predict-1, echo=FALSE}
 question("Which statement best describes what the predicted probability from the exercise above tells us?",
@@ -376,13 +368,13 @@ question("Which statement best describes what the predicted probability from the
 )
 ```
 
-###
+### Change One Predictor
 
-Now consider what happens when we change only one characteristic of this county --- raising the mortality risk from 2.5 to 5.0 while holding everything else constant. The county is still urban, still has a college graduation rate of 0.35, a proportion white of 0.65, and wage growth of 4.3%, but now has higher working-age mortality. This isolates the effect of mortality risk at this specific location on the S-curve.
+Now consider what happens when we change only one characteristic of this county --- raising the mortality risk from 2.5 to 5.0 while holding everything else constant. The county is still urban, still has a college graduation rate of 0.35, a proportion white of 0.65, and wage growth of 4.3%, but now has higher working-age mortality. This isolates the estimated association of mortality risk at this specific location on the S-curve.
 
 **Practice: Change one predictor and compare**
 
-Fill in the blank with the new value of `mortality_risk_25_45`. Everything else in the `newdata` data frame stays exactly the same as the exercise above. One hint is available. Click Submit Answer to check your work.
+Fill in the blank with the new value of `mortality_risk_25_45`. Everything else in the `newdata` data frame stays exactly the same as the exercise above. One hint is available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predict-2, exercise=TRUE, exercise.cap="Practice: Change one predictor and compare predicted probabilities"}
 predict(model_trump,
@@ -406,7 +398,7 @@ predict(model_trump,
 ```{r exercise-predict-2-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("predict\\s*\\(", code_no_comments)) {
     fail("Use predict() to obtain the predicted probability.")
@@ -439,11 +431,11 @@ grade_this({
 
 **Practice: Interpret the comparison**
 
-Compare the predicted probability you just obtained to the one from the previous exercise. Which statement best describes what this comparison tells us?
+Compare the predicted probability you just obtained to the one from the previous exercise before answering.
 
 ```{r quiz-predict-2, echo=FALSE}
 question("Which statement best describes what the comparison between the two predicted probabilities tells us?",
-  correct = "Right: the comparison shows the effect of mortality risk at this specific location on the S-curve.",
+  correct = "Right: the comparison shows the estimated association of mortality risk at this specific location on the S-curve.",
   answer("Raising mortality risk from 2.5 to 5.0 is associated with a substantially higher predicted probability of a Trump majority, for an urban county with this specific combination of other characteristics",
          correct = TRUE,
          message = "The predicted probability rises from about 0.182 to about 0.398 --- a difference of about 22 percentage points. This is the estimated effect of a 2.5-unit increase in mortality risk for a county at this specific location on the S-curve, where changes in predictors have a relatively large impact on the probability scale. The same 2.5-unit increase starting from a very different baseline probability would produce a different change."),
@@ -458,13 +450,13 @@ question("Which statement best describes what the comparison between the two pre
 )
 ```
 
-###
+### Build a Prediction from Scratch
 
 Now construct a prediction for a different kind of county --- one that changes multiple characteristics simultaneously. This suburban county has a moderate proportion of college graduates (0.22), a higher proportion of white residents (0.72), average wage growth (4.3%), and average mortality risk (3.1%). This profile illustrates the demographic composition argument from Sides et al., holding economic conditions near their averages while changing the composition and geographic character of the county.
 
 **Practice: Build a prediction from scratch**
 
-Write the code to obtain the predicted probability for this suburban county profile. Use `predict()` with `type = "response"` and supply a `newdata` data frame with all five predictors. Three hints are available. Click Submit Answer to check your work.
+Write the code to obtain the predicted probability for this suburban county profile. Use `predict()` with `type = "response"` and supply a `newdata` data frame with all five predictors. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predict-3, exercise=TRUE, exercise.cap="Practice: Build a prediction from scratch"}
 
@@ -491,21 +483,17 @@ Write the code to obtain the predicted probability for this suburban county prof
 ```
 
 ```{r exercise-predict-3-hint-3}
-# Hint 3 of 3: fill in the blanks
-predict(model_trump,
-        newdata = data.frame(
-          wage_growth          = ___,
-          prop_college_grad    = ___,
-          prop_white           = ___,
-          mortality_risk_25_45 = ___,
-          rural_cat            = factor(___, levels = levels(counties$rural_cat))),
-        type = "response")
+# Hint 3 of 3
+# Your newdata data frame needs all five predictors from the model.
+# The values for each are given in the prose above the exercise.
+# For rural_cat, remember to wrap the level name in factor() with
+# levels = levels(counties$rural_cat). Set type = "response".
 ```
 
 ```{r exercise-predict-3-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("predict\\s*\\(", code_no_comments)) {
     fail("Use predict() to obtain the predicted probability.")
@@ -550,7 +538,7 @@ grade_this({
 
 **Practice: Interpret the three predictions together**
 
-Look at the three predicted probabilities from your output --- the first from the low-distress urban county, the second from the same county with higher mortality risk, and the third from the moderately diverse suburban county. Which statement best describes what these three predictions together tell us?
+Look at the three predicted probabilities from your output --- the first from the low-distress urban county, the second from the same county with higher mortality risk, and the third from the moderately diverse suburban county --- before answering.
 
 ```{r quiz-predict-3, echo=FALSE}
 question("Which statement best describes what the three predicted probabilities together tell us?",
@@ -571,7 +559,7 @@ question("Which statement best describes what the three predicted probabilities 
 
 ### How Well Does the Model Classify Counties?
 
-The `hitmiss()` function from the `pscl` package assesses logistic regression model fit by taking the fitted model object as its argument. It converts each predicted probability to a predicted outcome using a 0.5 threshold --- if the predicted probability exceeds 0.5 the model predicts the outcome occurred; otherwise it predicts it did not --- and cross-tabulates those predicted outcomes against the actual outcomes, producing a [**confusion matrix**]{.important-text}.
+The `hitmiss()` function from the `pscl` package assesses classification performance by taking the fitted model object as its argument. It converts each predicted probability to a predicted outcome using a 0.5 threshold --- if the predicted probability exceeds 0.5 the model predicts the outcome occurred; otherwise it predicts it did not --- and cross-tabulates those predicted outcomes against the actual outcomes, producing a [**confusion matrix**]{.important-text}. The 0.5 threshold follows directly from the model's logic: if the predicted probability that the outcome occurred exceeds 0.5, the model thinks the outcome is more likely to have occurred than not, so it predicts 1. When the outcome is rare, however, the model will often assign predicted probabilities below 0.5 even for actual 1s --- because in a world where the event is uncommon, that is frequently the right answer. This is why the minority outcome is almost always classified less accurately than the majority outcome, and why comparing to the null model matters.
 
 From the confusion matrix, `hitmiss()` reports three percentages:
 
@@ -581,11 +569,11 @@ From the confusion matrix, `hitmiss()` reports three percentages:
 
 It also reports the **null model** --- the percentage a model with no predictors would get right by simply predicting the most common outcome category for every case. The null model is the baseline against which the logistic regression model's accuracy should be judged.
 
-**Practice: Assess model fit**
+**Practice: Assess classification performance**
 
-Write the code to assess model fit. Pass the fitted model object to `hitmiss()`. One hint is available. Click Submit Answer to check your work.
+Write the code to assess classification performance. Pass the fitted model object to `hitmiss()`. One hint is available. Click "Submit Answer" to check your work.
 
-```{r exercise-hitmiss, exercise=TRUE, exercise.cap="Practice: Assess model fit with hitmiss()"}
+```{r exercise-hitmiss, exercise=TRUE, exercise.cap="Practice: Assess classification performance with hitmiss()"}
 library(pscl)
 
 ```
@@ -601,10 +589,10 @@ library(pscl)
 ```{r exercise-hitmiss-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("hitmiss\\s*\\(", code_no_comments)) {
-    fail("Use hitmiss() to assess model fit.")
+    fail("Use hitmiss() to assess classification performance.")
   }
   if (!grepl("model_trump", code_no_comments)) {
     fail("Pass model_trump to hitmiss().")
@@ -615,9 +603,9 @@ grade_this({
 
 Once a package is loaded with `library()`, all of its functions are available for the rest of your R session --- you do not need to load it again each time you use a function from it. Since [pscl]{.package-name} was loaded in the exercise above, you can assume it is already loaded for all subsequent exercises in this tutorial.
 
-**Practice: Interpret model fit**
+**Practice: Interpret classification performance**
 
-Look at your `hitmiss()` output carefully --- the overall percent correctly predicted, the breakdown by outcome category, and the null model baseline. Which of the following statements are true? Select all that apply.
+Look at your `hitmiss()` output carefully --- the overall percent correctly predicted, the breakdown by outcome category, and the null model baseline --- before answering.
 
 ```{r quiz-hitmiss, echo=FALSE}
 question("Looking at your hitmiss() output, which of the following statements are true? Select all that apply.",
@@ -627,7 +615,7 @@ question("Looking at your hitmiss() output, which of the following statements ar
          message = "The model correctly predicts 90.3% of counties while the null model correctly predicts 84.3% --- a 6-percentage-point improvement. The null model achieves 84.3% simply by predicting every county as a Trump majority, since Trump majority counties make up 84.3% of the sample. The modest improvement reflects the difficulty of predicting the minority outcome when the majority outcome is so dominant."),
   answer("The model predicts the two outcome categories very differently --- it classifies a much higher percentage of Trump majority counties correctly than Clinton majority counties",
          correct = TRUE,
-         message = "The model correctly predicts about 97% of Trump majority counties but only about 54% of Clinton majority counties. This asymmetry is a direct consequence of the imbalanced outcome: Trump majority counties are the modal category, so the model's predicted probabilities tend to exceed 0.5 more often. Clinton majority counties, being less common, are harder to identify. A model that correctly predicts 97% of one category and only 54% of the other is not performing equally well across outcomes, even if its overall accuracy looks high."),
+         message = "The model correctly predicts about 97% of Trump majority counties but only about 54% of Clinton majority counties. The outcome imbalance and the use of a 0.5 cutoff help explain this asymmetry: Trump majority counties are the modal category, so the model's predicted probabilities tend to exceed 0.5 more often. Clinton majority counties, being less common, are harder to identify. This classification result alone does not tell us whether the model is correctly specified."),
   answer("The model's overall accuracy means it explains that percentage of the variation in county-level Trump support, similar to an R-squared",
          message = "Percent correctly predicted is not equivalent to R-squared. R-squared measures the proportion of variance in a continuous outcome explained by the model. Percent correctly predicted measures how often the model assigns the right binary category. These are different quantities and cannot be compared."),
   answer("Because the model predicts Clinton majority counties poorly, the variables in the model are theoretically misspecified and should be replaced",
@@ -641,13 +629,13 @@ question("Looking at your hitmiss() output, which of the following statements ar
 )
 ```
 
-## Does State Ideology Predict Greenhouse Gas Emissions Cap Adoption?
+## Is State Ideology Associated with Greenhouse Gas Emissions Cap Adoption?
 
 Climate policy has become one of the most politically polarized domains in American state politics. While federal action on greenhouse gas emissions has been contested, states have taken divergent paths --- some adopting binding emissions caps for the utility sector while others have resisted. Understanding which states adopt emissions caps and why requires attention to both the ideological character of the state's public and the economic conditions that shape the political calculus of environmental regulation.
 
 Two theoretical perspectives motivate this model. First, mass ideology shapes the political environment in which policy is made. More conservative publics are generally more skeptical of environmental regulation, viewing emissions caps as imposing costs on businesses and consumers without commensurate benefits. States where a higher share of residents identifies as conservative should be less likely to have adopted a greenhouse gas cap. Second, economic conditions shape the political feasibility of regulation. States with higher poverty rates may prioritize economic development and energy affordability over environmental policy, and energy-intensive industries on which lower-income states depend are disproportionately affected by emissions restrictions. We also control for whether the state has a Republican governor, who would be expected to resist emissions regulations regardless of public ideology.
 
-The data frame **statesPolicy** contains **policy_ghgcap2024**, which equals 1 if a state has a binding greenhouse gas emissions cap in the utility sector as of 2024 and 0 otherwise. The independent variables are:
+The data frame **statesPolicy** contains **policy_ghgcap2024**, which equals 1 if a state has a binding greenhouse gas emissions cap in the utility sector as of 2024 and 0 otherwise. The explanatory variables (predictors) are:
 
 - **ideology_conservative2024**: the percentage of state residents identifying as conservative in 2024 --- states with more conservative publics should be less likely to adopt emissions caps
 - **gov_f**: the party of the sitting governor in 2024, recoded as a factor with Democrat as the reference category --- Republican governors have generally opposed emissions regulations
@@ -667,7 +655,7 @@ In a comparison of states, those with higher poverty rates will be less likely t
 
 **Practice: Estimate the logistic regression model**
 
-Fill in the blanks to estimate the logistic regression model. The outcome variable is `policy_ghgcap2024`, the three predictors are `ideology_conservative2024`, `gov_f`, and `econ_poverty2022`, and the data frame is `statesPolicy`. Do not forget `family = "binomial"`. Two hints are available. Click Submit Answer to check your work.
+Fill in the blanks to estimate the logistic regression model. The outcome variable is `policy_ghgcap2024`, the three predictors are `ideology_conservative2024`, `gov_f`, and `econ_poverty2022`, and the data frame is `statesPolicy`. Do not forget `family = "binomial"`. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-estimate-ghg, exercise=TRUE, exercise.cap="Practice: Estimate the logistic regression model of greenhouse gas cap adoption"}
 model_ghg <- glm(___ ~ ___ + ___ + ___,
@@ -702,7 +690,7 @@ summary(model_ghg)
 ```{r exercise-estimate-ghg-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("glm\\s*\\(", code_no_comments)) {
     fail("Use glm() to estimate the model.")
@@ -737,7 +725,7 @@ summary(model_ghg)
 
 **Practice: Identify the direction of each relationship**
 
-Look at the sign of each coefficient in your output. Which of the following statements correctly describe the direction of the relationships? Select all that apply.
+Look at the sign of each coefficient in your output before answering.
 
 ```{r quiz-direction-ghg, echo=FALSE}
 question("Which of the following statements correctly describe what the coefficients tell us about the direction of each relationship? Select all that apply.",
@@ -763,7 +751,7 @@ question("Which of the following statements correctly describe what the coeffici
 
 **Practice: Test the hypotheses for ideology_conservative2024 and econ_poverty2022**
 
-Using the z-values and p-values from your table, apply the five-step procedure to each predictor. Which of the following statements correctly apply the procedure to **ideology_conservative2024** and **econ_poverty2022**? Select all that apply.
+Using the z-values and p-values from your table, apply the five-step procedure to each predictor before answering.
 
 ```{r quiz-hyp-test-ghg-focal, echo=FALSE}
 question("Which of the following statements correctly apply the five-step procedure to ideology_conservative2024 and econ_poverty2022? Select all that apply.",
@@ -771,9 +759,9 @@ question("Which of the following statements correctly apply the five-step proced
   answer("We reject the null hypothesis for ideology_conservative2024 --- states with a higher share of conservative residents were significantly less likely to have adopted a greenhouse gas emissions cap after controlling for governor party and poverty rate",
          correct = TRUE,
          message = "The z-statistic for ideology_conservative2024 is -2.176 and the p-value is 0.030. This provides direct evidence for the hypothesis: ideologically conservative states are significantly less likely to adopt emissions caps, even after accounting for governor party and economic conditions."),
-  answer("We fail to reject the null hypothesis for econ_poverty2022 --- the data do not provide strong evidence that poverty rate predicts emissions cap adoption after controlling for the other variables",
+  answer("We fail to reject the null hypothesis for econ_poverty2022 --- the data do not provide strong evidence that poverty rate is associated with emissions cap adoption after controlling for the other predictors",
          correct = TRUE,
-         message = "The z-statistic for econ_poverty2022 is -1.796 and the p-value is 0.073. The relationship runs in the predicted direction but falls just short of the conventional .05 threshold. The data are consistent with the hypothesis but do not provide strong evidence for it at the conventional significance level. With only 50 states, the model may lack the statistical power to detect a real but modest poverty effect."),
+         message = "The z-statistic for econ_poverty2022 is -1.796 and the p-value is 0.073. The relationship runs in the predicted direction but falls just short of the conventional .05 threshold. The data are consistent with the hypothesis but do not provide strong evidence for it at the conventional significance level. With only 50 states, the model may lack the statistical power to detect a nonzero but modest association with poverty."),
   answer("We reject the null hypothesis for ideology_conservative2024, and specifically each one percentage point increase in conservative identification decreases the probability of adopting an emissions cap by the value of the coefficient in percentage points",
          message = "The decision to reject is correct, but the magnitude interpretation is not. The coefficient is in log-odds units, not probability units. To say how much the probability of adoption changes for a one percentage point increase in conservative identification, you need predicted probabilities."),
   answer("We fail to reject the null hypothesis for econ_poverty2022, which proves that poverty has no effect on emissions cap adoption",
@@ -788,19 +776,19 @@ question("Which of the following statements correctly apply the five-step proced
 
 **Practice: Test the hypothesis for gov_f**
 
-Using the z-values and p-values from your table, apply the five-step procedure to **gov_f**. Which of the following statements correctly apply the procedure? Select all that apply.
+Using the z-values and p-values from your table, apply the five-step procedure to **gov_f** before answering.
 
 ```{r quiz-hyp-test-ghg-control, echo=FALSE}
 question("Which of the following statements correctly apply the five-step procedure to gov_f? Select all that apply.",
   correct = "Right: two statements correctly describe the gov_f results.",
-  answer("We fail to reject the null hypothesis for gov_fRepublican --- the data do not provide strong evidence that having a Republican governor predicts emissions cap adoption after controlling for mass ideology and poverty rate",
+  answer("We fail to reject the null hypothesis for gov_fRepublican --- the data do not provide strong evidence that having a Republican governor is associated with emissions cap adoption after controlling for the other predictors",
          correct = TRUE,
          message = "The z-statistic for gov_fRepublican is -1.258 and the p-value is 0.208. Once we control for the ideological character of the state's public, governor party does not significantly add to our ability to predict emissions cap adoption. This suggests that the governor's party may be largely a reflection of state ideology rather than an independent driver of emissions policy."),
   answer("We should interpret the gov_fIndependent coefficient with caution because only one state in the data has an Independent governor",
          correct = TRUE,
          message = "With only one Independent governor in the data, the coefficient for that category is estimated from a single observation and carries enormous uncertainty. The wide standard error and non-significant result reflect this data limitation rather than a substantive finding about Independent governors and climate policy."),
   answer("We fail to reject the null hypothesis for gov_fRepublican, which proves that governor party has no effect on emissions cap adoption",
-         message = "Failing to reject does not prove no effect. With only 50 states, the model may lack the statistical power to detect a real but modest governor party effect once ideology is controlled. The non-significant result is consistent with no effect, but it is also consistent with a real effect that this sample cannot reliably detect."),
+         message = "Failing to reject does not prove no effect. With only 50 states, the model may lack the statistical power to detect a real but modest governor party effect once ideology is controlled. The non-significant result is consistent with no effect, but it is also consistent with a nonzero association that this sample cannot reliably detect."),
   answer("Because gov_fRepublican is not significant, we should remove it from the model and re-estimate",
          message = "A non-significant predictor is not automatically a candidate for removal. Governor party has a clear theoretical justification for inclusion as a control variable. Removing it could introduce omitted variable bias. The decision to include a variable should be based on theory, not only on statistical significance."),
   allow_retry = TRUE,
@@ -812,7 +800,7 @@ question("Which of the following statements correctly apply the five-step proced
 
 With the analysis complete, present the results in a publication-quality table. The `stargazer()` arguments are the same as in the first example. Use the following prescribed labels:
 
-Use the title "State-Level Predictors of Greenhouse Gas Emissions Cap Adoption", the dependent variable label "GHG Emissions Cap (1 = Yes)", and the covariate labels "Conservative Identification (%)", "Independent Governor", "Republican Governor", and "Poverty Rate (%)". Check the `Coefficients` table from your `summary()` output to confirm the order the predictors appear, including the order of the `gov_f` factor levels.
+Use the title "State-Level Predictors of Greenhouse Gas Emissions Cap Adoption", the outcome-variable label "GHG Emissions Cap (1 = Yes)", and the covariate labels "Conservative Identification (%)", "Independent Governor", "Republican Governor", and "Poverty Rate (%)". Check the `Coefficients` table from your `summary()` output to confirm the order the predictors appear, including the order of the `gov_f` factor levels.
 
 **Practice: Produce a labeled stargazer table**
 
@@ -842,23 +830,16 @@ stargazer(model_ghg,
 
 ```{r exercise-stargazer-ghg-hint-2}
 # Hint 2 of 2
-# The two blanked argument names are: type and title.
-# Fill in the covariate labels in the order the predictors
-# appear in the summary() output.
-stargazer(model_ghg,
-          type = "text",
-          title = "___",
-          dep.var.labels = "___",
-          covariate.labels = c("Conservative Identification (%)",
-                               "___",
-                               "___",
-                               "___"))
+# The two blanked argument names are type and title.
+# covariate.labels needs four entries in formula order:
+# ideology_conservative2024, then the two non-reference levels of gov_f
+# in the order they appear in the summary() output, then econ_poverty2022.
 ```
 
 ```{r exercise-stargazer-ghg-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("stargazer\\s*\\(", code_no_comments)) {
     fail("Use stargazer() to produce the table.")
@@ -910,7 +891,7 @@ predict(model_ghg,
 
 **Practice: Interpret the predicted probability**
 
-Look at the predicted probability in your output. Which statement best describes what this value means?
+Look at the predicted probability in your output before answering.
 
 ```{r quiz-predict-ghg1, echo=FALSE}
 question("Which statement best describes what the predicted probability from the exercise above tells us?",
@@ -929,13 +910,13 @@ question("Which statement best describes what the predicted probability from the
 )
 ```
 
-###
+### Change One Predictor
 
-Now consider a more ideologically moderate state --- raising conservative identification from 20% to 32% while holding governor party constant at Democrat and poverty rate at 12.5%. This 12-point shift isolates the effect of ideology at this specific location on the S-curve, where we are in the steep middle portion of the relationship.
+Now consider a more ideologically moderate state --- raising conservative identification from 20% to 32% while holding governor party constant at Democrat and poverty rate at 12.5%. This 12-point shift isolates the estimated association of ideology at this specific location on the S-curve, where we are in the steep middle portion of the relationship.
 
 **Practice: Change one predictor and compare**
 
-Fill in the blank with the new value of `ideology_conservative2024`. Everything else in the `newdata` data frame stays exactly the same as the exercise above. One hint is available. Click Submit Answer to check your work.
+Fill in the blank with the new value of `ideology_conservative2024`. Everything else in the `newdata` data frame stays exactly the same as the exercise above. One hint is available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predict-ghg2, exercise=TRUE, exercise.cap="Practice: Change one predictor and compare predicted probabilities"}
 predict(model_ghg,
@@ -957,7 +938,7 @@ predict(model_ghg,
 ```{r exercise-predict-ghg2-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("predict\\s*\\(", code_no_comments)) {
     fail("Use predict() to obtain the predicted probability.")
@@ -988,7 +969,7 @@ grade_this({
 
 **Practice: Interpret the comparison**
 
-Compare the predicted probability you just obtained to the one from the previous exercise. Which statement best describes what this comparison tells us?
+Compare the predicted probability you just obtained to the one from the previous exercise before answering.
 
 ```{r quiz-predict-ghg2, echo=FALSE}
 question("Which statement best describes what the comparison between the two predicted probabilities tells us?",
@@ -999,19 +980,19 @@ question("Which statement best describes what the comparison between the two pre
   answer("A one percentage point increase in conservative identification always decreases the probability of emissions cap adoption by about 5 percentage points, regardless of the state's other characteristics",
          message = "The effect of a one-unit change in ideology on the probability scale is not constant. The large change seen here occurs because we are in the steep middle portion of the S-curve. The same shift starting from a very high or very low baseline probability would produce a much smaller probability change."),
   answer("Because only ideology changed between the two predictions, governor party and poverty rate have no effect on emissions cap adoption",
-         message = "Holding governor party and poverty rate constant isolates the effect of ideology for this particular comparison. It does not mean those variables have no effect --- other comparisons that change those variables would reveal their effects."),
+         message = "Holding governor party and poverty rate constant isolates the estimated association of ideology for this particular comparison. It does not mean those variables have no association with the outcome --- other comparisons that change those variables would reveal their estimated associations."),
   allow_retry = TRUE,
   random_answer_order = TRUE
 )
 ```
 
-###
+### Build a Prediction from Scratch
 
 Now construct a prediction for a high-conservative, Republican-governed, high-poverty state --- setting `ideology_conservative2024 = 40`, `gov_f = "Republican"`, and `econ_poverty2022 = 17.0`. This changes all three predictors simultaneously to represent a state that is unlikely to adopt an emissions cap on all three dimensions.
 
 **Practice: Build a prediction from scratch**
 
-Write the code to obtain the predicted probability for this state profile. Use `predict()` with `type = "response"` and supply a `newdata` data frame with all three predictors. Three hints are available. Click Submit Answer to check your work.
+Write the code to obtain the predicted probability for this state profile. Use `predict()` with `type = "response"` and supply a `newdata` data frame with all three predictors. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predict-ghg3, exercise=TRUE, exercise.cap="Practice: Build a prediction from scratch"}
 
@@ -1037,19 +1018,17 @@ Write the code to obtain the predicted probability for this state profile. Use `
 ```
 
 ```{r exercise-predict-ghg3-hint-3}
-# Hint 3 of 3: fill in the blanks
-predict(model_ghg,
-        newdata = data.frame(
-          ideology_conservative2024 = ___,
-          gov_f                     = factor(___, levels = levels(statesPolicy$gov_f)),
-          econ_poverty2022          = ___),
-        type = "response")
+# Hint 3 of 3
+# Your newdata data frame needs all three predictors from the model.
+# The values for each are given in the prose above the exercise.
+# For gov_f, remember to wrap the level name in factor() with
+# levels = levels(statesPolicy$gov_f). Set type = "response".
 ```
 
 ```{r exercise-predict-ghg3-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("predict\\s*\\(", code_no_comments)) {
     fail("Use predict() to obtain the predicted probability.")
@@ -1086,7 +1065,7 @@ grade_this({
 
 **Practice: Interpret the three predictions together**
 
-Look at the three predicted probabilities from your output --- the first from the low-conservative Democratic-governed state, the second from the moderately conservative Democratic-governed state, and the third from the high-conservative Republican-governed high-poverty state. Which statement best describes what these three predictions together tell us?
+Look at the three predicted probabilities from your output --- the first from the low-conservative Democratic-governed state, the second from the moderately conservative Democratic-governed state, and the third from the high-conservative Republican-governed high-poverty state --- before answering.
 
 ```{r quiz-predict-ghg3, echo=FALSE}
 question("Which statement best describes what the three predicted probabilities together tell us?",
@@ -1109,11 +1088,11 @@ question("Which statement best describes what the three predicted probabilities 
 
 The `hitmiss()` function works the same way as in the first example: pass it the fitted model object to obtain the confusion matrix and fit statistics.
 
-**Practice: Assess model fit**
+**Practice: Assess classification performance**
 
-Write the code to assess model fit for the greenhouse gas cap model. Pass the fitted model object to `hitmiss()`. One hint is available. Click Submit Answer to check your work.
+Write the code to assess classification performance for the greenhouse gas cap model. Pass the fitted model object to `hitmiss()`. One hint is available. Click "Submit Answer" to check your work.
 
-```{r exercise-hitmiss-ghg, exercise=TRUE, exercise.cap="Practice: Assess model fit with hitmiss()"}
+```{r exercise-hitmiss-ghg, exercise=TRUE, exercise.cap="Practice: Assess classification performance with hitmiss()"}
 
 ```
 
@@ -1126,10 +1105,10 @@ Write the code to assess model fit for the greenhouse gas cap model. Pass the fi
 ```{r exercise-hitmiss-ghg-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("hitmiss\\s*\\(", code_no_comments)) {
-    fail("Use hitmiss() to assess model fit.")
+    fail("Use hitmiss() to assess classification performance.")
   }
   if (!grepl("model_ghg", code_no_comments)) {
     fail("Pass model_ghg to hitmiss().")
@@ -1140,7 +1119,7 @@ grade_this({
 
 **Practice: Interpret model fit**
 
-Look at your `hitmiss()` output carefully --- the overall percent correctly predicted, the breakdown by outcome category, and the null model baseline. Compare these results to what you found in the first example. Which of the following statements are true? Select all that apply.
+Look at your `hitmiss()` output carefully --- the overall percent correctly predicted, the breakdown by outcome category, and the null model baseline --- and compare to what you found in the first example before answering.
 
 ```{r quiz-hitmiss-ghg, echo=FALSE}
 question("Looking at your hitmiss() output, which of the following statements are true? Select all that apply.",
@@ -1170,7 +1149,7 @@ The exercises below ask you to apply the skills from this tutorial to a new scen
 
 Legislative scholars have long studied what makes a bill more or less likely to pass. Three features of a bill and its political environment are especially relevant. First, **bipartisan support**: bills with a higher proportion of cosponsors from the opposing party are more likely to attract cross-aisle votes and survive procedural challenges. Second, **the majority party's seat margin**: a larger margin gives the majority party more room to absorb defections and still pass legislation. Third, **committee chair alignment**: bills are more likely to reach the floor and pass when the relevant committee chair belongs to the same party as the bill's primary sponsor.
 
-The data frame **bills_df** contains data on 200 bills that reached a floor vote in a sample of state legislatures. The outcome variable **passed** equals 1 if the bill passed and 0 if it failed. The independent variables are:
+The data frame **bills_df** contains data on 200 bills that reached a floor vote in a sample of state legislatures. The outcome variable **passed** equals 1 if the bill passed and 0 if it failed. The explanatory variables (predictors) are:
 
 - **bipartisan**: the proportion of cosponsors from the party opposite the bill's primary sponsor (ranges from 0 to 0.6 in this sample)
 - **majority_margin**: the majority party's seat margin in the chamber, in percentage points (ranges from 2 to 30)
@@ -1199,7 +1178,7 @@ model_bills <- glm(passed ~ bipartisan + majority_margin + committee_chair_same,
 
 **Apply: Estimate the logistic regression model**
 
-Write the code from scratch to estimate the model, assigning it to **model_bills**, then display the results. Two hints are available. Click Submit Answer to check your work.
+Write the code from scratch to estimate the model, assigning it to **model_bills**, then display the results. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-cyu-bills-estimate, exercise=TRUE, exercise.setup="cyu-prepare-bills", exercise.cap="Apply: Estimate a logistic regression model of bill passage"}
 
@@ -1215,17 +1194,16 @@ Write the code from scratch to estimate the model, assigning it to **model_bills
 ```
 
 ```{r exercise-cyu-bills-estimate-hint-2}
-# Hint 2 of 2: fill in the blanks
-model_bills <- glm(___ ~ ___ + ___ + ___,
-                   family = "binomial",
-                   data   = bills_df)
-summary(model_bills)
+# Hint 2 of 2
+# The outcome variable is passed. List the three predictors on the
+# right of ~ separated by +. Set family = "binomial" and data = bills_df.
+# Assign to model_bills and pass it to summary() to display the results.
 ```
 
 ```{r exercise-cyu-bills-estimate-check}
 grade_this({
   code            <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("glm\\s*\\(", code_no_comments))
     fail("Use glm() to estimate the model.")
@@ -1269,7 +1247,7 @@ grade_this({
 
 **Apply: Interpret the coefficients**
 
-Look at the sign and significance of each coefficient in your output before answering. Which of the following statements correctly describe what the output tells us? Select all that apply.
+Look at the sign and significance of each coefficient in your output before answering.
 
 ```{r quiz-cyu-bills-interpret, echo=FALSE}
 question("Which of the following statements correctly describe what the output tells us? Select all that apply.",
@@ -1294,7 +1272,7 @@ question("Which of the following statements correctly describe what the output t
 
 **Apply: Obtain a predicted probability**
 
-The profile below represents a bill with low **bipartisan** support (0.05), a small **majority_margin** (8 percentage points), and a committee chair from a different party. Write the code to obtain the predicted probability that this bill **passed**. Two hints are available. Click Submit Answer to check your work.
+The profile below represents a bill with low **bipartisan** support (0.05), a small **majority_margin** (8 percentage points), and a committee chair from a different party. Write the code to obtain the predicted probability that this bill **passed**. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-cyu-bills-predict, exercise=TRUE, exercise.setup="cyu-prepare-bills", exercise.cap="Apply: Obtain a predicted probability for a specific bill profile"}
 
@@ -1309,19 +1287,17 @@ The profile below represents a bill with low **bipartisan** support (0.05), a sm
 ```
 
 ```{r exercise-cyu-bills-predict-hint-2}
-# Hint 2 of 2: fill in the blanks
-predict(model_bills,
-        newdata = data.frame(
-          bipartisan           = ___,
-          majority_margin      = ___,
-          committee_chair_same = factor(___, levels = levels(bills_df$committee_chair_same))),
-        type = "response")
+# Hint 2 of 2
+# Your newdata data frame needs all three predictors from the model.
+# The values for each are given in the prose above the exercise.
+# For committee_chair_same, remember to wrap the level name in factor()
+# with levels = levels(bills_df$committee_chair_same). Set type = "response".
 ```
 
 ```{r exercise-cyu-bills-predict-check}
 grade_this({
   code             <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("predict\\s*\\(", code_no_comments))
     fail("Use predict() to obtain the predicted probability.")
@@ -1373,11 +1349,11 @@ question("Which predict() call is written correctly?",
   try_again = "Hint: check each call for the three most common predict() errors: missing type = \"response\", a bare string instead of a factor(), and a mismatched column name."
 )
 ```
-**Apply: Assess model fit**
+**Apply: Assess classification performance**
 
-Write the code to assess model fit for the bill passage model. Pass the fitted model object to `hitmiss()`. One hint is available. Click Submit Answer to check your work.
+Write the code to assess classification performance for the bill passage model. Pass the fitted model object to `hitmiss()`. One hint is available. Click "Submit Answer" to check your work.
 
-```{r exercise-cyu-bills-hitmiss, exercise=TRUE, exercise.setup="cyu-prepare-bills", exercise.cap="Apply: Assess model fit with hitmiss()"}
+```{r exercise-cyu-bills-hitmiss, exercise=TRUE, exercise.setup="cyu-prepare-bills", exercise.cap="Apply: Assess classification performance with hitmiss()"}
 
 ```
 
@@ -1390,10 +1366,10 @@ Write the code to assess model fit for the bill passage model. Pass the fitted m
 ```{r exercise-cyu-bills-hitmiss-check}
 grade_this({
   code             <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#.*", "", code)
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("hitmiss\\s*\\(", code_no_comments))
-    fail("Use hitmiss() to assess model fit.")
+    fail("Use hitmiss() to assess classification performance.")
   if (!grepl("model_bills", code_no_comments))
     fail("Pass model_bills to hitmiss().")
 
@@ -1401,9 +1377,9 @@ grade_this({
 })
 ```
 
-**Apply: Interpret model fit**
+**Apply: Interpret classification performance**
 
-Look at your `hitmiss()` output --- the overall percent correctly predicted, the breakdown by outcome category, and the null model baseline. Which of the following statements are true? Select all that apply.
+Look at your `hitmiss()` output --- the overall percent correctly predicted, the breakdown by outcome category, and the null model baseline --- before answering.
 
 ```{r quiz-cyu-bills-hitmiss, echo=FALSE}
 question("Which of the following statements are true? Select all that apply.",
@@ -1415,7 +1391,7 @@ question("Which of the following statements are true? Select all that apply.",
          message = "The hypothesis tests showed that all three predictors are statistically significant. A small improvement in overall classification accuracy does not mean the predictors are uninformative --- it means the null model baseline is already high because passed bills are the modal outcome. The classification metric and the coefficient tests are answering different questions."),
   answer("The model classifies bills that failed much less accurately than bills that passed, which reflects the imbalanced outcome rather than model misspecification",
          correct = TRUE,
-         message = "With about 70% of bills having passed, the model's predicted probabilities tend to exceed the 0.5 threshold more often, making it easier to correctly classify passing bills than failing ones. The 24% accuracy on failing bills is a direct consequence of this imbalance, not a sign that the theoretical model is wrong."),
+         message = "With about 70% of bills having passed, the model's predicted probabilities tend to exceed the 0.5 threshold more often, making it easier to correctly classify passing bills than failing ones. The outcome imbalance and the use of a 0.5 cutoff help explain why the model classifies passing bills much more accurately than failing bills. This classification result alone does not tell us whether the model is correctly specified."),
   answer("Because the model correctly predicts 94% of passing bills, the three predictors fully explain why bills pass",
          message = "High classification accuracy for the majority category reflects the outcome imbalance, not explanatory completeness. The model predicts only 78% of all bills correctly, and even that modest improvement over the null relies on a 0.5 threshold that favors the majority class. Many factors that shape bill passage are not in this model."),
   allow_retry = TRUE,
@@ -1433,27 +1409,27 @@ Linear regression requires an interval-level outcome --- a quantity that can tak
 **Interpreting coefficients.** The coefficient estimates in logistic regression output are in [**log-odds**]{.important-text} units, which creates a strict limit on what you can read directly from the table:
 
 - The **sign** of a coefficient tells you the direction of the relationship: positive means higher values of the predictor are associated with a higher probability of the outcome; negative means the opposite.
-- The **magnitude** of the coefficient does not translate directly into a statement about the size of the effect on the probability scale. Never interpret a logistic regression coefficient as "a one-unit increase in $X$ changes the probability of the outcome by [coefficient] percentage points." That interpretation belongs to linear regression, not logistic. To communicate the size of an effect, you need predicted probabilities.
+- The **magnitude** of the coefficient does not translate directly into a statement about the size of the estimated association on the probability scale. Never interpret a logistic regression coefficient as "a one-unit increase in $X$ changes the probability of the outcome by [coefficient] percentage points." That interpretation belongs to linear regression, not logistic. To communicate the size of an estimated association, you need predicted probabilities.
 
-**Conducting hypothesis tests.** The coefficients table has the same general structure as `lm()` output --- one row per predictor with an estimate, standard error, test statistic, and p-value --- but the test statistic column is labeled `z value` rather than `t value`. Logistic regression uses maximum likelihood estimation rather than ordinary least squares, and the resulting sampling distribution is approximately standard normal in large samples rather than t. The decision rule is the same: a z-value whose absolute value exceeds 1.96 corresponds approximately to a p-value below .05, and the five-step procedure applies without modification.
+**Conducting hypothesis tests.** The coefficients table has the same general structure as `lm()` output --- one row per non-intercept coefficient --- a categorical predictor contributes one row for each non-reference category --- each showing an estimate, standard error, test statistic, and p-value; but the test statistic column is labeled `z value` rather than `t value`. Logistic regression uses maximum likelihood estimation rather than ordinary least squares, and the resulting sampling distribution is approximately standard normal in large samples rather than t. The decision rule is the same: a z-value whose absolute value exceeds 1.96 corresponds approximately to a p-value below .05, and the five-step procedure applies without modification.
 
-**Predicted probabilities.** Because the magnitude of a logistic regression coefficient cannot be interpreted on the probability scale, communicating the substantive size of an effect requires [**predicted probabilities**]{.important-text}. Use `predict()` with `type = "response"` to obtain predicted probabilities from a fitted logistic model. Without `type = "response"`, `predict()` returns predictions on the log-odds scale, which are not directly interpretable. Supply a `newdata` data frame with a value for every predictor in the model, named and typed exactly as in the formula --- for factor variables, use `factor("level", levels = levels(data$variable))` rather than a bare character string.
+**Predicted probabilities.** Because the magnitude of a logistic regression coefficient cannot be interpreted on the probability scale, communicating the substantive size of an estimated association requires [**predicted probabilities**]{.important-text}. Use `predict()` with `type = "response"` to obtain predicted probabilities from a fitted logistic model. Without `type = "response"`, `predict()` returns predictions on the log-odds scale, which are not directly interpretable. Supply a `newdata` data frame with a value for every predictor in the model, named and typed exactly as in the formula --- for factor variables, use `factor("level", levels = levels(data$variable))` rather than a bare character string.
 
 The choice of predictor values to plug in matters more than it does in linear regression, because the size of a probability change when one predictor varies depends on where you are on the S-curve --- which depends on the values held constant. The same one-unit increase in a predictor produces a large probability change near the steep middle of the curve and a small one near the flat extremes. Always be explicit about what is held constant, and consider comparing predictions at substantively meaningful values rather than at arbitrary points.
 
-**Model fit.** There is no direct equivalent to $R^2$ for logistic regression. Instead, assess model fit with the `hitmiss()` function from the [pscl]{.package-name} package, which takes the fitted model object as its argument. It converts each predicted probability to a predicted outcome using a 0.5 threshold, cross-tabulates those predictions against the actual outcomes in a [**confusion matrix**]{.important-text}, and reports three percentages: the overall percent correctly predicted, the percent correctly predicted for $y = 0$, and the percent correctly predicted for $y = 1$. It also reports the **null model** --- the percentage a model with no predictors would get right by always predicting the most common outcome category. The logistic regression model's accuracy should always be evaluated against this baseline, not against an abstract standard. When the two outcome categories are imbalanced --- as they were in both examples in this tutorial --- the model will typically classify the majority outcome far more accurately than the minority outcome, and the null model baseline will already be high. Neither of these is a sign of model failure; both are direct consequences of the outcome distribution.
+**Classification performance.** There is no direct equivalent to $R^2$ for logistic regression. One way to assess classification performance is with the `hitmiss()` function from the [pscl]{.package-name} package, which takes the fitted model object as its argument. It converts each predicted probability to a predicted outcome using a 0.5 threshold, cross-tabulates those predictions against the actual outcomes in a [**confusion matrix**]{.important-text}, and reports three percentages: the overall percent correctly predicted, the percent correctly predicted for $y = 0$, and the percent correctly predicted for $y = 1$. It also reports the **null model** --- the percentage a model with no predictors would get right by always predicting the most common outcome category. The logistic regression model's accuracy should always be evaluated against this baseline, not against an abstract standard. When the two outcome categories are imbalanced --- as they were in both examples in this tutorial --- the model will typically classify the majority outcome far more accurately than the minority outcome, and the null model baseline will already be high. These results should be interpreted as properties of the classification rule and outcome distribution, not as a complete evaluation of the model.
 
-You have now covered the complete toolkit for binary outcomes: estimation with `glm()`, direction and significance from the coefficients table, and the size of effects through predicted probabilities and model fit through `hitmiss()`. Tutorial 20 completes the picture. Just as Tutorial 18 showed you how to visualize predicted values from linear regression models using `predict()` and `plot_model()`, Tutorial 20 applies those same visualization tools to logistic regression --- building prediction plots that trace the S-curve across the range of a predictor, compare predicted probabilities across factor levels, and communicate interaction effects that would be invisible in a table of coefficients. The numbers in this tutorial are the foundation; the plots in Tutorial 20 are how you make those numbers speak to an audience.
+You have now covered the complete toolkit for binary outcomes: estimation with `glm()`, direction and significance from the coefficients table, and the size of estimated associations through predicted probabilities and classification performance through `hitmiss()`. Tutorial 21 completes the picture. Just as Tutorials 17 and 19 showed you how to visualize predicted values from linear and interaction regression models using `predict()` and `plot_model()`, Tutorial 21 applies those same visualization tools to logistic regression --- building prediction plots that trace the S-curve across the range of a predictor, compare predicted probabilities across factor levels, and communicate interaction effects that would be invisible in a table of coefficients. The numbers in this tutorial are the foundation; the plots in Tutorial 21 are how you make those numbers speak to an audience.
 
 ## Submit Your Work
 
 When you have completed all exercises in this tutorial, generate your submission code using the button below. Copy the full code that appears and paste it into the Canvas submission box for this tutorial. The code can be long --- make sure you have copied all of it before submitting.
 
-```{r encode-logic-19, context="server"}
+```{r encode-logic-20, context="server"}
 learnrhash::encoder_logic()
 ```
 
-```{r encode-ui-19, echo=FALSE}
+```{r encode-ui-20, echo=FALSE}
 learnrhash::encoder_ui(
   ui_before = shiny::div(
     shiny::p("Click the button below to generate your submission code.
@@ -1462,13 +1438,13 @@ learnrhash::encoder_ui(
 )
 ```
 
-```{r tutorial-success-banner-19, results="asis", echo=FALSE}
+```{r tutorial-success-banner-20, results="asis", echo=FALSE}
 cat('
 <p class="tutorial-complete"
    role="status"
-   aria-label="Excellent work! You have completed this tutorial and can now estimate and interpret logistic regression models, obtain predicted probabilities, and assess model fit using the confusion matrix.">
+   aria-label="Excellent work! You have completed this tutorial and can now estimate and interpret logistic regression models, obtain predicted probabilities, and assess classification performance using the confusion matrix.">
   <span aria-hidden="true">📊</span>
-  Excellent work! You can now estimate and interpret logistic regression models, obtain predicted probabilities, and assess model fit --- and you know exactly what a logistic regression coefficient can and cannot tell you.
+  Excellent work! You can now estimate and interpret logistic regression models, obtain predicted probabilities, and assess classification performance --- and you know exactly what a logistic regression coefficient can and cannot tell you.
 </p>
 ')
 ```

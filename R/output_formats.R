@@ -82,6 +82,5 @@ qpa_tutorial <- function(...) {
     writeLines(html, output_file)
     output_file
   }
-
   fmt
 }

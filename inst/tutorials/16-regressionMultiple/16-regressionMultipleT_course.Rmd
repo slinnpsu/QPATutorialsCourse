@@ -13,11 +13,9 @@ description: >
 
 ## Overview {#main-content}
 
-Tutorial 15 introduced linear regression in the simplest case: one explanatory variable and one outcome. But most outcomes in political and social life have many causes, not one, and a model with a single explanatory variable leaves the associations of other variables unexamined. Multiple regression extends the same `lm()` framework to models with more than one explanatory variable. This lets you do two things that simple regression cannot. First, you can ask whether a relationship holds up once you account for other factors that might be driving it --- estimating each association while holding the others constant. Second, you can examine multiple explanatory variables at once, each with its own all-else-equal coefficient. The mechanics are almost identical to Tutorial 15 --- the interpretation is where new thinking is required.
+Tutorial 15 introduced linear regression in the simplest case: one explanatory variable and one outcome. But most political and social outcomes have many possible explanations, not just one, and a model with a single explanatory variable leaves the associations of other variables unexamined. Multiple regression extends the same `lm()` framework to models with more than one explanatory variable. This lets you do two things that simple regression cannot. First, you can ask whether a relationship holds up once you account for other factors that might be driving it --- estimating each association while holding the others constant. Second, you can examine multiple explanatory variables at once, each with its own all-else-equal coefficient. The mechanics are almost identical to Tutorial 15 --- the interpretation is where new thinking is required.
 
-The data frames **counties** and **qog** each cover close to a complete population for their unit of analysis --- US counties and countries of the world, respectively. Neither is a random sample the way a public opinion survey is. What makes hypothesis tests appropriate is that our questions are not really about these specific counties and countries at this specific moment; they are about broader relationships that could vary across other contexts and time periods in which the same political and social processes operate.
-
-In this tutorial, you will extend your regression toolkit to models with multiple independent variables. Specifically, we will cover:
+In this tutorial, you will extend your regression toolkit to models with multiple explanatory variables. Specifically, we will cover:
 
 * How to estimate a multiple regression model using `lm()` by adding explanatory variables with `+` in the formula
 * How to interpret coefficients in a multiple regression, including the "all else equal" qualifier that changes meaning compared to simple regression
@@ -58,43 +56,37 @@ model_simple <- lm(dem2p_percent ~ wage_growth, data = counties)
 
 ## Why Control for Other Variables?
 
-Before running a model, it is worth being clear about why multiple regression exists in the first place. There are three situations where controlling for other variables matters.
+Before running a model, it is worth being clear about why multiple regression exists in the first place. There are two central reasons to include additional variables in an additive multiple-regression model. A third possibility --- conditional relationships, where the association between one variable and the outcome depends on the level of another --- requires an interaction term rather than simply adding a variable, and will be introduced in Tutorial 18.
 
-[**Spurious relationships.**]{.important-text} Sometimes a variable appears to predict an outcome, but only because a third variable drives both of them. If county-level health outcomes are poor in places where wages are low, and poor health also makes people more likely to vote against the incumbent, then part of the observed association between wage growth and the vote may reflect the health-vote association rather than a direct wage-growth effect. Including a health measure in the model lets us estimate the wage growth association after the health association has been taken into account --- and if the wage growth coefficient shrinks or disappears, we have learned something important about what was driving the original estimate. When a third variable drives both the explanatory variable and the outcome, making their relationship appear stronger or weaker than it really is, that variable is called a [**confounder**]{.important-text} --- and the distortion it produces is called [**confounding**]{.important-text}.
+[**Spurious relationships.**]{.important-text} Sometimes a variable appears to predict an outcome because both are related to a third variable. If counties with low wage growth also tend to have poor health outcomes, and poor health is associated with voting against the incumbent, part of the original wage-growth association may reflect differences in county health rather than wage growth itself. Including a health measure lets us estimate the wage-growth association among counties with similar measured health risk --- and if the coefficient shrinks, we have learned something important about what the original bivariate estimate was combining. When a third variable is related to both the explanatory variable and the outcome in a way that distorts the estimated association, it is called a [**confounder**]{.important-text} --- and the distortion it produces is called [**confounding**]{.important-text}.
 
 ```{r diagram-spurious, echo=FALSE, out.width="70%", fig.align="center"}
 knitr::include_graphics("images/spurious.png")
 ```
 
-[**Multiple correlated causes.**]{.important-text} Most outcomes have several causes that are correlated with each other. Counties with higher college-educated populations tend to have higher wage growth and lower mortality risk. Omitting a variable that is related to both an included predictor and the outcome can distort the estimated coefficient on the included predictor --- each included variable may partly reflect the association that belongs to the omitted one. This is called [**omitted variable bias**]{.important-text}, and it is the main reason you will almost never see a published regression with only one independent variable.
+[**Multiple correlated causes.**]{.important-text} Most political and social outcomes are associated with several explanatory variables that are themselves correlated with one another. Counties with higher college-educated populations tend to have higher wage growth and lower mortality risk. When an omitted variable is related to both an included predictor and the outcome, the included coefficient may combine their overlapping associations rather than isolate the relationship of interest. This is called [**omitted variable bias**]{.important-text}, and it is the main reason you will almost never see a published regression with only one explanatory variable.
 
 ```{r diagram-correlated, echo=FALSE, out.width="70%", fig.align="center"}
 knitr::include_graphics("images/correlated.png")
 ```
 
-[**Conditional relationships.**]{.important-text} Sometimes the effect of one variable depends on the level of another. We will address this case in Tutorial 18.
-
-```{r diagram-conditional-t16, echo=FALSE, out.width="70%", fig.align="center"}
-knitr::include_graphics("images/conditional.png")
-```
-
-The remedy in the first two cases is the same: include the relevant variables in the model. Once you do, each coefficient is estimated holding the other variables constant. That is the meaning of the phrase you will see throughout this tutorial: [**controlling for all other variables in the model**]{.important-text}, or equivalently, [**all else equal**]{.important-text}.
+The remedy in both cases is the same: include the relevant variables in the model. Once you do, each coefficient is estimated holding the other variables constant. That is the meaning of the phrase you will see throughout this tutorial: [**controlling for all other variables in the model**]{.important-text}, or equivalently, [**all else equal**]{.important-text}.
 
 ::: {.caution}
-**Controlling for variables reduces confounding but does not eliminate it.** Multiple regression estimates conditional associations --- the relationship between an explanatory variable and an outcome after holding other variables in the model constant. This is more informative than a simple bivariate relationship, but it is not the same as a causal effect. Variables not included in the model may still confound the relationships we estimate, and observational data cannot rule that out entirely. Establishing causation requires either a research design that rules out confounding by construction --- a randomized experiment, a natural experiment, an instrumental variable --- or a theoretical argument strong enough to defend the assumption that no important confounders remain. Regression alone cannot do that work. Throughout this tutorial, we describe our estimates as relationships and associations, not causes.
+**Controlling for variables reduces some alternative explanations but does not eliminate them.** Multiple regression holds measured variables constant, which is more informative than a simple bivariate association --- but it cannot guarantee that all relevant differences between cases have been accounted for. Variables not included in the model may still distort the relationships we estimate. Causal conclusions require a research design and assumptions that justify them; regression coefficients alone describe conditional associations. Throughout this tutorial, we describe our estimates as relationships and associations, not causes.
 :::
 
-## Does Wage Growth Predict Clinton's Vote, Controlling for Other County Characteristics?
+## Is Wage Growth Associated with Clinton's Vote, Controlling for Other County Characteristics?
 
-A simple regression of Clinton's two-party vote percent on wage growth finds a positive association --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. But counties with higher wage growth also tend to have higher education levels, lower mortality risk, and different racial compositions. These are plausible confounders: variables correlated with both wage growth and the vote that could make the estimated wage growth association larger than the direct relationship alone. This example tests whether the association holds up once those confounders are controlled for.
+Does the association between local economic conditions and presidential voting hold up once we account for other features of counties that might be related to both? A simple regression of Clinton's two-party vote percent on wage growth --- the kind you estimated in Tutorial 15 --- finds a positive association, consistent with retrospective voting theory. But counties with higher wage growth also tend to have higher education levels, lower mortality risk, and different racial compositions. These are plausible confounders: variables associated with both wage growth and the vote that could make the estimated wage growth association larger than it would be if those differences were held constant. This example tests whether the association holds up once those other characteristics are controlled for.
 
 ::: {.hypothesis}
 In a comparison of counties, those with higher wage growth will cast a higher percentage of the two-party vote for Hillary Clinton than those with lower wage growth.
 :::
 
-The data frame **counties** contains **wage_growth**, the percent by which wages grew or fell in a county, and **dem2p_percent**, the percent of the two-party vote cast for Hillary Clinton. Both variables are already measured in percentage points, so a one-unit increase in either is a one-percentage-point increase --- wage growth moving from 4% to 5%, for example --- not a one-percent relative increase on top of whatever the value already was. These sound similar but mean very different things, and the distinction matters when you interpret the slope.
+The data frame **counties** contains **wage_growth**, the percent by which wages grew or fell in a county, and **dem2p_percent**, the percent of the two-party vote cast for Hillary Clinton. Both variables are already measured in percentage points, so a one-unit increase in either is a one-percentage-point increase --- wage growth moving from 4% to 5%, for example --- not a one-percent relative increase on top of whatever the value already was. These sound similar but mean very different things, and the distinction matters when you interpret the estimated association.
 
-The other variables we include as controls are **mortality_risk_25_45**, **college_grad_percent**, **hispanic_percent**, **white_percent**, and **Black_percent**. Each was chosen because it is plausibly correlated with both wage growth and the vote --- meeting the definition of a confounder introduced in the "Why Control for Other Variables?" section earlier in this tutorial.
+The other variables we include as controls are **mortality_risk_25_45**, **college_grad_percent**, **hispanic_percent**, **white_percent**, and **Black_percent**. Each was chosen because it is plausibly associated with both wage growth and the vote --- meeting the definition of a confounder introduced in the "Why Control for Other Variables?" section earlier in this tutorial.
 
 ### Estimate the Regression
 
@@ -126,7 +118,7 @@ Take a moment to look at the output before moving on. Find the `Coefficients` ta
 
 ### Interpret the Coefficients
 
-The key interpretive rule is the same as in simple regression: the slope gives the expected difference in the dependent variable associated with a one-unit difference in the independent variable. The crucial difference in multiple regression is what comes after: [**controlling for all other variables in the model**]{.important-text}. Every coefficient is now a [**partial slope**]{.important-text} --- the estimated association of that variable with the outcome while the other variables are held constant.
+The key interpretive rule is the same as in simple regression: the slope gives the expected difference in the outcome variable associated with a one-unit difference in the predictor. The crucial difference in multiple regression is what comes after: [**controlling for all other variables in the model**]{.important-text}. Every coefficient is now a [**partial slope**]{.important-text} --- the estimated association of that variable with the outcome while the other variables are held constant.
 
 The model includes six predictors, but we will focus our interpretation on the three most directly tied to the hypothesis --- **wage_growth**, **mortality_risk_25_45**, and **college_grad_percent**. The racial-composition variables serve primarily as controls; their coefficients follow the same interpretive logic but are not the focus of this example.
 
@@ -145,7 +137,7 @@ question("Look at the slope on wage_growth in your output. Which statement corre
   answer("The slope is 0.039; for every one-percentage-point increase in wage growth, Clinton's percent of the two-party vote is expected to increase by about 0.04 percentage points, controlling for other variables",
          message = "0.039 is the standard error of the slope, not the slope itself. The Estimate column gives the slope; the Std. Error column measures the uncertainty around that estimate. Always read the coefficient from the Estimate column."),
   answer("The slope is 0.314; for every one-percentage-point increase in Clinton's percent of the two-party vote, wage growth is expected to increase by about 0.31 percentage points, controlling for other variables",
-         message = "This reverses the dependent and independent variables. The slope tells us the expected change in dem2p_percent for a one-unit change in wage_growth, not the other way around."),
+         message = "This reverses the outcome and predictor variables. The slope tells us the expected change in dem2p_percent for a one-unit change in wage_growth, not the other way around."),
   answer("The slope is 0.314; this is the expected percent of the two-party vote for Hillary Clinton in a county with zero wage growth, holding all other variables constant",
          message = "That would be the intercept's job, not the slope's. The slope gives the expected change in the outcome for a one-unit change in the predictor, not the expected level of the outcome at any particular value."),
   allow_retry = TRUE,
@@ -167,7 +159,7 @@ question("Which statement correctly gives the value and meaning of the slope on 
          correct = TRUE,
          message = "The negative sign matches the hypothesis: counties where more young adults are dying show lower support for the incumbent party, even after controlling for wage growth, education, and racial composition."),
   answer("The slope is -3.117; for every one-percentage-point increase in Clinton's percent of the two-party vote, mortality risk is expected to decrease by about 3.12 percentage points, controlling for all other variables",
-         message = "This reverses the dependent and independent variables. The slope tells us the expected change in dem2p_percent for a change in mortality_risk_25_45, not the reverse."),
+         message = "This reverses the outcome and predictor variables. The slope tells us the expected change in dem2p_percent for a change in mortality_risk_25_45, not the reverse."),
   answer("The slope is -3.117; this is the expected percent of the two-party vote for Hillary Clinton in a county with zero mortality risk, holding all other variables constant",
          message = "That would be the intercept's job, not the slope's. The slope gives the expected change in the outcome for a one-unit change in the predictor, not the expected level of the outcome at any particular value."),
   answer("The slope is 0.302; for every one-percentage-point increase in mortality risk, Clinton's percent of the two-party vote is expected to decrease by about 0.30 percentage points, controlling for all other variables",
@@ -191,7 +183,7 @@ question("Which statement correctly gives the value and meaning of the slope on 
          correct = TRUE,
          message = "Right. Each partial slope tells you the expected change in the outcome for a one-unit increase in that variable, holding everything else constant. With a positive slope, counties with higher college graduation rates gave Clinton a higher share of the two-party vote, controlling for mortality risk, wage growth, and racial composition."),
   answer("The slope is 0.646; for every one-percentage-point increase in Clinton's percent of the two-party vote, the county's college graduation rate is expected to increase by about 0.65 percentage points, controlling for all other variables",
-         message = "This reverses the dependent and independent variables. The slope tells us the expected change in dem2p_percent for a change in college_grad_percent, not the reverse."),
+         message = "This reverses the outcome and predictor variables. The slope tells us the expected change in dem2p_percent for a change in college_grad_percent, not the reverse."),
   answer("The slope is 24.517; for every one-percentage-point increase in the county's college graduation rate, Clinton's percent of the two-party vote is expected to increase by about 24.5 percentage points, controlling for all other variables",
          message = "24.517 is the t-statistic, not the coefficient estimate. Look at the Estimate column, not the t value column."),
   answer("The slope is 0.646; for every one-percentage-point increase in the county's college graduation rate, Clinton's percent of the two-party vote is expected to increase by about 0.65 percentage points, regardless of other county characteristics",
@@ -204,7 +196,7 @@ question("Which statement correctly gives the value and meaning of the slope on 
 
 The remaining variables --- **hispanic_percent**, **white_percent**, and **Black_percent** --- follow the same interpretive logic. Each slope gives the expected difference in Clinton's percent of the two-party vote associated with a one-percentage-point difference in that group's share of the county population, holding all other variables constant.
 
-### How Large Are the Effects?
+### How Large Are the Associations?
 
 Reading a slope tells you the expected difference in the outcome associated with a one-unit difference in that variable. But whether that difference is large or small in practice depends on the scale of the variable --- specifically, what a one-unit difference actually represents relative to the variation we observe in the data. A slope of 0.314 could be enormous or trivial depending on whether typical variation in that variable spans 1 unit or 100 units.
 
@@ -229,7 +221,7 @@ question("What is the expected difference in Clinton's percent of the two-party 
   correct = "Right: 0.9 * (-3.117) = -2.805.",
   answer("A decrease of about 2.81 percentage points",
          correct = TRUE,
-         message = "A one-standard-deviation increase in mortality risk is associated with a decrease of about 2.8 percentage points in Clinton's two-party vote, controlling for wage growth, education, and racial composition --- a meaningfully larger effect than the wage growth result."),
+         message = "A one-standard-deviation increase in mortality risk is associated with a decrease of about 2.8 percentage points in Clinton's two-party vote, controlling for wage growth, education, and racial composition --- a meaningfully larger association than the wage growth result."),
   answer("A decrease of about 3.12 percentage points",
          message = "That is the slope itself --- the expected change for a full one-percentage-point increase, which exceeds one standard deviation. Multiply by the standard deviation: 0.9 * (-3.117) = -2.805."),
   answer("An increase of about 2.81 percentage points",
@@ -250,7 +242,7 @@ question("What is the expected difference in Clinton's percent of the two-party 
   correct = "Right: 10 * 0.646 = 6.46.",
   answer("An increase of about 6.46 percentage points",
          correct = TRUE,
-         message = "A 10 percentage point increase in the college graduation rate --- close to one standard deviation --- is associated with an increase of about 6.5 percentage points in Clinton's two-party vote, controlling for everything else. That is roughly four times the effect of a one-standard-deviation shift in wage growth, and about twice the effect of a one-standard-deviation shift in mortality risk."),
+         message = "A 10 percentage point increase in the college graduation rate --- close to one standard deviation --- is associated with an increase of about 6.5 percentage points in Clinton's two-party vote, controlling for everything else. That is roughly four times the association of a one-standard-deviation shift in wage growth, and about twice the association of a one-standard-deviation shift in mortality risk."),
   answer("An increase of about 0.65 percentage points",
          message = "That is the slope itself --- the expected change for a one-percentage-point increase. Multiply by c = 10: 10 * 0.646 = 6.46."),
   answer("An increase of about 64.6 percentage points",
@@ -262,11 +254,11 @@ question("What is the expected difference in Clinton's percent of the two-party 
 )
 ```
 
-Comparing across all three: a one-standard-deviation difference in college attainment is associated with about four times the predicted difference in Clinton's vote as a one-standard-deviation difference in wage growth, and about twice the predicted difference as a one-standard-deviation difference in mortality risk. Education has the largest standardized substantive association among the three focal predictors --- a finding that emerges clearly only when you scale each coefficient to a comparable unit of variation.
+Comparing across all three: a one-standard-deviation difference in college attainment is associated with about four times the expected difference in Clinton's vote as a one-standard-deviation difference in wage growth, and about twice the expected difference as a one-standard-deviation difference in mortality risk. Education has the largest standardized substantive association among the three focal predictors --- a finding that emerges clearly only when you scale each coefficient to a comparable unit of variation.
 
 ### Conduct Hypothesis Tests
 
-The coefficients tell us the direction and size of each effect; hypothesis tests tell us whether those effects are statistically distinguishable from zero in the population. For each coefficient, we test $H_0: \beta = 0$ (the variable has no effect in the population, holding all other variables constant) against $H_A: \beta \ne 0$. The model output is reproduced here so you do not need to scroll back.
+The coefficients tell us the direction and size of each estimated association; hypothesis tests tell us whether those associations are statistically distinguishable from zero in the population. For each coefficient, we test $H_0: \beta = 0$ (the variable has no association with the outcome in the population, holding all other variables constant) against $H_A: \beta \ne 0$. The model output is reproduced here so you do not need to scroll back.
 
 ```{r model1-output-reference-tests, echo=FALSE, comment=NA}
 summary(model1)
@@ -286,7 +278,7 @@ question("Which statements are true? Select all that apply.",
          correct = TRUE,
          message = "The t-statistic and p-value always agree for the same two-tailed test, since both are built from the same estimate and standard error."),
   answer("The significant result proves that wage growth caused counties to shift toward Clinton in 2016",
-         message = "A significant coefficient tells us the relationship is unlikely to be due to chance. It does not establish causation --- counties with higher wage growth may also differ in other unmeasured ways that drive the vote."),
+         message = "A significant coefficient tells us the relationship would be unlikely if the population slope were zero. It does not establish causation --- counties with higher wage growth may also differ in other unmeasured ways that drive the vote."),
   answer("A p-value below .05 means there is less than a 5% probability that the null hypothesis is true",
          message = "The p-value gives the probability of observing a result this extreme *if the null were true*, not the probability that the null is true. A small p-value means the data would be surprising under the null --- not that the null is probably false."),
   allow_retry = TRUE,
@@ -332,7 +324,7 @@ question("What can you conclude from the hypothesis test on college_grad_percent
   answer("The p-value is far below .05, but since the t-statistic exceeds 1.96, the two tests disagree and we cannot draw a conclusion",
          message = "The t-statistic and p-value do not disagree --- they are two ways of expressing the same result. A t-statistic exceeding 1.96 in absolute value corresponds to a p-value below .05 for a two-tailed test. They will always point to the same conclusion."),
   answer("We reject the null hypothesis, which proves that higher college attainment caused counties to vote for Clinton",
-         message = "Rejecting the null tells us the relationship is unlikely to be due to chance. It does not establish causation --- counties with more college-educated residents may differ in many other ways that also predict the vote."),
+         message = "Rejecting the null tells us the relationship would be unlikely if the population slope were zero. It does not establish causation --- counties with more college-educated residents may differ in many other ways that also shape the vote."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: find the p-value for college_grad_percent and apply the decision rule: if p < .05, reject the null."
@@ -379,19 +371,19 @@ question("Which statement correctly describes what the model fit statistics tell
 
 ### What We Learned About Wage Growth and Clinton's Vote
 
-So does wage growth predict Clinton's vote once we account for everything else? Yes --- but the full picture is more nuanced than the simple regression suggested.
+So is wage growth associated with Clinton's vote once we account for everything else? Yes --- but the full picture is more nuanced than the simple regression suggested.
 
-This example produced four findings worth carrying forward. First, wage growth has a statistically significant positive relationship with Clinton's percent of the two-party vote --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. Second, that relationship is smaller than simple regression would suggest: controlling for education, racial composition, and mortality risk, the wage growth slope shrank from 0.456 to 0.314, indicating that part of the original bivariate relationship overlapped with differences in those county characteristics. Third, scaling each coefficient to one standard deviation reveals the relative importance of the predictors: a one-sd shift in college attainment predicts about 6.5 percentage points in Clinton's vote, compared to about 2.8 points for mortality risk and 1.6 points for wage growth --- education is doing most of the work. Fourth, the Multiple $R^2$ of 0.607 tells us the model accounts for about 60.7% of the county-to-county variation in Clinton's vote, a dramatic improvement over the near-zero fit of the simple wage growth model; the residual standard error of 10.13 percentage points gives the estimated standard deviation of the residuals, with about two-thirds of counties having observed vote shares within about 10 points of their fitted values. Together, these findings suggest that Clinton's 2016 performance was shaped as much by the long-run demographic and educational character of counties as by the economic conditions of the preceding years.
+This example produced four findings worth carrying forward. First, wage growth has a statistically significant positive relationship with Clinton's percent of the two-party vote --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. Second, that relationship is smaller than simple regression would suggest: controlling for education, racial composition, and mortality risk, the wage growth slope shrank from 0.456 to 0.314, indicating that part of the original bivariate relationship overlapped with differences in those county characteristics. Third, scaling the coefficients to one-standard-deviation differences makes the estimated associations more comparable. Among these three continuous predictors, college attainment has the largest estimated association with Clinton's vote: about 6.5 percentage points, compared with about 2.8 points for mortality risk and 1.6 points for wage growth. Fourth, the Multiple $R^2$ of 0.607 tells us the model accounts for about 60.7% of the county-to-county variation in Clinton's vote, a dramatic improvement over the near-zero fit of the simple wage growth model; the residual standard error of 10.13 percentage points gives the estimated standard deviation of the residuals, with about two-thirds of counties having observed vote shares within about 10 points of their fitted values. Together, these findings suggest that Clinton's 2016 performance was shaped as much by the long-run demographic and educational character of counties as by the economic conditions of the preceding years.
 
-## Does Democracy Predict the Quality of Governance?
+## Is Democracy Associated with the Quality of Governance?
 
-Let's consider a second example using a different unit of analysis: countries. Does the level of democracy in a country predict how well its government performs overall? The theoretical argument runs through accountability: democratic institutions create electoral incentives for governments to deliver public goods, civil society organizations that monitor performance, and independent courts that constrain abuses of power. All of these channels suggest that more democratic countries should, on average, be better governed --- though we should also consider whether the relationship is linear across the full spectrum from autocracy to full democracy, or whether the gains are concentrated at the top.
+Let's consider a second example using a different unit of analysis: countries. Is the level of democracy in a country associated with how well its government performs overall? The theoretical argument runs through accountability: democratic institutions create electoral incentives for governments to deliver public goods, civil society organizations that monitor performance, and independent courts that constrain abuses of power. All of these channels suggest that more democratic countries should, on average, be better governed --- though we should also consider whether the relationship is linear across the full spectrum from autocracy to full democracy, or whether the gains are concentrated at the top.
 
 ::: {.hypothesis}
 In a comparison of countries, those with higher levels of democratic governance will have higher quality of governance than those with lower levels of democratic governance, after controlling for economic equality of opportunity and the fertility rate.
 :::
 
-The data frame **qog** contains country-level data from multiple sources. Our dependent variable is **iiag_gov**, an overall governance quality score from the Ibrahim Index extended to all countries --- it ranges from about 11 to 80, where higher values indicate better governance across dimensions including rule of law, human rights, sustainable economic opportunity, and human development. Our independent variables are:
+The data frame **qog** contains country-level data from multiple sources. Our outcome variable is **iiag_gov**, an overall governance quality score from the Ibrahim Index extended to all countries --- it ranges from about 11 to 80, where higher values indicate better governance across dimensions including rule of law, human rights, sustainable economic opportunity, and human development. Our explanatory variables are:
 
 - **wdi_fertility**: the total fertility rate (average number of children per woman)
 - **bti_eo**: equal opportunity, scored from 1 (least equal) to 10 (most equal)
@@ -464,16 +456,16 @@ grade_this({
     fail("Assign your model to an object called model_gov.")
   }
   if (!grepl("iiag_gov\\s*~", code_no_comments)) {
-    fail("The dependent variable should be iiag_gov --- governance quality is what we are trying to explain.")
+    fail("The outcome variable should be iiag_gov --- governance quality is what we are trying to explain.")
   }
   if (!grepl("wdi_fertility", code_no_comments)) {
-    fail("Include wdi_fertility as an independent variable.")
+    fail("Include wdi_fertility as an explanatory variable.")
   }
   if (!grepl("bti_eo", code_no_comments)) {
-    fail("Include bti_eo as an independent variable.")
+    fail("Include bti_eo as a predictor.")
   }
   if (!grepl("democ_f", code_no_comments)) {
-    fail("Include democ_f as an independent variable.")
+    fail("Include democ_f as an explanatory variable.")
   }
   if (!grepl("data\\s*=\\s*qog", code_no_comments)) {
     fail("Set data = qog so R knows where to find the variables.")
@@ -564,7 +556,7 @@ sd(qog$wdi_fertility, na.rm = TRUE)
 sd(qog$bti_eo, na.rm = TRUE)
 ```
 
-The output shows standard deviations of about 1.3 children per woman for **wdi_fertility** and about 1.9 points for **bti_eo**. With a slope of -2.068 on fertility rate, a one-sd difference of 1.3 is associated with an expected difference of $1.3 \times (-2.068) = -2.7$<span style='display:inline-block;width:1.2em'></span> governance points --- a modest association. With a slope of 4.613 on equal opportunity, a one-sd difference of 1.9 is associated with an expected difference of $1.9 \times 4.613 = 8.8$<span style='display:inline-block;width:1.2em'></span> governance points --- a larger association. Equal opportunity is the more powerful of the two continuous predictors.
+The output shows standard deviations of about 1.3 children per woman for **wdi_fertility** and about 1.9 points for **bti_eo**. With a slope of -2.068 on fertility rate, a one-sd difference of 1.3 is associated with an expected difference of $1.3 \times (-2.068) = -2.7$ governance points --- a modest association. With a slope of 4.613 on equal opportunity, a one-sd difference of 1.9 is associated with an expected difference of $1.9 \times 4.613 = 8.8$<span style='display:inline-block;width:1.2em'></span> governance points --- a larger association. Equal opportunity is the more powerful of the two continuous predictors.
 
 The factor variable **democ_f** works differently. Its coefficients describe a discrete jump from one named category to another --- the Democracy and Partial Democracy coefficients already express the most natural comparison: how much better governed are those countries than autocracies, controlling for fertility and equal opportunity. There is no standard deviation to scale by because the variable doesn't vary continuously.
 
@@ -640,21 +632,21 @@ question("Which statement correctly describes what the model fit statistics tell
 
 ### What We Learned About Democracy and Governance Quality
 
-So does democracy predict governance quality? The answer depends on what kind of democracy --- and that distinction only becomes visible once you choose the right reference category.
+So is democracy associated with governance quality? The answer depends on what kind of democracy --- and that distinction only becomes visible once you choose the right reference category.
 
 The most important finding from this example is not the significant full democracy coefficient --- it is the non-significant partial democracy finding. When Autocracy is the reference category, we can directly ask whether partial democracies are associated with better governance than autocracies, and in these data they are not distinguishable once we control for fertility and equal opportunity. The governance advantage appears concentrated among full democratic regimes. Partial democracies --- those with competitive elections but weak civil liberties and rule of law --- do not appear to score meaningfully higher on governance quality than their autocratic counterparts, controlling for these two variables.
 
-## Does Democracy Predict the Rule of Law?
+## Is Democracy Associated with the Rule of Law?
 
 Governance quality is a composite measure that aggregates many dimensions --- rule of law, human rights, sustainable economic opportunity, human development. Composite scores are useful summaries, but they can obscure as much as they reveal. A country might score well overall while performing unevenly across specific dimensions. It is worth asking whether democracy's relationship to governance quality holds when we look at one of its most contested components in isolation.
 
-Rule of law --- whether legal systems apply equally to all, whether courts are independent, whether due process is respected --- sits at the core of what democratic institutions are supposed to protect. Free elections remove governments that undermine legal accountability; independent judiciaries constrain arbitrary executive power; civil society monitors compliance. The theoretical case for democracy's effect on rule of law is at least as strong as its case for overall governance quality. But the empirical relationship may look different. Does the pattern we found in Example 2 hold when we zoom in on rule of law specifically?
+Rule of law --- whether legal systems apply equally to all, whether courts are independent, whether due process is respected --- sits at the core of what democratic institutions are supposed to protect. Free elections remove governments that undermine legal accountability; independent judiciaries constrain arbitrary executive power; civil society monitors compliance. The theoretical argument for democracy's association with rule of law is at least as strong as its case for overall governance quality. But the empirical relationship may look different. Does the pattern we found in Example 2 hold when we zoom in on rule of law specifically?
 
 ::: {.hypothesis}
 In a comparison of countries, those with higher levels of democratic governance will have stronger rule of law than those with lower levels of democratic governance, after controlling for the fertility rate.
 :::
 
-The data frame **qog** contains **fh_rol**, the Freedom House Rule of Law score. It ranges from 0 to 16, where higher values indicate stronger rule of law. The independent variables are **wdi_fertility** and **democ_f**. Use **democ_f** with its default reference category --- Autocracy, the first level, as you confirmed earlier in this tutorial.
+The data frame **qog** contains **fh_rol**, the Freedom House Rule of Law score. It ranges from 0 to 16, where higher values indicate stronger rule of law. The explanatory variables are **wdi_fertility** and **democ_f**. Use **democ_f** with its default reference category --- Autocracy, the first level, as you confirmed earlier in this tutorial.
 
 ### Estimate the Regression
 
@@ -670,7 +662,7 @@ Write the code from scratch to estimate the model, assigning it to **model3**, t
 # Hint 1 of 2
 # Look back at the hypothesis. Which variable is the outcome
 # you are trying to explain? Which variables do we think
-# predict it? The outcome goes on the left of ~; predictors
+# Which variables are the predictors? The outcome goes on the left of ~; predictors
 # go on the right separated by +.
 ```
 
@@ -693,13 +685,13 @@ grade_this({
     fail("Assign your model to an object called model3.")
   }
   if (!grepl("fh_rol\\s*~", code_no_comments)) {
-    fail("The dependent variable should be fh_rol --- rule of law is what we are trying to explain.")
+    fail("The outcome variable should be fh_rol --- rule of law is what we are trying to explain.")
   }
   if (!grepl("wdi_fertility", code_no_comments)) {
-    fail("Include wdi_fertility as an independent variable.")
+    fail("Include wdi_fertility as a predictor.")
   }
   if (!grepl("democ_f", code_no_comments)) {
-    fail("Include democ_f as an independent variable.")
+    fail("Include democ_f as a predictor.")
   }
   if (!grepl("data\\s*=\\s*qog", code_no_comments)) {
     fail("Set data = qog so R knows where to find the variables.")
@@ -747,7 +739,7 @@ question("Which statements correctly describe what the output tells us? Select a
          correct = TRUE,
          message = "Unlike in the governance model from Example 2, partial democracies do significantly outperform autocracies on rule of law (p = .008). The full democracy advantage is still much larger (7.38 vs. 2.05), but the partial democracy finding is statistically significant here."),
   answer("For every one-point increase in the rule of law score, we expect the fertility rate to decrease by 0.902, controlling for democracy level",
-         message = "This reverses the dependent and independent variables. The slope tells us the expected change in fh_rol for a one-unit increase in wdi_fertility, not the other way around."),
+         message = "This reverses the outcome and predictor variables. The slope tells us the expected change in fh_rol for a one-unit increase in wdi_fertility, not the other way around."),
   answer("For every one-unit increase in democracy level, a country's rule of law score is expected to increase by about 7.38 points, controlling for fertility rate",
          message = "Democracy level is not a continuous variable in this model --- it is a three-category factor. The coefficient 7.38 is not a per-unit slope; it is the difference in average rule of law between full democracies and autocracies (the reference category). A one-unit increase in democracy level is not a meaningful quantity here."),
   type = "learnr_checkbox",
@@ -807,7 +799,7 @@ grade_this({
 ```{r quiz-hypothesistesting-fhrol, echo=FALSE}
 question("Look at the p-values for wdi_fertility, Partial Democracy, and Democracy in your output. Which statements are true? Select all that apply.",
   correct = "Right: and notice the contrast with Example 2 on the partial democracy finding.",
-  answer("All three predictors are statistically significant at the .05 level",
+  answer("All three non-intercept coefficients are statistically significant at the .05 level",
          correct = TRUE,
          message = "Partial Democracy (p = .008) is significant here, unlike in Example 2 where it was far from significant (p = .654). Rule of law and overall governance quality are related but not identical outcomes, and democracy's relationship to each turns out to be different."),
   answer("Because Partial Democracy is not significant in Example 2, it cannot be significant in this model either",
@@ -850,7 +842,7 @@ question("Which statement correctly describes what the model fit statistics tell
 
 ### What We Learned About Democracy and Rule of Law
 
-So does democracy predict rule of law? Yes --- and with a pattern that differs meaningfully from what we found for governance quality in Example 2.
+So is democracy associated with rule of law? Yes --- and with a pattern that differs meaningfully from what we found for governance quality in Example 2.
 
 Take a moment before reading this summary to think about what you found. Did partial democracy behave the same way as in Example 2?
 
@@ -884,7 +876,7 @@ Here is what you need to produce a labeled, titled table:
 
 **`title`** adds a caption above the table.
 
-**`dep.var.labels`** labels the dependent variable column.
+**`dep.var.labels`** labels the outcome variable column.
 
 **`covariate.labels`** provides one label per predictor row, in the exact order the predictors appear in the basic table output. For factor variables, `levels()` tells you which category is the reference (omitted) and in what order the remaining categories appear. You already checked the levels of **democ_f** earlier in this tutorial: Autocracy is the reference category, followed by Partial Democracy then Democracy. That means **model_gov** needs four labels: one for **wdi_fertility**, one for **bti_eo**, one for Partial Democracy, and one for Democracy --- in that order.
 
@@ -896,11 +888,11 @@ For a complete list of arguments and customization options, run `?stargazer` in 
 
 ### A Customized Table
 
-Use the title "Predictors of Governance Quality" and the dependent variable label "Governance Quality Score". The covariate labels for this model are: **Fertility Rate**, **Equal Opportunity**, **Partial Democracy**, and **Democracy**. Determine the correct order to supply them from the basic table output above.
+Use the title "Predictors of Governance Quality" and the outcome-variable label "Governance Quality Score". The covariate labels for this model are: **Fertility Rate**, **Equal Opportunity**, **Partial Democracy**, and **Democracy**. Determine the correct order to supply them from the basic table output above.
 
 **Practice: Produce a labeled, titled `stargazer()` table for the governance model**
 
-Fill in the blanks to complete the table with the prescribed title, dependent variable label, and covariate labels. Two hints are available. Click "Submit Answer" to check your work.
+Fill in the blanks to complete the table with the prescribed title, outcome-variable label, and covariate labels. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-stargazer-governance, exercise=TRUE, exercise.cap="Practice: Produce a labeled, titled stargazer table for the governance model"}
 stargazer(model_gov,
@@ -1030,19 +1022,19 @@ question("Why does changing the reference category from Democracy to Autocracy r
 
 ```{r quiz-cyu-outcomes, echo=FALSE}
 question("What do the two country-level examples show about the Partial Democracy coefficient?",
-  correct = "Right. The same predictor can tell different stories depending on which dependent variable is modeled.",
-  answer("Whether partial democracies differ significantly from autocracies depends on which dependent variable is modeled: the difference is not statistically distinguishable for overall governance quality but is significant for rule of law, controlling for the other variables",
+  correct = "Right. The same predictor can tell different stories depending on which outcome variable is modeled.",
+  answer("Whether partial democracies differ significantly from autocracies depends on which outcome variable is modeled: the difference is not statistically distinguishable for overall governance quality but is significant for rule of law, controlling for the other variables",
          correct = TRUE,
-         message = "This is one of the most important lessons from the tutorial. The same regime-type variable, the same reference category, and similar controls produce different conclusions because governance quality and rule of law, while related, are not identical dependent variables. A researcher who studied only one would miss the other's story."),
+         message = "This is one of the most important lessons from the tutorial. The same regime-type variable, the same reference category, and similar controls produce different conclusions because governance quality and rule of law, while related, are not identical outcome variables. A researcher who studied only one would miss the other's story."),
   answer("Partial democracies outperform autocracies equally on both governance quality and rule of law",
-         message = "The Partial Democracy coefficient is not statistically significant in the governance quality model but is significant in the rule of law model. The two dependent variables tell different stories about partial democracy."),
+         message = "The Partial Democracy coefficient is not statistically significant in the governance quality model but is significant in the rule of law model. The two outcome variables tell different stories about partial democracy."),
   answer("A non-significant coefficient in the governance model proves that partial democracy has no population relationship with governance quality",
          message = "Failing to reject the null is not the same as proving it true. A non-significant result means the data do not provide sufficient evidence to distinguish the coefficient from zero --- not that the population coefficient is exactly zero."),
-  answer("Changing the dependent variable should not change any coefficient if the same predictors are used",
-         message = "The dependent variable is part of the model --- different dependent variables produce different coefficients even with identical predictors. Each coefficient describes the conditional relationship between a predictor and that specific dependent variable."),
+  answer("Changing the outcome variable should not change any coefficient if the same predictors are used",
+         message = "The outcome variable is part of the model --- different outcome variables produce different coefficients even with identical predictors. Each coefficient describes the conditional relationship between a predictor and that specific outcome variable."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: compare the Partial Democracy p-values across Examples 2 and 3. Is the conclusion the same for both dependent variables?"
+  try_again = "Hint: compare the Partial Democracy p-values across Examples 2 and 3. Is the conclusion the same for both outcome variables?"
 )
 ```
 
@@ -1068,11 +1060,11 @@ question("Across Examples 1, 2, and 3, which statement best captures what multip
 
 ## The Takeaways
 
-[**Multiple regression**]{.important-text} extends simple regression to models with more than one independent variable. The formula syntax extends naturally: list each independent variable after the `~`, separated by `+`. The `summary()` output is identical in structure to simple regression, just with more rows in the coefficient table.
+[**Multiple regression**]{.important-text} extends simple regression to models with more than one explanatory variable. The formula syntax extends naturally: list each explanatory variable after the `~`, separated by `+`. The `summary()` output is identical in structure to simple regression, just with more rows in the coefficient table.
 
 The key additions this tutorial introduces:
 
-1. [**All else equal.**]{.important-text} In multiple regression, every coefficient is a [**partial slope**]{.important-text} --- the expected difference in $Y$ associated with a one-unit difference in that predictor, holding all other predictors constant. This qualifier changes interpretation fundamentally. A significant coefficient in a multiple regression means the variable predicts the outcome *even after accounting for* the other variables in the model.
+1. [**All else equal.**]{.important-text} In multiple regression, every coefficient is a [**partial slope**]{.important-text} --- the expected difference in $Y$ associated with a one-unit difference in that predictor, holding all other predictors constant. This qualifier changes interpretation fundamentally. A significant coefficient in a multiple regression means the variable is associated with the outcome *even after accounting for* the other variables in the model.
 
 2. [**Omitted variable bias.**]{.important-text} Omitted-variable bias can occur when an omitted factor helps explain the outcome and is also correlated with an included predictor. In that case, the predictor's coefficient may partly capture the omitted factor's relationship with the outcome. Including relevant controls reduces this problem, but does not eliminate it --- unmeasured confounders, measurement error, and other issues can still affect the estimates.
 
@@ -1107,7 +1099,7 @@ cat('
    role="status"
    aria-label="Excellent work! You have completed this tutorial and can now estimate and interpret multiple regression models, present results in a professional table, and draw substantive conclusions from what the estimates tell you.">
   <span aria-hidden="true">📊</span>
-  Excellent work! You can now estimate and interpret multiple regression models with interval and nominal independent variables --- and present your results in a professional table.
+  Excellent work! You can now estimate and interpret multiple regression models with interval and nominal explanatory variables --- and present your results in a professional table.
 </p>
 ')
 ```
