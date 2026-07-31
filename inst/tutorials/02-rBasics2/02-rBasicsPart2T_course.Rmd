@@ -18,12 +18,12 @@ description: >
 
 In Tutorial 1 you learned the fundamental building blocks of R: objects, vectors, functions, and packages. This tutorial puts them to work on real data.
 
-Every analysis begins the same way. You open a file, find out what is in it, and get oriented before doing anything else. What follows is that sequence, walked through once and slowly: reading data in, learning what a data set contains, working with one variable at a time, handling the values that are missing, locating particular observations, and finally creating new variables and saving your work. The individual commands matter, but the routine matters more --- it is what you will repeat every time you open a data set you have not seen before.
+Every analysis begins the same way. You open a file, find out what is in it, and get oriented before doing anything else. What follows is that sequence, walked through once and slowly. The individual commands matter, but the routine matters more --- it is what you will repeat every time you open a data set you have not seen before.
 
 In this tutorial you will learn:
 
 * How to read R data files (.RData) into R using the `load()` function
-* How to read comma-separated (.csv), Excel (.xlsx), Stata (.dta), and tab-delimited (.txt) files using the `import()` function from the [rio]{.package-name} package
+* How to read comma-separated (.csv), Excel (.xlsx), and tab-delimited (.txt) files using the `import()` function from the [rio]{.package-name} package
 * How to explore the structure of a data frame using `class()`, `nrow()`, `ncol()`, `names()`, `head()`, `str()`, and `summary()`
 * How to access variables in a data frame using the `$` operator
 * How to identify and count missing values using `is.na()` and `sum()`
@@ -41,6 +41,11 @@ library(knitr)
 library(rio)
 data("unFBposts", package = "QPATutorialsCourse")
 data("counties", package = "QPATutorialsCourse")
+# One comments_count value is set to NA on purpose, so the Missing Values
+# section can show what a gap does to a summary function. The row chosen is the
+# one closest to the median, leaving the most- and least-commented posts intact.
+unFBposts$comments_count[which.min(abs(unFBposts$comments_count -
+                                   median(unFBposts$comments_count)))] <- NA
 tutorial_options(exercise.checker = gradethis::grade_learnr, exercise.completion = FALSE)
 options(help_type = "text")
 knitr::opts_chunk$set(error = TRUE)
@@ -94,15 +99,11 @@ You can navigate the output: the arrow control in the table header reveals addit
 
 For all other file formats, we will use the `import()` function from the [rio]{.package-name} package. It determines the file type from the extension and handles the details for you --- so the same syntax works for .csv, .xlsx, .dta, and .txt files alike.
 
-::: {.important-note}
-**Important:** Unlike `load()`, you must assign the result of `import()` to an object. This is one of the most common sources of confusion when switching between the two approaches --- `load()` creates objects automatically, `import()` does not.
-:::
+Unlike `load()`, you must assign the result of `import()` to an object.
 
-If you remember that one distinction, the rest of the importing syntax becomes much easier to keep straight.
+Because [rio]{.package-name} is not part of base R, remember to load it with `library(rio)` before calling `import()`.
 
-If the file is not in the same directory as your code, you will need to specify the path. Because [rio]{.package-name} is not part of base R, remember to load it with `library(rio)` before calling `import()`.
-
-The next four subsections show the four file types you will encounter most often. The syntax is nearly identical in each case --- only the filename changes. Work through them in order the first time, then treat this section as a reference you can return to.
+The next three subsections show the file types you will encounter most often. Work through them in order the first time, then treat this section as a reference you can return to.
 
 ### Comma-Separated Files
 
@@ -148,75 +149,9 @@ df
 The code is the same as the CSV example except for the filename. This is the
 main advantage of `import()`: the file extension tells R how to read the file.
 
-### Stata Data Files
-
-Stata data files have the extension .dta. The pattern is the same as before: load the package, import the file, assign the result, and print it.
-
-```{r data3-import-csv-setup, echo=FALSE}
-library(haven)
-tmp.df3 <- data.frame(
-  country = c("Algeria", "Angola", "Bahrain", "Ecuador", "Gabon", "Indonesia",
-              "Iran", "Iraq", "Kuwait", "Libya", "Mexico", "Nigeria", "Norway",
-              "Oman", "Qatar", "Russia", "Saudi Arabia", "UAE", "Venezuela"),
-  oil_rents_gdp = c(30.5, 45.2, 20.1, 23.4, 42.8, 8.9, 25.6, 38.7, 48.3, 52.1,
-                    7.8, 35.4, 12.3, 40.2, 28.9, 15.7, 43.2, 25.8, 31.4),
-  women_parl = c(7.7, 15.5, 2.5, 27.7, 12.5, 17.3, 3.1, 25.2, 1.5, 7.7,
-                 22.6, 5.6, 39.6, 1.2, 0, 13.6, 0, 22.5, 17.5)
-)
-write_dta(tmp.df3, "oilwomen.dta")
-```
-
-**Practice 5: Import a Stata data file**
-
-Write the code to import "oilwomen.dta," assign it to an object called **oil**, and print it. Three hints are available. Click "Submit Answer" to check your work.
-
-```{r data3-import-csv, exercise=TRUE, exercise.setup="data3-import-csv-setup", exercise.cap="Practice 5"}
-
-```
-
-```{r data3-import-csv-hint-1}
-# Hint 1 of 3
-# Import works the same way regardless of file type.
-# What function imports files using the rio package?
-# Don't forget to load the package first.
-```
-
-```{r data3-import-csv-hint-2}
-# Hint 2 of 3
-# Assign the result to oil using <-.
-# Then print oil by putting it on a second line.
-# The file extension tells import() what kind of file it is.
-```
-
-```{r data3-import-csv-hint-3}
-# Hint 3 of 3: fill in the blanks
-library(___)
-oil <- import("___")
-oil
-```
-
-```{r data3-import-csv-check}
-grade_this({
-  code <- paste(.user_code, collapse = "\n")
-  if (!grepl("import\\s*\\(", code))
-    fail("Use the import() function from the rio package to read the file.")
-  if (!grepl("library\\s*\\(\\s*rio\\s*\\)", code))
-    fail("Load the rio package first with library(rio).")
-  if (!grepl("oil\\s*<-", code))
-    fail("Assign the imported data to an object named oil using <-.")
-  if (!grepl("oil\\s*$", trimws(gsub("#[^\r\n]*", "", code))))
-    fail("Make sure you display oil by typing its name on the last line so the grader can check it.")
-  if (!inherits(.result, "data.frame"))
-    fail("Make sure you display oil by typing its name on the last line, and that you used import() to read oilwomen.dta.")
-  if (!all(c("country", "oil_rents_gdp", "women_parl") %in% names(.result)))
-    fail("oil does not contain the expected variables. Make sure you imported oilwomen.dta.")
-  pass("Well done! The same import() call works for Stata files --- only the filename and extension change.")
-})
-```
-
 ### Tab-Delimited Files
 
-Tab-delimited .txt files are imported the same way.
+Tab-delimited files have the extension .txt.
 
 ```{r data4-import-csv-setup, echo=FALSE}
 txt_data <- 'year\tVEP\tVAP\ttotal\tANES\tfelons\tnoncit\toverseas\tosvoters
@@ -237,29 +172,33 @@ txt_data <- 'year\tVEP\tVAP\ttotal\tANES\tfelons\tnoncit\toverseas\tosvoters
 writeLines(txt_data, "turnout2.txt")
 ```
 
-**Practice 6: Import a tab-delimited file**
+**Practice 5: Import a tab-delimited file**
 
-Import "turnout2.txt," assign it to an object called **TO**, and print it. You may assume the [rio]{.package-name} package is already loaded. Three hints are available. Click "Submit Answer" to check your work.
+Load [rio]{.package-name}, import "turnout2.txt", assign it to an object called **TO**, and print it. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data4-import-csv, exercise=TRUE, exercise.setup="data4-import-csv-setup", exercise.cap="Practice 6"}
+```{r data4-import-csv, exercise=TRUE, exercise.setup="data4-import-csv-setup", exercise.cap="Practice 5"}
 
 ```
 
 ```{r data4-import-csv-hint-1}
 # Hint 1 of 3
-# The approach is identical to the previous two exercises.
-# Only the filename and extension change --- the file
-# format is determined automatically from the extension.
+# You want the turnout figures held in an object you can
+# come back to, and then shown on screen so you can see what
+# arrived. Those are two separate steps, and the second one
+# does not happen on its own.
 ```
 
 ```{r data4-import-csv-hint-2}
 # Hint 2 of 3
-# Assign the result to TO using <-.
-# Then print TO by putting it on a second line.
+# Load the package before you call import() --- rio is not
+# part of base R, so its functions are not available until
+# you attach it. Assign the result to TO using <-, then
+# print TO by putting it on a line of its own.
 ```
 
 ```{r data4-import-csv-hint-3}
 # Hint 3 of 3: fill in the blanks
+library(___)
 TO <- import("___")
 TO
 ```
@@ -267,13 +206,17 @@ TO
 ```{r data4-import-csv-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  if (!grepl("import\\s*\\(", code)) {
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("library\\s*\\(\\s*rio\\s*\\)", code_no_comments)) {
+    fail("Load the rio package first with library(rio).")
+  }
+  if (!grepl("import\\s*\\(", code_no_comments)) {
     fail("Use the import() function to read the file.")
   }
-  if (!grepl("TO\\s*<-", code)) {
+  if (!grepl("TO\\s*<-", code_no_comments)) {
     fail("Assign the imported data to an object named TO using <-.")
   }
-  if (!grepl("TO\\s*$", trimws(gsub("#[^\r\n]*", "", code)))) {
+  if (!grepl("TO\\s*$", trimws(code_no_comments))) {
     fail("Make sure you display TO by typing its name on the last line so the grader can check it.")
   }
   if (!inherits(.result, "data.frame")) {
@@ -295,11 +238,11 @@ grade_this({
 
 The first step after loading a data set is to get oriented: What kind of object is it? How large is it? What variables does it contain? We will work with **unFBposts**, which contains information about social media posts published on the United Nations Facebook page during 2015.
 
-**Practice 7: Identify the class of unFBposts**
+**Practice 6: Identify the class of unFBposts**
 
-Determine the class of **unFBposts**. Three hints are available. Click "Submit Answer" to check your work.
+Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-explore-class, exercise=TRUE, exercise.cap="Practice 7"}
+```{r data-explore-class, exercise=TRUE, exercise.cap="Practice 6"}
 
 ```
 
@@ -343,25 +286,33 @@ A [**data frame**]{.important-text} is a two-dimensional object in which each co
 
 ### Viewing the Contents of a Data Frame
 
-You can view a data frame by typing its name, as you have done already. In a regular RStudio session you can also use the `View()` function or double-click the object name in the Global Environment pane to open the data in a spreadsheet-style window. Note that `View()` begins with a capital letter. This function cannot be run inside the tutorial, so we will not use it here --- but it is worth knowing for when you work on your own.
+You can view a data frame by typing its name, as you have done already. In a regular RStudio session you can also use the `View()` function or double-click the object name in the Global Environment pane to open the data in a spreadsheet-style window. Note that `View()` begins with a capital letter.
+
+**Example code: View a data frame**
+
+This code cannot be run inside the tutorial, but shows the syntax you would use on your own machine. It opens **unFBposts** in a spreadsheet-style window.
+
+```{r data-view, exercise=FALSE, eval=FALSE}
+View(unFBposts)
+```
 
 ### Determining the Number of Rows and Columns
 
 Each row of a data frame contains one observation --- here, a unique Facebook post. The `nrow()` function returns the number of rows. We *pass it* the name of the data frame by placing the data frame name inside the parentheses.
 
-**Run and observe 8: Count the rows**
+**Run and observe 7: Count the rows**
 
-```{r data-structure-rows, exercise=TRUE, exercise.cap="Run and observe 8"}
+```{r data-structure-rows, exercise=TRUE, exercise.cap="Run and observe 7"}
 nrow(unFBposts)
 ```
 
 Each row is one Facebook post, so this tells you how many posts the UN published in 2015. You will reach for `nrow()` constantly --- it is how you confirm a file loaded correctly and how you know how many cases you have to work with.
 
-**Practice 9: Calculate average posts per day**
+**Practice 8: Calculate average posts per day**
 
-Using what you just learned about the number of rows, calculate how many posts were published on average per day in 2015. Assume 365 days in the year. Three hints are available. Click "Submit Answer" to check your work.
+Calculate how many posts were published on average per day in 2015, assuming 365 days in the year. Let R count the posts rather than typing the number you just saw --- a calculation that reads the count from the data frame still works if the data change. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-howmanyposts, exercise=TRUE, exercise.cap="Practice 9"}
+```{r data-howmanyposts, exercise=TRUE, exercise.cap="Practice 8"}
 
 ```
 
@@ -414,11 +365,11 @@ grade_this({
 
 Each column contains one variable. The `ncol()` function returns the number of columns in the same way that `nrow()` returns the number of rows. Knowing how many variables a data set contains is a quick sanity check: if you expected 10 variables and `ncol()` returns 7, something went wrong. It also tells you the scope of what is available before you start deciding which variables are relevant to your question.
 
-**Practice 10: Count the columns in unFBposts**
+**Practice 9: Count the columns in unFBposts**
 
 Find out how many variables **unFBposts** contains. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-structure-columns, exercise=TRUE, exercise.cap="Practice 10"}
+```{r data-structure-columns, exercise=TRUE, exercise.cap="Practice 9"}
 
 ```
 
@@ -467,11 +418,11 @@ grade_this({
 
 Before you can work with a variable you need to know two things: that it is in the data set at all, and exactly how its name is spelled. Real data rarely uses the names you would have chosen. Variables arrive abbreviated, inconsistently capitalized, or named by whoever assembled the file, and R will insist on the exact spelling when you come to use one. The `names()` function returns the column names of a data frame, which is why it is usually the first thing you run after loading one.
 
-**Practice 11: Display the variable names in unFBposts**
+**Practice 10: Display the variable names in unFBposts**
 
-Display the names of the variables in **unFBposts**. Three hints are available. Click "Submit Answer" to check your work.
+Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-explore-names, exercise=TRUE, exercise.cap="Practice 11"}
+```{r data-explore-names, exercise=TRUE, exercise.cap="Practice 10"}
 
 ```
 
@@ -506,7 +457,7 @@ grade_this({
   if (!identical(.result, names(unFBposts))) {
     fail("Apply names() to unFBposts. The result should list the variable names in the data frame.")
   }
-  pass("These variable names are the handles you will use with $ throughout the rest of this tutorial. The table below describes what each one records.")
+  pass("These variable names are the handles you will use with $ throughout the rest of this tutorial.")
 })
 ```
 
@@ -563,46 +514,48 @@ cat('
 ')
 ```
 
-### The `head()` and `str()` Functions
+### The `head()` Function
 
 After checking the size and names of a data set, the next step is to peek inside. The `head()` function displays the first few rows of a data frame. This is particularly useful for confirming the data frame contains what you expect it to contain! By default it shows 6 rows; use the `n` argument to request a different number if you want to see more of the data.
 
-**Run and observe 12: Display the first few rows**
+**Run and observe 11: Display the first few rows**
 
-```{r data-explore-head1, exercise=TRUE, exercise.cap="Run and observe 12"}
+```{r data-explore-head1, exercise=TRUE, exercise.cap="Run and observe 11"}
 head(unFBposts, n = 5)
 ```
 
 When you run `head()`, check three things: first, that the column names match what you expect; second, that the values look reasonable (no obviously garbled text or impossible numbers); and third, whether any `NA` values appear in the first few rows, which would signal missing data worth investigating. Here the data look clean, but you will not always be so fortunate.
 
+### The `str()` Function
+
 The `str()` function displays the structure of the data frame: the number of observations and variables, the name of each variable, its type, and the first few values. The labels you will see most often are `int` (integer), `num` (numeric, which may include decimals), `chr` (character string), `Date` (a true date object), and `Factor` (a categorical variable with a fixed set of levels).
 
 Checking variable types before you start analyzing is important because many R functions behave differently depending on whether a variable is numeric, character, or factor. A variable that looks like a number may be stored as text, and you need to know that before you try to compute a mean.
 
-**Run and observe 13: Display the structure of unFBposts**
+**Run and observe 12: Display the structure of unFBposts**
 
-```{r data-explore-head2, exercise=TRUE, exercise.cap="Run and observe 13"}
+```{r data-explore-head2, exercise=TRUE, exercise.cap="Run and observe 12"}
 str(unFBposts)
 ```
 
 In the `str()` output, each variable appears on its own line. The abbreviation after the colon tells you the variable type, and the values after that show a preview of what is stored in the column. Most variables here are what you would expect: **likes_count**, **comments_count**, **shares_count**, and **month** are all `int` (integer). But look closely at `date` --- its type abbreviation may surprise you.
 
-**Practice 14: Read a variable type from `str()` output**
+**Practice 13: Read a variable type from `str()` output**
 
 ```{r str-question, echo=FALSE}
-question("Look at the str() output from the exercise above. Find the row for the date variable and read the type abbreviation listed next to it. What type does R report for date?",
+question("Look at the `str()` output from the exercise above. Find the row for the **date** variable and read the type abbreviation listed next to it. What type does R report for **date**?",
   answer("chr", correct = TRUE,
-         message = "This is a very common situation in real data. Dates often arrive as character strings, which means R treats them as text and cannot do arithmetic on them --- you cannot subtract one date from another or extract the year without first converting the variable using as.Date() or a similar function. str() is the fastest way to catch this problem before it causes unexpected errors in your analysis."),
+         message = "This is a very common situation in real data. Dates often arrive as character strings, which means R treats them as text and cannot do arithmetic on them --- you cannot subtract one **date** from another or extract the year without first converting the variable using `as.Date()` or a similar function. `str()` is the fastest way to catch this problem before it causes unexpected errors in your analysis."),
   answer("int",
-         message = "int means integer --- whole numbers, like the counts stored in likes_count. This variable holds date information stored as text, not as a number."),
+         message = "int means integer --- whole numbers, like the counts stored in likes_count. This variable holds **date** information stored as text, not as a number."),
   answer("num",
-         message = "num means numeric, a value that may include decimals. This variable holds date information stored as text, not as a number of any kind."),
+         message = "num means numeric, a value that may include decimals. This variable holds **date** information stored as text, not as a number of any kind."),
   answer("Date",
-         message = "Date is what you would see if these values had been read in as true dates, and it is what you would want --- R could then subtract one date from another or pull out the year. That is not what happened here."),
-  correct = "Right --- the date variable is stored as chr, plain text rather than a true date object.",
+         message = "Date is what you would see if these values had been read in as true dates, and it is what you would want --- R could then subtract one **date** from another or pull out the year. That is not what happened here."),
+  correct = "Right --- the **date** variable is stored as chr, plain text rather than a true **date** object.",
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Look at the str() output you just ran. Find the line for the date variable and read the abbreviation that appears immediately after the dollar sign and variable name."
+  try_again = "Hint: Look at the `str()` output you just ran. Find the line for the **date** variable and read the abbreviation that appears immediately after the dollar sign and variable name."
 )
 ```
 
@@ -610,32 +563,32 @@ question("Look at the str() output from the exercise above. Find the row for the
 
 The `summary()` function provides basic descriptive information about every variable in a data frame. For numeric variables it reports the minimum, 1st quartile (25th percentile), median, mean, 3rd quartile (75th percentile), and maximum. For character variables it reports only the length and type. Running `summary()` on a new data set gives you a quick diagnostic: you can spot impossible values (a minimum age of -3, say), confirm the scale of numeric variables, and see at a glance which variables have missing values reported as NAs in the summary output.
 
-**Run and observe 15: Summarize unFBposts**
+**Run and observe 14: Summarize unFBposts**
 
-```{r data-explore-summary, exercise=TRUE, exercise.cap="Run and observe 15"}
+```{r data-explore-summary, exercise=TRUE, exercise.cap="Run and observe 14"}
 summary(unFBposts)
 ```
 
 Look at the numeric variables and compare the median to the mean. For **likes_count**, **shares_count**, and **comments_count**, the mean is substantially higher than the median --- a sign that a small number of posts received extremely high engagement, pulling the mean upward. 
 
-**Practice 16: Interpret `summary()` output**
+**Practice 15: Interpret `summary()` output**
 
 ```{r summary-question, echo=FALSE}
-question("Which of the following does summary() NOT report for a numeric variable?",
+question("Which of the following does `summary()` NOT report for a numeric variable?",
   answer("Minimum and maximum",
-         message = "summary() does report both the minimum and maximum --- look for 'Min.' and 'Max.' in the output you just ran."),
+         message = "`summary()` does report both the minimum and maximum --- look for 'Min.' and 'Max.' in the output you just ran."),
   answer("Median",
-         message = "summary() does report the median --- look for 'Median' in the output. The median is the middle value when all observations are sorted."),
+         message = "`summary()` does report the median --- look for 'Median' in the output. The median is the middle value when all observations are sorted."),
   answer("Standard deviation", correct = TRUE,
-         message = "summary() does not report the standard deviation. It gives you the five-number summary (min, 1st quartile, median, 3rd quartile, max) plus the mean --- enough to see the shape and center of a distribution at a glance. But if you need a measure of spread, you will have to call sd() separately. This matters in practice: the mean and standard deviation together are the inputs to many of the statistical tests you will meet later."),
+         message = "`summary()` does not report the standard deviation. It gives you the five-number summary (min, 1st quartile, median, 3rd quartile, max) plus the mean --- enough to get an initial sense of its center, spread, and possible skew. But if you need a measure of spread, you will have to call `sd()` separately. This matters in practice: the mean and standard deviation together are the inputs to many of the statistical tests you will meet later."),
   answer("Mean",
-         message = "summary() does report the mean for numeric variables --- look for 'Mean' in the output you just ran."),
+         message = "`summary()` does report the mean for numeric variables --- look for 'Mean' in the output you just ran."),
   answer("1st and 3rd quartiles",
-         message = "summary() does report these --- they appear as '1st Qu.' and '3rd Qu.' in the output. These mark the 25th and 75th percentiles of the data."),
-  correct = "Right --- summary() covers center and range but omits spread measures.",
+         message = "`summary()` does report these --- they appear as '1st Qu.' and '3rd Qu.' in the output. These mark the 25th and 75th percentiles of the data."),
+  correct = "Right --- `summary()` covers center and range but omits spread measures.",
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Look at the summary() output you just ran and find what is listed for each numeric variable. Then check each answer option against what you see."
+  try_again = "Hint: Look at the `summary()` output you just ran and find what is listed for each numeric variable. Then check each answer option against what you see."
 )
 ```
 
@@ -644,19 +597,19 @@ question("Which of the following does summary() NOT report for a numeric variabl
 
 Once you know what variables are available, you need a way to pull out the one you want to work with. To access a specific variable in a data frame, we use the [**dollar-sign operator**]{.important-text}, written `$`. The syntax is `data_frame_name$variable_name`. For example, to access the variable **type** in **unFBposts** we write `unFBposts$type`. This tells R to look inside **unFBposts** and return the column named **type**. The spelling has to be exact, including capitalization: if you ask for a variable that does not exist --- `unFBposts$Type`, say --- R returns `NULL` rather than an error message. `NULL` is R's way of representing nothing at all: not a zero, not an empty piece of text, but the absence of any object. Nothing appears to go wrong at that moment, but every calculation you build on it afterwards will fail or give nonsense, so it is worth checking the name against `names()` when a result surprises you.
 
-**Run and observe 17: Access a variable using $**
+**Run and observe 16: Access a variable using $**
 
-```{r data-explore-type, exercise=TRUE, exercise.cap="Run and observe 17"}
+```{r data-explore-type, exercise=TRUE, exercise.cap="Run and observe 16"}
 unFBposts$type
 ```
 
 Here we can see that the variable **type** records whether a post contains a note, link, photo, event, or video.
 
-**Practice 18: Access the likes_count variable**
+**Practice 17: Access the likes_count variable**
 
 Use the `$` operator to print the contents of the **likes_count** variable in **unFBposts**. Recall that this variable counts the number of times a post is liked. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-explore-dollar, exercise=TRUE, exercise.cap="Practice 18"}
+```{r data-explore-dollar, exercise=TRUE, exercise.cap="Practice 17"}
 
 ```
 
@@ -681,10 +634,11 @@ unFBposts$___
 ```{r data-explore-dollar-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  if (!grepl("\\$", code)) {
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("\\$", code_no_comments)) {
     fail("Use the $ operator to access the variable. The syntax is data_frame_name$variable_name.")
   }
-  if (!grepl("unFBposts\\s*\\$\\s*likes_count", code)) {
+  if (!grepl("unFBposts\\s*\\$\\s*likes_count", code_no_comments)) {
     fail("Make sure you are accessing the likes_count variable using unFBposts$likes_count.")
   }
   if (!identical(.result, unFBposts$likes_count)) {
@@ -694,11 +648,11 @@ grade_this({
 })
 ```
 
-**Practice 19: Retrieve the first post**
+**Practice 18: Retrieve the first post**
 
 Use the `$` operator and square bracket indexing together to retrieve the text of the first post (**message**) in **unFBposts**. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r text, exercise=TRUE, exercise.cap="Practice 19"}
+```{r text, exercise=TRUE, exercise.cap="Practice 18"}
 
 ```
 
@@ -724,19 +678,20 @@ unFBposts$message[___]
 ```{r text-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  if (!grepl("\\$", code)) {
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  if (!grepl("\\$", code_no_comments)) {
     fail("Use the $ operator to access the message variable in unFBposts.")
   }
-  if (!grepl("message", code)) {
+  if (!grepl("message", code_no_comments)) {
     fail("Access the message variable using unFBposts$message.")
   }
-  if (!grepl("\\[\\s*1\\s*\\]", code)) {
+  if (!grepl("\\[\\s*1\\s*\\]", code_no_comments)) {
     fail("Use [1] to select the first element of the message variable.")
   }
   if (!identical(.result, unFBposts$message[1])) {
     fail("Access unFBposts$message and use [1] to retrieve the first entry.")
   }
-  pass("Good --- combining $ with [ ] lets you pinpoint any single value in a data frame: one variable, one row. The prose below shows where this leads next.")
+  pass("Good --- combining $ with [ ] lets you pinpoint any single value in a data frame: one variable, one row.")
 })
 ```
 
@@ -748,9 +703,9 @@ When working with real data, some observations will not have a recorded value fo
 
 The `is.na()` function checks each element of a vector and returns `TRUE` if the value is missing and `FALSE` if it is not. For example, `is.na(unFBposts$message)` returns a [**logical vector**]{.important-text} of TRUE and FALSE values --- one for each post --- indicating which posts have no message text.
 
-**Run and observe 20: Check for missing values**
+**Run and observe 19: Check for missing values**
 
-```{r data-explore-NAvalue, exercise=TRUE, exercise.cap="Run and observe 20"}
+```{r data-explore-NAvalue, exercise=TRUE, exercise.cap="Run and observe 19"}
 is.na(unFBposts$message)
 ```
 
@@ -758,11 +713,11 @@ The output is a long vector of TRUE and FALSE values. To count how many are TRUE
 
 Checking for missing values is standard practice at the start of any analysis.
 
-**Practice 21: Count missing values in the message variable**
+**Practice 20: Count missing values in the message variable**
 
 Count how many posts are missing a value for **message**. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-handle-summation, exercise=TRUE, exercise.cap="Practice 21"}
+```{r data-handle-summation, exercise=TRUE, exercise.cap="Practice 20"}
 
 ```
 
@@ -815,11 +770,11 @@ grade_this({
 
 It is worth checking even when you expect none. A variable that appears complete may have `NA` values introduced during data cleaning or merging that you did not anticipate.
 
-**Practice 22: Count missing values in likes_count**
+**Practice 21: Count missing values in comments_count**
 
-Count the missing values in **likes_count** to confirm. Three hints are available. Click "Submit Answer" to check your work.
+Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-handle-summation2, exercise=TRUE, exercise.cap="Practice 22"}
+```{r data-handle-summation2, exercise=TRUE, exercise.cap="Practice 21"}
 
 ```
 
@@ -852,8 +807,8 @@ grade_this({
   if (!grepl("sum\\s*\\(", code_no_comments)) {
     fail("You have a way to identify the missing values --- now you need to count how many there are.")
   }
-  if (!grepl("unFBposts\\s*\\$\\s*likes_count", code_no_comments)) {
-    fail("Apply this to the likes_count variable in unFBposts.")
+  if (!grepl("unFBposts\\s*\\$\\s*comments_count", code_no_comments)) {
+    fail("Apply this to the comments_count variable in unFBposts.")
   }
   if (is.null(.result)) {
     fail("Make sure your code produces a result the grader can check.")
@@ -861,30 +816,30 @@ grade_this({
   if (!is.numeric(.result) || length(.result) != 1) {
     fail("Your result should be a single number.")
   }
-  if (!isTRUE(all.equal(as.numeric(.result), as.numeric(sum(is.na(unFBposts$likes_count)))))) {
-    fail("Use sum(is.na(unFBposts$likes_count)) to count the missing values.")
+  if (!isTRUE(all.equal(as.numeric(.result), as.numeric(sum(is.na(unFBposts$comments_count)))))) {
+    fail("Use sum(is.na(unFBposts$comments_count)) to count the missing values.")
   }
-  pass(paste0("Good --- there are ", sum(is.na(unFBposts$likes_count)),
-              " missing values in likes_count. You will want to include na.rm = TRUE when summarizing variables that may have missing values."))
+  pass(paste0("Good --- comments_count has ", sum(is.na(unFBposts$comments_count)),
+              " missing value out of 1,643 posts. Small gaps are easy to overlook, which is why counting them is the first thing to do rather than the last."))
 })
 ```
 
 You can also count the number of values that are *not* missing. In R, the `!` symbol is the logical NOT operator --- it flips `TRUE` to `FALSE` and `FALSE` to `TRUE`. So `!TRUE` returns `FALSE` and `!FALSE` returns `TRUE`.
 
-**Run and observe 23: See the NOT operator in action**
+**Run and observe 22: See the NOT operator in action**
 
-```{r data-not-operator, exercise=TRUE, exercise.cap="Run and observe 23"}
+```{r data-not-operator, exercise=TRUE, exercise.cap="Run and observe 22"}
 !TRUE
 !FALSE
 ```
 
 Placing `!` in front of `is.na()` flips the results --- now `TRUE` means the value is *present* and `FALSE` means it is missing. Wrapping `sum()` around that counts the non-missing values.
 
-**Practice 24: Count non-missing values in likes_count**
+**Practice 23: Count non-missing values in comments_count**
 
-Count how many posts have a recorded value for **likes_count**. Three hints are available. Click "Submit Answer" to check your work.
+Count how many posts have a recorded value for **comments_count**. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-handle-summation3, exercise=TRUE, exercise.cap="Practice 24"}
+```{r data-handle-summation3, exercise=TRUE, exercise.cap="Practice 23"}
 
 ```
 
@@ -922,8 +877,8 @@ grade_this({
   if (!grepl("sum\\s*\\(", code_no_comments)) {
     fail("Wrap sum() around !is.na() to count the non-missing values.")
   }
-  if (!grepl("unFBposts\\s*\\$\\s*likes_count", code_no_comments)) {
-    fail("Apply this to the likes_count variable in unFBposts.")
+  if (!grepl("unFBposts\\s*\\$\\s*comments_count", code_no_comments)) {
+    fail("Apply this to the comments_count variable in unFBposts.")
   }
   if (is.null(.result)) {
     fail("Make sure your code produces a result the grader can check.")
@@ -931,53 +886,55 @@ grade_this({
   if (!is.numeric(.result) || length(.result) != 1) {
     fail("Your result should be a single number.")
   }
-  if (!isTRUE(all.equal(as.numeric(.result), as.numeric(sum(!is.na(unFBposts$likes_count)))))) {
-    fail("Use sum(!is.na(unFBposts$likes_count)) to count the non-missing values.")
+  if (!isTRUE(all.equal(as.numeric(.result), as.numeric(sum(!is.na(unFBposts$comments_count)))))) {
+    fail("Use sum(!is.na(unFBposts$comments_count)) to count the non-missing values.")
   }
-  pass(paste0("Exactly! ", sum(!is.na(unFBposts$likes_count)),
-              " posts have a recorded likes_count value. Notice that this plus the number of missing values equals the total number of rows."))
+  pass(paste0("Exactly! ", sum(!is.na(unFBposts$comments_count)),
+              " posts have a recorded comments_count value. Notice that this plus the number of missing values equals the total number of rows."))
 })
 ```
 
 ### Handling Missing Values in Summary Functions
 
-When a variable contains missing values, most summary functions return `NA` by default rather than computing a result from incomplete data. To tell R to ignore missing values and compute the result from the available data, include `na.rm = TRUE` as an argument.
+You met `na.rm = TRUE` in Tutorial 1, on a five-element vector you built by hand. You have just counted the gaps in two real variables: 173 in **message**, one in **comments_count**. Now see what that single gap does.
 
-**Run and observe 25: Calculate the mean with na.rm = TRUE**
+**Run and observe 24: What one missing value does**
 
-```{r data-handle-NAvalue, exercise=TRUE, exercise.cap="Run and observe 25"}
-mean(unFBposts$shares_count, na.rm = TRUE)
+```{r data-handle-NAvalue, exercise=TRUE, exercise.cap="Run and observe 24"}
+mean(unFBposts$comments_count)
 ```
 
-Since **shares_count** has no missing values, the result here is the same with or without `na.rm = TRUE`. When you call `mean()` on a variable that contains missing values, you will need this argument to compute a mean from the values that are present. What is worth pausing over is not whether to type it but what the resulting number describes: it is the mean among the cases that have values, not among all of them. That is why counting the missing values first is worth the few seconds it takes.
+The result is `NA`. R is not failing --- it is declining to report a mean it cannot compute from incomplete data, and one absent value out of 1,643 was enough to trigger that. R would rather tell you it cannot answer than quietly average whatever happens to be there.
 
-**Practice 26: Mean likes**
+`na.rm = TRUE` is how you get a number anyway: it tells R to set the missing case aside and average the rest. What is worth pausing over is what the resulting number then describes. It is the mean among the 1,642 posts that have a recorded count, not among all 1,643 --- a small difference here, but the same argument applied to **message** would describe 1,470 posts rather than 1,643. That is why counting the gaps first is worth the few seconds it takes.
 
-How many likes (**likes_count**) did posts receive on average? Include `na.rm = TRUE`. Three hints are available. Click "Submit Answer" to check your work.
+**Practice 25: Mean comments**
 
-```{r likes, exercise=TRUE, exercise.cap="Practice 26"}
+How many comments (**comments_count**) did posts receive on average? Include `na.rm = TRUE`. Three hints are available. Click "Submit Answer" to check your work.
+
+```{r comments, exercise=TRUE, exercise.cap="Practice 25"}
 
 ```
 
-```{r likes-hint-1}
+```{r comments-hint-1}
 # Hint 1 of 3
-# You want a single number summarizing the typical
-# value across all posts. What function computes
-# an average?
+# You want the arithmetic average across all posts ---
+# the sum of the counts divided by how many there are.
+# What function computes that?
 ```
 
-```{r likes-hint-2}
+```{r comments-hint-2}
 # Hint 2 of 3
-# Use mean() on the likes_count variable.
+# Use mean() on the comments_count variable.
 # Access the variable using $ and include na.rm = TRUE.
 ```
 
-```{r likes-hint-3}
+```{r comments-hint-3}
 # Hint 3 of 3: fill in the blank
 ___(unFBposts$___, na.rm = ___)
 ```
 
-```{r likes-check}
+```{r comments-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
@@ -985,8 +942,8 @@ grade_this({
   if (!grepl("mean\\s*\\(", code_no_comments)) {
     fail("You need the function that returns an arithmetic average.")
   }
-  if (!grepl("unFBposts\\s*\\$\\s*likes_count", code_no_comments)) {
-    fail("Make sure the function is applied to unFBposts$likes_count.")
+  if (!grepl("unFBposts\\s*\\$\\s*comments_count", code_no_comments)) {
+    fail("Make sure the function is applied to unFBposts$comments_count.")
   }
   if (!grepl("na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
     fail("Include na.rm = TRUE, as the prompt asks.")
@@ -997,180 +954,77 @@ grade_this({
   if (!is.numeric(.result) || length(.result) != 1) {
     fail("Your result should be a single number.")
   }
-  if (!isTRUE(all.equal(as.numeric(.result), mean(unFBposts$likes_count, na.rm = TRUE)))) {
-    fail("Use mean(unFBposts$likes_count, na.rm = TRUE).")
+  if (!isTRUE(all.equal(as.numeric(.result), mean(unFBposts$comments_count, na.rm = TRUE)))) {
+    fail("Use mean(unFBposts$comments_count, na.rm = TRUE).")
   }
   pass(paste0("Good work! Posts received an average of ",
-              round(mean(unFBposts$likes_count, na.rm = TRUE), 1),
-              " likes among the posts that have a recorded value. That is what na.rm = TRUE gives you --- the mean across the cases with values, not across all 1,643 posts."))
+              round(mean(unFBposts$comments_count, na.rm = TRUE), 1),
+              " comments among the posts that have a recorded value. That is what na.rm = TRUE gives you --- the mean across the cases with values, not across all 1,643 posts."))
 })
 ```
 
-**Practice 27: Maximum shares**
+**Practice 26: The smallest, largest, and full range of comments**
 
-What was the largest number of shares (**shares_count**) any post received? Include `na.rm = TRUE`. Three hints are available. Click "Submit Answer" to check your work.
+Find the smallest and largest number of comments (**comments_count**) any post received, and then get both at once. Put each function call on its own line, including `na.rm = TRUE` in each. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r practice-max-shares, exercise=TRUE, exercise.cap="Practice 27"}
+```{r practice-min-max-range-comments, exercise=TRUE, exercise.lines=5, exercise.cap="Practice 26"}
 
 ```
 
-```{r practice-max-shares-hint-1}
+```{r practice-min-max-range-comments-hint-1}
 # Hint 1 of 3
-# You want the single largest value in a variable.
-# What function returns the maximum of a vector?
+# You need three separate calls on the same variable:
+# one that returns the smallest value, one that returns
+# the largest, and one that returns both endpoints
+# together. You met all three in Tutorial 1.
 ```
 
-```{r practice-max-shares-hint-2}
+```{r practice-min-max-range-comments-hint-2}
 # Hint 2 of 3
-# Use max() on shares_count.
-# Access it using $ and include na.rm = TRUE.
+# The three functions are min(), max(), and range().
+# Each takes unFBposts$comments_count as its first argument
+# and na.rm = TRUE as its second. Put each call on its
+# own line.
 ```
 
-```{r practice-max-shares-hint-3}
-# Hint 3 of 3: fill in the blank
-___(unFBposts$shares_count, ___ = ___)
+```{r practice-min-max-range-comments-hint-3}
+# Hint 3 of 3: fill in the blanks
+min(unFBposts$___, ___ = ___)
+___(unFBposts$comments_count, na.rm = TRUE)
+___(unFBposts$comments_count, na.rm = TRUE)
 ```
 
-```{r practice-max-shares-check}
+```{r practice-min-max-range-comments-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
-  if (!grepl("max\\s*\\(", code_no_comments)) {
-    fail("You need the function that returns the largest value in a vector.")
-  }
-  if (!grepl("unFBposts\\s*\\$\\s*shares_count", code_no_comments)) {
-    fail("Make sure the function is applied to unFBposts$shares_count.")
-  }
-  if (!grepl("na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Include na.rm = TRUE.")
-  }
-  if (is.null(.result)) {
-    fail("Make sure your code produces a result the grader can check.")
-  }
-  if (!is.numeric(.result) || length(.result) != 1) {
-    fail("Your result should be a single number.")
-  }
-  if (!isTRUE(all.equal(as.numeric(.result), as.numeric(max(unFBposts$shares_count, na.rm = TRUE))))) {
-    fail("Use max(unFBposts$shares_count, na.rm = TRUE).")
-  }
-  pass(paste0("Right! The most-shared post received ",
-              max(unFBposts$shares_count, na.rm = TRUE),
-              " shares. You will find out which post that was later in this tutorial."))
-})
-```
-
-**Practice 28: Minimum likes**
-
-What was the smallest number of likes (**likes_count**) any post received? Include `na.rm = TRUE`. Three hints are available. Click "Submit Answer" to check your work.
-
-```{r practice-min-likes, exercise=TRUE, exercise.cap="Practice 28"}
-
-```
-
-```{r practice-min-likes-hint-1}
-# Hint 1 of 3
-# You want the single smallest value in a variable.
-# What function returns the minimum of a vector?
-```
-
-```{r practice-min-likes-hint-2}
-# Hint 2 of 3
-# Use min() on likes_count.
-# Access it using $ and include na.rm = TRUE.
-```
-
-```{r practice-min-likes-hint-3}
-# Hint 3 of 3: fill in the blank
-___(unFBposts$likes_count, ___ = ___)
-```
-
-```{r practice-min-likes-check}
-grade_this({
-  code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
-
-  if (!grepl("min\\s*\\(", code_no_comments)) {
-    fail("You need the function that returns the smallest value in a vector.")
-  }
-  if (!grepl("unFBposts\\s*\\$\\s*likes_count", code_no_comments)) {
-    fail("Make sure the function is applied to unFBposts$likes_count.")
-  }
-  if (!grepl("na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Include na.rm = TRUE.")
-  }
-  if (is.null(.result)) {
-    fail("Make sure your code produces a result the grader can check.")
-  }
-  if (!is.numeric(.result) || length(.result) != 1) {
-    fail("Your result should be a single number.")
-  }
-  if (!isTRUE(all.equal(as.numeric(.result), as.numeric(min(unFBposts$likes_count, na.rm = TRUE))))) {
-    fail("Use min(unFBposts$likes_count, na.rm = TRUE).")
-  }
-  pass(paste0("Good work! The least-liked post received ",
-              min(unFBposts$likes_count, na.rm = TRUE),
-              " likes. A zero here means no recorded likes, not necessarily no activity of any kind."))
-})
-```
-
-**Practice 29: Range of shares**
-
-What was the range of shares (**shares_count**) across all posts? Include `na.rm = TRUE`. Remember that `range()` returns two values --- the minimum and maximum --- not a single number. Three hints are available. Click "Submit Answer" to check your work.
-
-```{r practice-range-shares, exercise=TRUE, exercise.cap="Practice 29"}
-
-```
-
-```{r practice-range-shares-hint-1}
-# Hint 1 of 3
-# You want both the smallest and largest values
-# in a single function call. What function returns
-# both endpoints of a distribution?
-```
-
-```{r practice-range-shares-hint-2}
-# Hint 2 of 3
-# Use range() on shares_count.
-# Access it using $ and include na.rm = TRUE.
-```
-
-```{r practice-range-shares-hint-3}
-# Hint 3 of 3: fill in the blank
-___(___, ___ = ___)
-```
-
-```{r practice-range-shares-check}
-grade_this({
-  code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
-
-  if (!grepl("range\\s*\\(", code_no_comments)) {
-    fail("Use range() to return both the minimum and maximum.")
-  }
-  if (!grepl("unFBposts\\s*\\$\\s*shares_count", code_no_comments)) {
-    fail("Apply range() to unFBposts$shares_count.")
-  }
-  if (!grepl("na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Include na.rm = TRUE.")
+  for (fn in c("min", "max", "range")) {
+    call_pattern <- paste0("\\b", fn,
+                           "\\s*\\(\\s*unFBposts\\s*\\$\\s*comments_count\\s*,\\s*na\\.rm\\s*=\\s*TRUE\\s*\\)")
+    if (!grepl(paste0("\\b", fn, "\\s*\\("), code_no_comments)) {
+      fail(paste0("Include a call to ", fn, "() for comments_count."))
+    }
+    if (!grepl(call_pattern, code_no_comments)) {
+      fail(paste0("Check your ", fn,
+                  "() call --- it should be applied to unFBposts$comments_count with na.rm = TRUE."))
+    }
   }
   if (is.null(.result)) {
     fail("Make sure your code produces a result the grader can check.")
   }
   if (!is.numeric(.result) || length(.result) != 2) {
-    fail("Your result should contain two numbers: the minimum and the maximum.")
+    fail("Put range() on the last line so the grader sees two values: the minimum and the maximum.")
   }
-  if (!isTRUE(all.equal(.result, range(unFBposts$shares_count, na.rm = TRUE)))) {
-    fail("Use range(unFBposts$shares_count, na.rm = TRUE).")
+  if (!isTRUE(all.equal(.result, range(unFBposts$comments_count, na.rm = TRUE)))) {
+    fail("Check that each call uses comments_count and na.rm = TRUE.")
   }
-  pass(paste0("Exactly! Shares ranged from ",
-              range(unFBposts$shares_count, na.rm = TRUE)[1], " to ",
-              range(unFBposts$shares_count, na.rm = TRUE)[2],
-              " --- range() always returns two values, which is different from a single spread measure like standard deviation."))
+  pass(paste0("Exactly! Comments ran from ",
+              min(unFBposts$comments_count, na.rm = TRUE), " to ",
+              max(unFBposts$comments_count, na.rm = TRUE),
+              ". Notice that range() returned those same two numbers in one call --- and that a zero here means no recorded comments, not necessarily no reaction of any kind."))
 })
 ```
-
-
 
 ## Comparison Operators
 
@@ -1186,9 +1040,9 @@ The [**equality operator**]{.important-text} `==` deserves particular attention 
 
 Comparisons work on whole variables the same way arithmetic did in Tutorial 1: R applies the comparison to every element and returns one TRUE or FALSE per observation. So `unFBposts$shares_count > unFBposts$likes_count` returns TRUE for every post where shares outnumber likes, and `sum()` counts how many posts that is.
 
-**Run and observe 30: Compare two variables**
+**Run and observe 27: Compare two variables**
 
-```{r comparison-operators, exercise=TRUE, exercise.cap="Run and observe 30"}
+```{r comparison-operators, exercise=TRUE, exercise.cap="Run and observe 27"}
 head(unFBposts$shares_count > unFBposts$likes_count)
 sum(unFBposts$shares_count > unFBposts$likes_count, na.rm = TRUE)
 ```
@@ -1201,11 +1055,11 @@ Comparison operators become far more useful once they are combined with `which()
 
 In Tutorial 1 you learned to index vectors using a single number inside square brackets. Data frames add one extra layer because they have rows and columns, so indexing requires two numbers separated by a comma: `data_frame[row, column]`. The row number comes first, the column number second.
 
-**Run and observe 31: Access a single cell**
+**Run and observe 28: Access a single cell**
 
 The code below returns the value in row 3, column 2 of **unFBposts**. Use the "Run Code" button to see what it returns.
 
-```{r data-explore-index1, exercise=TRUE, exercise.cap="Run and observe 31"}
+```{r data-explore-index1, exercise=TRUE, exercise.cap="Run and observe 28"}
 unFBposts[3, 2]
 ```
 
@@ -1213,15 +1067,15 @@ The variable `date` is in column 2, so this returns the date of the third post i
 
 To retrieve all values of a variable you can leave the row position blank, which tells R "give me all rows." You can also specify a range of rows using a colon, and you can use the variable name in quotes instead of the column number.
 
-**Run and observe 32: Access a range of rows from a named column**
+**Run and observe 29: Access a range of rows from a named column**
 
-```{r data-explore-index2, exercise=TRUE, exercise.cap="Run and observe 32"}
+```{r data-explore-index2, exercise=TRUE, exercise.cap="Run and observe 29"}
 unFBposts[10:15, "type"]
 ```
 
 Notice that the output labels the first result `[1]` even though you extracted rows 10 through 15. R always relabels the output starting from `[1]` regardless of which rows you selected --- the content is correct even though the position labels reset.
 
-### Identifying the Observation with the Maximum or Minimum Value of a Variable
+## Finding the Case with the Highest or Lowest Value
 
 You will often want to find the specific observation that has the highest or lowest value of some variable --- for example, which Facebook post received the most likes. This requires combining three ideas you already know: `max()` to find the maximum value, `==` to test equality, and square bracket indexing to extract the result.
 
@@ -1245,19 +1099,19 @@ When code is nested like this, read it from the inside out: first find the maxim
 - `which(...)` extracts the row index or indices where that comparison is TRUE --- that is, the row(s) where likes_count equals its maximum.
 - `unFBposts$message[which(...)]` uses those row indices to retrieve the corresponding message text.
 
-**Run and observe 33: Find the most-liked message**
+**Run and observe 30: Find the most-liked message**
 
-```{r data-explore-index3, exercise=TRUE, exercise.cap="Run and observe 33"}
+```{r data-explore-index3, exercise=TRUE, exercise.cap="Run and observe 30"}
 unFBposts$message[which(unFBposts$likes_count == max(unFBposts$likes_count, na.rm = TRUE))]
 ```
 
-Read the result and notice what kind of content it is. Posts about major humanitarian events or global milestones tend to generate the most engagement --- a pattern you will see repeatedly when you analyze social media data. You will use this pattern frequently to identify which state, country, or case has the highest or lowest value of a given variable.
+The code has connected a numerical extreme back to the case it describes. You will use this pattern frequently to identify which state, country, or other case has the highest or lowest value of a given variable.
 
-**Practice 34: Find the most-shared message**
+**Practice 31: Find the most-shared message**
 
 Now retrieve the message text of the post or posts with the most shares. Use **shares_count** to identify the row and **message** to retrieve the text. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-explore-index4_1, exercise=TRUE, exercise.cap="Practice 34"}
+```{r data-explore-index4_1, exercise=TRUE, exercise.cap="Practice 31"}
 
 ```
 
@@ -1304,23 +1158,25 @@ grade_this({
   if (!identical(.result, correct)) {
     fail("Check that you are using shares_count to find the row and message to retrieve the text.")
   }
-  pass("Well done! Notice the subject matter of the most-shared post. Sharing reflects active circulation in a way that liking does not, so shares and likes can tell somewhat different stories about engagement.")
+  pass("Well done! Notice the subject matter of the most-shared post. Sharing can indicate active circulation in a way that liking does not, so shares and likes may tell somewhat different stories about engagement.")
 })
 ```
 
 To find the number of shares that post received rather than its text, we apply the same row-selection logic but retrieve **shares_count** instead of **message**.
 
-**Run and observe 35: Find the maximum shares value**
+**Run and observe 32: Find the maximum shares value**
 
-```{r data-explore-index4_2, exercise=TRUE, exercise.cap="Run and observe 35"}
+```{r data-explore-index4_2, exercise=TRUE, exercise.cap="Run and observe 32"}
 unFBposts$shares_count[which(unFBposts$shares_count == max(unFBposts$shares_count, na.rm = TRUE))]
 ```
 
-**Practice 36: Find the likes_count for the most-shared post**
+Here the variable used to find the row and the variable retrieved from it are the same one, so `max()` on its own would have returned that number directly. The row-selection pattern earns its keep when the two differ --- when you want the value of one variable from the row identified by another.
+
+**Practice 33: Find the likes_count for the most-shared post**
 
 Using the same row-selection logic, find the number of likes received by the post or posts with the most shares. This time retrieve **likes_count** instead of **shares_count**. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-explore-index4_3, exercise=TRUE, exercise.cap="Practice 36"}
+```{r data-explore-index4_3, exercise=TRUE, exercise.cap="Practice 33"}
 
 ```
 
@@ -1384,28 +1240,28 @@ The code below creates a variable called **like.or.share** that adds likes and s
 unFBposts$like.or.share <- unFBposts$likes_count + unFBposts$shares_count
 ```
 
-**Run and observe 37: Create a new variable**
+**Run and observe 34: Create a new variable**
   
-```{r data-create-variable1, exercise=TRUE, exercise.setup="prepare-like-or-share", exercise.cap="Run and observe 37"}
+```{r data-create-variable1, exercise=TRUE, exercise.setup="prepare-like-or-share", exercise.cap="Run and observe 34"}
 unFBposts$like.or.share <- unFBposts$likes_count + unFBposts$shares_count
 ```
 
 We can check the first few values of the new variable using `head()`.
 
-**Run and observe 38: Inspect the new variable**
+**Run and observe 35: Inspect the new variable**
   
-```{r data-create-variable2, exercise=TRUE, exercise.setup="prepare-like-or-share", exercise.cap="Run and observe 38"}
+```{r data-create-variable2, exercise=TRUE, exercise.setup="prepare-like-or-share", exercise.cap="Run and observe 35"}
 head(unFBposts$like.or.share)
 ```
 
 This check confirms that the new variable exists and that R calculated one value
 for each row of the data frame.
 
-**Practice 39: Create an attention variable**
+**Practice 36: Create an attention variable**
 
 Create a variable called **attention** inside **unFBposts** that adds together likes (**likes_count**) and comments (**comments_count**) --- the two forms of engagement that happen directly on the post itself, as opposed to sharing it elsewhere. Then display the first few values using `head()`. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r data-create-variable, exercise=TRUE, exercise.cap="Practice 39"}
+```{r data-create-variable, exercise=TRUE, exercise.cap="Practice 36"}
 
 ```
 
@@ -1426,7 +1282,7 @@ Create a variable called **attention** inside **unFBposts** that adds together l
 
 ```{r data-create-variable-hint-3}
 # Hint 3 of 3: fill in the blanks
-unFBposts$attention <- unFBposts$first.engagement.var + unFBposts$second.engagement.var
+unFBposts$attention <- unFBposts$___ + unFBposts$___
 head(unFBposts$attention)
 ```
 
@@ -1483,25 +1339,25 @@ Note that `save()` only saves the objects you name explicitly. If you created ot
 
 The following exercises ask you to combine skills from across this tutorial. Each one requires you to connect more than one idea --- there is no single line from the tutorial that serves as a direct template. That is the point: real data work usually means recognizing which pieces belong together.
 
-**Apply 40: Count the posts with the fewest likes**
+**Apply 37: Count the posts with the fewest comments**
 
-How many posts tied for the fewest likes (**likes_count**) of any post in the data set? Include `na.rm = TRUE`. Three hints are available. Click "Submit Answer" to check your work.
+How many posts tied for the fewest comments (**comments_count**) of any post in the data set? This one needs `na.rm = TRUE` twice, in two different calls --- work out where each belongs and why. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r apply-least-liked, exercise=TRUE, exercise.cap="Apply 40"}
+```{r apply-least-liked, exercise=TRUE, exercise.cap="Apply 37"}
 
 ```
 
 ```{r apply-least-liked-hint-1}
 # Hint 1 of 3
 # You need two things: the smallest value that
-# likes_count takes, and a count of how many posts
+# comments_count takes, and a count of how many posts
 # have exactly that value. You have already counted
 # the TRUEs in a logical vector earlier in this tutorial.
 ```
 
 ```{r apply-least-liked-hint-2}
 # Hint 2 of 3
-# Comparing likes_count to its own smallest value
+# Comparing comments_count to its own smallest value
 # produces a logical vector --- TRUE for every post
 # that matches. Wrapping that comparison in a
 # counting function gives you the answer.
@@ -1510,12 +1366,17 @@ How many posts tied for the fewest likes (**likes_count**) of any post in the da
 ```{r apply-least-liked-hint-3}
 # Hint 3 of 3: fill in the blanks
 sum(unFBposts$___ == min(unFBposts$___, na.rm = TRUE), na.rm = TRUE)
+# Read the parentheses to see which call each na.rm belongs to.
+# The inner one is inside min(), so min() ignores the gap when
+# finding the smallest value. The outer one is inside sum() but
+# outside min(), because the comparison returns NA for the post
+# with no recorded count, and sum() would otherwise return NA too.
 ```
 
 ```{r apply-least-liked-check}
 grade_this({
-  correct <- sum(unFBposts$likes_count == min(unFBposts$likes_count, na.rm = TRUE), na.rm = TRUE)
-  fewest  <- min(unFBposts$likes_count, na.rm = TRUE)
+  correct <- sum(unFBposts$comments_count == min(unFBposts$comments_count, na.rm = TRUE), na.rm = TRUE)
+  fewest  <- min(unFBposts$comments_count, na.rm = TRUE)
 
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
@@ -1524,33 +1385,35 @@ grade_this({
     fail("You need a way to count how many posts meet a condition.")
   }
   if (!grepl("min\\s*\\(", code_no_comments)) {
-    fail("You need the smallest value of likes_count before you can count how many posts match it.")
+    fail("You need the smallest value of comments_count before you can count how many posts match it.")
   }
-  if (!grepl("unFBposts\\s*\\$\\s*likes_count", code_no_comments)) {
-    fail("Use likes_count --- that is the variable holding the number of likes.")
+  if (!grepl("unFBposts\\s*\\$\\s*comments_count", code_no_comments)) {
+    fail("Use comments_count --- that is the variable holding the number of comments.")
   }
-  if (!grepl("na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Include na.rm = TRUE, as the prompt asks.")
+  if (length(gregexpr("na\\.rm\\s*=\\s*TRUE", code_no_comments)[[1]]) < 2 ||
+      gregexpr("na\\.rm\\s*=\\s*TRUE", code_no_comments)[[1]][1] == -1) {
+    fail("This one needs na.rm = TRUE twice --- once inside min(), and once inside sum() but outside min().")
   }
   if (is.null(.result)) {
     fail("Make sure your code produces a result the grader can check.")
   }
   if (!is.numeric(.result) || length(.result) != 1) {
-    fail("Your result should be a single number.")
+    fail("Your result should be a single number. If you are seeing NA, check whether both na.rm arguments are in place.")
   }
   if (!isTRUE(all.equal(as.numeric(.result), as.numeric(correct)))) {
-    fail("Check that you are comparing likes_count to its own smallest value.")
+    fail("Check that you are comparing comments_count to its own smallest value.")
   }
   pass(paste0("Exactly --- ", correct, " posts tied at ", fewest,
-              " likes. A tie that large is worth pausing over. Every one of those posts is also missing its message text. That connection is worth noticing, though the data alone cannot tell you why those posts drew no likes. Noticing patterns like this in the data is part of the work."))
+              " comments. Both na.rm arguments earned their place here: without the inner one min() returns NA, and without the outer one the comparison against the post with no recorded count leaves sum() returning NA as well."))
 })
 ```
 
-**Apply 41: Find the month of the most-commented post**
+
+**Apply 38: Find the month of the most-commented post**
 
 In which month (**month**) was the most-commented post (**comments_count**) published? Retrieve the **month** value for the post or posts with the maximum **comments_count**. Include `na.rm = TRUE`. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r apply-month-comments, exercise=TRUE, exercise.cap="Apply 41"}
+```{r apply-month-comments, exercise=TRUE, exercise.cap="Apply 38"}
 
 ```
 
@@ -1611,11 +1474,11 @@ grade_this({
 })
 ```
 
-**Apply 42: Create a variable and find its maximum**
+**Apply 39: Create a variable and find its maximum**
 
 Create a new variable called `full.engagement` in **unFBposts** that sums **likes_count**, **shares_count**, and **comments_count**. Then retrieve the **message** text of the post or posts with the highest total engagement. Include `na.rm = TRUE` in your `max()` call. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r apply-total-engagement, exercise=TRUE, exercise.cap="Apply 42"}
+```{r apply-total-engagement, exercise=TRUE, exercise.cap="Apply 39"}
 
 ```
 
@@ -1648,8 +1511,8 @@ Create a new variable called `full.engagement` in **unFBposts** that sums **like
 
 ```{r apply-total-engagement-check}
 grade_this({
-  unFBposts$full.engagement <- unFBposts$likes_count + unFBposts$shares_count + unFBposts$comments_count
-  correct <- unFBposts$message[which(unFBposts$full.engagement == max(unFBposts$full.engagement, na.rm = TRUE))]
+  expected_engagement <- unFBposts$likes_count + unFBposts$shares_count + unFBposts$comments_count
+  correct <- unFBposts$message[which(expected_engagement == max(expected_engagement, na.rm = TRUE))]
 
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
@@ -1688,40 +1551,27 @@ grade_this({
 })
 ```
 
-**Apply 43: Count posts where shares exceed likes**
+**Apply 40: Count posts where shares exceed likes**
 
-How many posts received more shares (**shares_count**) than likes (**likes_count**)? Combine `>` with `sum()` to count them, and include `na.rm = TRUE`. Four hints are available. Click "Submit Answer" to check your work.
+How many posts received more shares (**shares_count**) than likes (**likes_count**)? Combine `>` with `sum()` to count them, and include `na.rm = TRUE`. Two hints are available. Click "Submit Answer" to check your work.
 
-```{r apply-shares-exceed-likes, exercise=TRUE, exercise.cap="Apply 43"}
+```{r apply-shares-exceed-likes, exercise=TRUE, exercise.cap="Apply 40"}
 
 ```
 
 ```{r apply-shares-exceed-likes-hint-1}
-# Hint 1 of 4
+# Hint 1 of 2
 # You need a count of posts meeting a condition.
 # Earlier you used sum(is.na(...)) to count TRUE
 # values in a logical vector. The same idea applies
 # here, but the condition is different.
+# Order matters: which variable goes on the left of
+# the > depends on which one you want to be larger.
 ```
 
 ```{r apply-shares-exceed-likes-hint-2}
-# Hint 2 of 4
-# The > operator produces TRUE where shares_count
-# is greater than likes_count. Wrapping sum() around
-# a logical vector counts the TRUEs.
-# How do you access those two variables?
-```
-
-```{r apply-shares-exceed-likes-hint-3}
-# Hint 3 of 4
-# You need sum() wrapped around a comparison.
-# The comparison uses > between two variables,
-# each accessed with $.
-```
-
-```{r apply-shares-exceed-likes-hint-4}
-# Hint 4 of 4: fill in the blanks
-sum(unFBposts$shares.variable > unFBposts$likes.variable, na.rm = TRUE)
+# Hint 2 of 2: fill in the blanks
+sum(unFBposts$___ > unFBposts$___, na.rm = TRUE)
 ```
 
 ```{r apply-shares-exceed-likes-check}
@@ -1764,13 +1614,13 @@ The remaining questions ask you to step back from writing code and reason about 
 
 Start with the distinction between the two ways of getting data into R.
 
-**Apply 44: Diagnose a failed load**
+**Apply 41: Diagnose a failed load**
 
 ```{r question-load-vs-import, echo=FALSE}
 question("A student runs `counties <- load(\"counties2016.RData\")` and then runs `nrow(counties)`, which returns `NULL` instead of a number. What went wrong?",
   correct = "Right. The result of `load()` should not be assigned.",
   answer("The assignment replaced the loaded data frame with the name that `load()` returns.", correct = TRUE,
-         message = "This is the single most common early mistake with these two functions, and it is worth understanding exactly what happened. `load()` did its job: it created a data frame called **counties**. But it also returns the *name* of what it created, as text. The assignment then overwrote the freshly created data frame with that piece of text --- so the data were created and destroyed in the same line. `nrow()` returns `NULL` because a character string has no rows. Remember the rule as: `load()` you run, `import()` you assign."),
+         message = "`load()` did its job and created a data frame called **counties**. But it also returns the *name* of what it created, as text, and the assignment stored that text under the same name --- so **counties** now holds a character string, and `nrow()` returns `NULL` because a string has no rows. Nothing is lost: the file is untouched, and running `load(\"counties2016.RData\")` without the assignment brings the data frame back. Remember the rule as: `load()` you run, `import()` you assign."),
   answer("The file did not contain a data frame, so there was nothing for `nrow()` to count.",
          message = "The file did contain a data frame. If it had not, `load()` would still have created whatever objects were inside it, and `verbose = TRUE` would have shown you their names."),
   answer("The result of `load()` still needs `import()` applied to it before it can be used.",
@@ -1779,16 +1629,16 @@ question("A student runs `counties <- load(\"counties2016.RData\")` and then run
          message = "`verbose = TRUE` only controls whether `load()` prints the names of the objects it created. It has no effect on whether the file is read or the objects are created."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Think about what `load()` returns, and about what the assignment operator stores."
+  try_again = "Think about what `load()` returns, and about what the assignment operator stores. Note that the object created by `load()` and the object named on the left of the arrow happen to share a name here."
 )
 ```
 
 Next, look closely at what an expression is actually retrieving.
 
-**Apply 45: Diagnose a retrieval that returns the wrong thing**
+**Apply 42: Diagnose a retrieval that returns the wrong thing**
 
 ```{r question-cross-variable-retrieval, echo=FALSE}
-question("A student wants to know the month of the most-shared post and writes `unFBposts$shares_count[which(unFBposts$shares_count == max(unFBposts$shares_count, na.rm = TRUE))]`. The code runs and returns a number. Why is that number not the answer?",
+question("A student wants to know the **month** of the most-shared post and writes `unFBposts$shares_count[which(unFBposts$shares_count == max(unFBposts$shares_count, na.rm = TRUE))]`. The code runs and returns a number. Why is that number not the answer?",
   correct = "Right. The expression retrieves from the wrong variable.",
   answer("The variable in front of the brackets should be **month**, not **shares_count**.", correct = TRUE,
          message = "This pattern has two slots and they do different jobs. The variable inside `which()` locates the row --- that is the variable whose maximum you care about. The variable in front of the brackets is what gets retrieved from that row, and it can be any variable in the data frame. Here both slots hold **shares_count**, so the code correctly finds the most-shared post and then reports its share count, which the student already knew. Changing only the first slot to **month** gives the answer."),
@@ -1806,7 +1656,7 @@ question("A student wants to know the month of the most-shared post and writes `
 
 Finally, check the mapping between the shape of a data frame and what its numbers mean.
 
-**Apply 46: Evaluate a claim about a data set**
+**Apply 43: Evaluate a claim about a data set**
 
 ```{r question-rows-vs-columns, echo=FALSE}
 question("A student loads a new data set, runs `ncol()`, gets 15, and writes: \"This data set contains 15 observations.\" What is wrong with that sentence?",
