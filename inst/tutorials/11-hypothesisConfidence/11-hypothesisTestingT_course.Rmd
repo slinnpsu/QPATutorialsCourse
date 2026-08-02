@@ -29,17 +29,16 @@ In this tutorial you will learn to:
 
 ```{r setup, include=FALSE}
 library(learnr)
-library(learnrhash)
 library(tidyverse)
 library(moderndive)
-library(infer)
-library(gridExtra)
-library(knitr)
 library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
 knitr::opts_chunk$set(error = TRUE)
 options(lifecycle_verbosity = "quiet")
+options(cli.num_colors = 1)
+
+data("bowl", package = "moderndive")
 ```
 
 ## The Logic of Statistical Hypothesis Testing
@@ -49,76 +48,34 @@ Most research questions demand something more than a precise estimate: is the pa
 ::: {.important-note}
 **Null and alternative hypotheses**
 
-A [**hypothesis test**]{.important-text} evaluates two competing
-explanations for an observed result:
+A [**hypothesis test**]{.important-text} evaluates two competing explanations for an observed result:
 
-- The [**null hypothesis**]{.important-text} ($H_0$) is the default
-  claim of "nothing going on" --- no relationship, no difference, no
-  effect beyond what chance would produce.
-- The [**alternative hypothesis**]{.important-text} ($H_A$) is the
-  claim you want to assess --- that there is a relationship, a
-  difference, or an effect.
+- The [**null hypothesis**]{.important-text} ($H_0$) is the default claim of "nothing going on" --- no relationship, no difference, no effect beyond what chance would produce.
+- The [**alternative hypothesis**]{.important-text} ($H_A$) is the claim you want to assess --- that there is a relationship, a difference, or an effect.
 :::
 
-### Why we test the null and not the alternative
+### Why We Test the Null and Not the Alternative
 
-You might wonder: why frame the test around the null hypothesis rather
-than directly assessing the alternative you actually care about? The
-standard hypothesis test is framed around the null because the null
-gives us a specific benchmark against which to evaluate the observed
-result. When the null is that a subject is guessing, each trial has
-exactly a 50% chance of success --- that lets us construct the
-distribution of results we would expect under the null and ask how
-surprising the actual result would be. The alternative --- that the
-subject performs better than chance --- includes many possible levels
-of ability and does not provide one single benchmark distribution. So
-we ask the question the null makes tractable: how surprising is this
-result if the null were true?
+You might wonder: why frame the test around the null hypothesis rather than directly assessing the alternative you actually care about? The standard hypothesis test is framed around the null because the null gives us a specific benchmark against which to evaluate the observed result. When the null is that a subject is guessing, each trial has exactly a 50% chance of success --- that lets us construct the distribution of results we would expect under the null and ask how surprising the actual result would be. The alternative --- that the subject performs better than chance --- includes many possible levels of ability and does not provide one single benchmark distribution. So we ask the question the null makes tractable: how surprising is this result if the null were true?
 
-This also explains the asymmetry in how we state conclusions.
-Rejecting the null means the data are inconsistent with the precise
-null claim --- the result would be very rare if nothing were going on.
-Failing to reject does not prove the null true or confirm the
-alternative; it simply means the data are not surprising enough under
-the null to rule it out.
+This also explains the asymmetry in how we state conclusions. Rejecting the null means the data are inconsistent with the precise null claim --- the result would be very rare if nothing were going on. Failing to reject does not prove the null true or confirm the alternative; it simply means the data are not surprising enough under the null to rule it out.
 
-### A motivating example: can Sarah solve problems?
+### A Motivating Example: Can Sarah Solve Problems?
 
-In the 1970s, psychologist David Premack conducted a series of
-experiments with a chimpanzee named Sarah to investigate whether
-chimpanzees could reason about cause and effect. In one experiment,
-Sarah was shown a series of short videos depicting a human actor
-struggling with a problem --- a locked box, a disconnected hose, a
-shivering figure near a cold stove. After each video, she was shown
-two photographs: one depicting the correct solution to the problem and
-one depicting an incorrect or irrelevant action. Sarah chose the
-photograph she thought showed the solution.
+In the 1970s, psychologist David Premack conducted a series of experiments with a chimpanzee named Sarah to investigate whether chimpanzees could reason about cause and effect. In one experiment, Sarah was shown a series of short videos depicting a human actor struggling with a problem --- a locked box, a disconnected hose, a shivering figure near a cold stove. After each video, she was shown two photographs: one depicting the correct solution to the problem and one depicting an incorrect or irrelevant action. Sarah chose the photograph she thought showed the solution.
 
 Sarah got 7 out of 8 problems correct.
 
-This result is striking, but it raises an immediate question: could
-Sarah have gotten 7 out of 8 simply by guessing? After all, with two
-choices on each trial, a chimp choosing randomly would be expected to
-get about 4 right by chance. Seven out of eight is better than
-expected --- but is it surprisingly better, or the kind of result a
-lucky guesser might produce?
+This result is striking, but it raises an immediate question: could Sarah have gotten 7 out of 8 simply by guessing? After all, with two choices on each trial, a chimp choosing randomly would be expected to get about 4 right by chance. Seven out of eight is better than expected --- but is it surprisingly better, or the kind of result a lucky guesser might produce?
 
-The stakes of the answer matter. If Sarah was just guessing, her
-performance tells us nothing about chimpanzee cognition. If she was
-genuinely reasoning about cause and effect, this is evidence of a
-remarkable cognitive ability. We need a principled way to decide
-which explanation the data support.
+The stakes of the answer matter. If Sarah was just guessing, her performance tells us nothing about chimpanzee cognition. If she was genuinely reasoning about cause and effect, this is evidence of a remarkable cognitive ability. We need a principled way to decide which explanation the data support.
 
 Formally:
 
-- **Null hypothesis** ($H_0$): Sarah was guessing. The probability of
-  a correct answer on each trial is 0.5, like a fair coin flip.
-  Expected correct answers: 4 out of 8.
-- **Alternative hypothesis** ($H_A$): Sarah can solve problems and
-  does better than chance. The probability of a correct answer is
-  greater than 0.5.
+- **Null hypothesis** ($H_0$): Sarah was guessing. The probability of a correct answer on each trial is 0.5, like a fair coin flip. Expected correct answers: 4 out of 8.
+- **Alternative hypothesis** ($H_A$): Sarah can solve problems and does better than chance. The probability of a correct answer is greater than 0.5.
 
-**Practice: Reasoning before the simulation**
+**Practice 1: Reasoning before the simulation**
 
 ```{r q-sarah-prior, echo=FALSE}
 question(
@@ -126,6 +83,7 @@ question(
   seems like strong performance. But a skeptic says: 'You
   could get 7 out of 8 by luck --- it happens.' How should
   you respond to this argument?",
+  correct = "Right. Before you can read a result you need to know how often chance alone would produce it.",
   answer(
     "The skeptic is right. Any result is possible by chance,
     so we can never conclude Sarah was doing anything other
@@ -138,11 +96,11 @@ question(
     the null --- even if it cannot be ruled out entirely."
   ),
   answer(
-    "The skeptic has a point. We need to determine how
-    likely it is to get 7 or more out of 8 correct by
-    chance alone before deciding what Sarah's result means.",
+    "The skeptic has a point. We need to know how often chance
+    alone gives 7 or more out of 8 before we can read Sarah's
+    result.",
     correct = TRUE,
-    message = "Right. This is exactly the logic of hypothesis testing: acknowledge that chance is possible, then quantify how likely it is. We cannot dismiss the result as obviously real without checking, nor can we dismiss it as obviously luck without checking. We need to place Sarah's result in the full distribution of outcomes we would expect from a guessing chimp."
+    message = "This is exactly the logic of hypothesis testing: acknowledge that chance is possible, then quantify how likely it is. We cannot dismiss the result as obviously real without checking, nor can we dismiss it as obviously luck without checking. We need to place Sarah's result in the full distribution of outcomes we would expect from a guessing chimp."
   ),
   answer(
     "The skeptic is wrong. Seven out of eight is obviously
@@ -153,30 +111,30 @@ question(
     We need a formal procedure to quantify how surprising
     Sarah's result actually is."
   ),
+  answer(
+    "The skeptic is technically right but it does not matter.
+    Sarah got 7 of 8, and the chimp comparison is what the
+    experiment was designed to settle, so the result speaks
+    for itself.",
+    message = "A result never speaks for itself. Without
+    knowing how often 7 or more out of 8 comes up by chance,
+    there is no way to say whether Sarah's score is
+    remarkable --- that comparison is the whole point of the
+    calculation, not a formality laid on top of it."
+  ),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: Can we simply decide 7 out of 8 is too good to be luck without any calculation? Can we decide it must be luck without any calculation? What do we actually need to know?"
 )
 ```
 
-### Simulating the null distribution
+### Simulating the Null Distribution
 
-To determine how surprising Sarah's result is, we simulate what
-would happen if the null hypothesis were true --- if Sarah were
-guessing on every trial. We use `rbinom()` to do this.
-`rbinom(n = 1000, size = 8, prob = 0.5)` generates 1,000 random
-draws from a binomial distribution. Think of each draw as one
-simulated set of 8 trials for a guessing chimp: `size = 8` sets
-the number of trials, and `prob = 0.5` sets the probability of a
-correct answer under the null. Running this 1,000 times gives us
-a picture of the full range of outcomes we would expect from a
-chimp that is purely guessing. We divide by 8 to express each
-result as a proportion and mark Sarah's actual result of 7/8 with
-a red vertical line.
+To determine how surprising Sarah's result is, we simulate what would happen if the null hypothesis were true --- if Sarah were guessing on every trial. We use `rbinom()` to do this. `rbinom(n = 1000, size = 8, prob = 0.5)` generates 1,000 random draws from a binomial distribution. Think of each draw as one simulated set of 8 trials for a guessing chimp: `size = 8` sets the number of trials, and `prob = 0.5` sets the probability of a correct answer under the null. Running this 1,000 times gives us a picture of the full range of outcomes we would expect from a chimp that is purely guessing. We divide by 8 to express each result as a proportion and mark Sarah's actual result of 7/8 with a red vertical line.
 
-**Run and observe: Simulate the null distribution**
+**Run and observe 2: Simulate the null distribution**
 
-```{r ex-sarah-sim, exercise=TRUE, exercise.cap="Run and observe: Simulating the null distribution for Sarah's experiment"}
+```{r ex-sarah-sim, exercise=TRUE, exercise.cap="Run and observe 2", fig.alt="Histogram of the proportion correct across 1,000 simulated sets of 8 coin-flip guesses, with proportion correct on the x-axis and frequency on the y-axis. The bars rise to a peak of about 280 just below 0.5 and fall away on both sides, running from about 35 at the lowest proportions to about 30 in the 0.75 to 0.875 bin and almost nothing beyond. A red vertical line marks Sarah's result at 0.875, out at the right-hand edge with very little of the distribution past it."}
 set.seed(42)
 sarah_null <- tibble(
   replicate    = 1:1000,
@@ -195,19 +153,16 @@ ggplot(sarah_null, aes(x = prop_correct)) +
        y = "Frequency")
 ```
 
-The histogram shows the full range of outcomes a guessing chimp
-would produce across 1,000 experiments. The center of the distribution
-reflects the expected result under the null. Use this picture to decide
-where Sarah's result, marked by the red line, falls relative to what
-we would expect from a guesser.
+The histogram shows the full range of outcomes a guessing chimp would produce across 1,000 experiments. The center of the distribution reflects the expected result under the null. Use this picture to decide where Sarah's result, marked by the red line, falls relative to what we would expect from a guesser.
 
-**Practice: Where does Sarah's result fall?**
+**Practice 3: Where does Sarah's result fall?**
 
 ```{r q-sarah-location, echo=FALSE}
 question(
   "Looking at the histogram, how would you describe where
   Sarah's result of 7 out of 8 falls relative to outcomes
   we would expect from a guessing chimp?",
+  correct = "Right. Sarah's result sits out in the tail, where guessing rarely lands.",
   answer(
     "Near the center --- a guessing chimp gets around 7
     out of 8 fairly often.",
@@ -220,7 +175,7 @@ question(
     "In the right tail --- a guessing chimp rarely gets
     7 or more out of 8 correct.",
     correct = TRUE,
-    message = "Right. The histogram shows that 7 or 8 correct answers is rare for a guesser. Most simulated outcomes cluster between 3 and 6. Sarah's result falls in the thin right tail of the distribution --- where outcomes are uncommon under the null hypothesis. The rarer that location, the more the result challenges the null."
+    message = "The histogram shows that 7 or 8 correct answers is rare for a guesser. Most simulated outcomes cluster between 3 and 6. Sarah's result falls in the thin right tail of the distribution --- where outcomes are uncommon under the null hypothesis. The rarer that location, the more the result challenges the null. Count the simulated outcomes that were 7 or more out of 8 --- the ones at least as extreme as Sarah's --- and you have the proportion that measures exactly how rarely a guessing chimp does this well."
   ),
   answer(
     "Outside the distribution entirely --- it is impossible
@@ -236,58 +191,29 @@ question(
 )
 ```
 
-In this simulation, the p-value is the proportion of the 1,000
-simulated outcomes that were 7 or more out of 8 correct --- the
-outcomes at least as extreme as Sarah's result. You can see from the
-histogram that very few bars fall at or to the right of the red line,
-so that proportion is small. That small number is the p-value: a
-precise measure of how rarely a guessing chimp would produce a result
-as good as Sarah's.
-
 ### The p-value
 
-Sarah's result falls in the tail of the null distribution ---
-outcomes a guesser would rarely produce. But "rarely" needs to be
-made precise. The [**p-value**]{.important-text} is how we do that.
+Sarah's result falls in the tail of the null distribution --- outcomes a guesser would rarely produce. But "rarely" needs to be made precise. The **p-value** is how we do that.
 
 ::: {.important-note}
 **The p-value**
 
-A [**p-value**]{.important-text} is the probability of observing a
-result as extreme as the one obtained --- or more extreme --- assuming
-the null hypothesis is true.
+A [**p-value**]{.important-text} is the probability of observing a result as extreme as the one obtained --- or more extreme --- assuming the null hypothesis is true.
 
-- A **small** p-value: the observed result would be rare under the
-  null. The data are surprising if nothing is going on.
-- A **large** p-value: the observed result would be common under the
-  null. The data are not surprising if nothing is going on.
+- A **small** p-value: the observed result would be rare under the null. The data are surprising if nothing is going on.
+- A **large** p-value: the observed result would be common under the null. The data are not surprising if nothing is going on.
 :::
 
-The figure below shows how the p-value fits into the bigger picture
-of the sampling distribution. Walk through it piece by piece:
+The figure below shows how the p-value fits into the bigger picture of the sampling distribution. Walk through it piece by piece:
 
-- The curve itself **is** the sampling distribution under the null
-  hypothesis --- the distribution of results you would see across
-  many repeated samples if the null hypothesis were exactly true.
-- The peak, labeled *"True value under the null hypothesis,"* is the
-  most likely result under that assumption --- for Sarah, this is
-  guessing correctly on half the problems.
-- The two tails, labeled *"very unlikely observations,"* contain
-  results that would be rare in either direction if the null were
-  true --- doing much better, or much worse, than chance would predict.
-- The dashed line marks the critical value for a test at the 5%
-  significance level ($\alpha = 0.05$): results beyond this cutoff
-  are rare enough under the null --- occurring less than 5% of the
-  time --- to count as evidence against it.
-- The green dot, labeled *"Observed result,"* is where your actual
-  data falls on this distribution --- for Sarah, the proportion of
-  problems she actually solved correctly.
+- The curve itself **is** the sampling distribution under the null hypothesis --- the distribution of results you would see across many repeated samples if the null hypothesis were exactly true.
+- The peak, labeled *"True value under the null hypothesis,"* is the most likely result under that assumption --- for Sarah, this is guessing correctly on half the problems.
+- The two tails, labeled *"very unlikely observations,"* contain results that would be rare in either direction if the null were true --- doing much better, or much worse, than chance would predict.
+- The dashed line marks the critical value for a test at the 5% significance level ($\alpha = 0.05$): results beyond this cutoff are rare enough under the null --- occurring less than 5% of the time --- to count as evidence against it.
+- The green dot, labeled *"Observed result,"* is where your actual data falls on this distribution --- for Sarah, the proportion of problems she actually solved correctly.
 - The shaded region labeled "Area representing the p-value" shows the probability of getting a result as extreme as the one observed, or more extreme, if the null hypothesis were true. For a one-sided test, that area is in one tail. For a two-sided test, it includes results equally extreme in either direction.
 
-Because the shaded region falls beyond the critical value, this
-observed result would lead to rejecting the null hypothesis: a result
-this far out is rare enough under the assumption of pure guessing that
-we reject the null hypothesis.
+Because the shaded region falls beyond the critical value, this observed result would lead to rejecting the null hypothesis: a result this far out is rare enough under the assumption of pure guessing that we reject the null hypothesis.
 
 ```{r inference-graph, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.alt="Bell curve showing the sampling distribution under the null hypothesis. The peak is labeled 'True value under the null hypothesis and most likely observation.' A green dot to the right of center is labeled 'Observed result (value).' A vertical dashed line to the right of the dot is labeled 'Critical value, alpha equals 0.05.' The shaded tail area beyond the observed result is labeled 'Observed p-value.' Both tails are labeled 'very unlikely observations.'"}
 navy <- "#1a3a6b"
@@ -393,36 +319,22 @@ ggplot(df, aes(x, y)) +
 
 ::: {.caution}
 **The most common p-value misconception:** A p-value of 0.03 does
-NOT mean there is a 3% chance the null hypothesis is true. It means
-that IF the null were true, there would be only a 3% chance of
-observing a result as extreme as yours. These statements sound
-similar but are logically very different. The p-value is a
-probability about the data given the null --- not a probability
-about the null given the data.
+NOT mean there is a 3% chance the null hypothesis is true. It means that IF the null were true, there would be only a 3% chance of observing a result as extreme as yours. These statements sound similar but are logically very different. The p-value is a probability about the data given the null --- not a probability about the null given the data.
 :::
 
-### The decision rule
+### The Decision Rule
 
-To turn a p-value into a conclusion, we compare it to a pre-chosen
-threshold called the [**significance level**]{.important-text},
-denoted $\alpha$. The standard in social science is $\alpha = 0.05$.
+To turn a p-value into a conclusion, we compare it to a pre-chosen threshold called the [**significance level**]{.important-text}, denoted $\alpha$. The standard in social science is $\alpha = 0.05$.
 
-- If the p-value is **less than** $\alpha$: **reject the null
-  hypothesis**. The result is statistically significant --- the
-  data are sufficiently surprising under the null to conclude
-  something else is going on.
-- If the p-value is **greater than or equal to** $\alpha$: **fail
-  to reject the null hypothesis**. The data are not surprising
-  enough under the null to rule it out.
+- If the p-value is **less than** $\alpha$: **reject the null hypothesis**. The result is [**statistically significant**]{.important-text} --- the data are sufficiently surprising under the null to conclude something else is going on.
+- If the p-value is **greater than or equal to** $\alpha$: **fail to reject the null hypothesis**. The data are not surprising enough under the null to rule it out.
 
 ::: {.caution}
 **Failing to reject is not the same as accepting the null.** You
-never prove the null hypothesis true. You only decide whether the
-evidence against it is strong enough to reject it. The correct
-phrasing is always "fail to reject" --- not "accept."
+never prove the null hypothesis true. You only decide whether the evidence against it is strong enough to reject it. The correct phrasing is always "fail to reject" --- not "accept."
 :::
 
-**Practice: Interpreting a p-value correctly**
+**Apply 4: Interpreting a p-value correctly**
 
 ```{r q-pvalue-interpret, echo=FALSE}
 question(
@@ -431,6 +343,7 @@ question(
   She finds a correlation of r = 0.41 in her sample of
   48 states, with a p-value of 0.004. Which of the
   following is the correct interpretation?",
+  correct = "Right. A p-value is a probability about the data given the null, not about the null given the data.",
   answer(
     "There is a 0.4% chance the null hypothesis is true,
     so the researcher can be 99.6% confident that
@@ -450,12 +363,22 @@ question(
     that the null hypothesis is true."
   ),
   answer(
-    "If there were truly no relationship between inequality
-    and polarization in the population, there would be only
-    a 0.4% chance of observing a correlation as far from zero
-    as 0.41, in either direction, in a sample of 48 states.",
+    "If there were truly no relationship in the population,
+    only 0.4% of samples of 48 states would show a correlation
+    this far from zero.",
     correct = TRUE,
-    message = "Right. The p-value is a conditional probability: the probability of observing the data, or something more extreme, given that the null hypothesis is true. A p-value of 0.004 means a correlation this far from zero would occur only 0.4% of the time if there were truly no relationship --- strong evidence against the null. Notice it says nothing about causation."
+    message = "The p-value is a conditional probability: the probability of observing the data, or something more extreme, given that the null hypothesis is true. A p-value of 0.004 means a correlation this far from zero would occur only 0.4% of the time if there were truly no relationship --- strong evidence against the null. Notice it says nothing about causation."
+  ),
+  answer(
+    "A correlation of 0.41 with p = 0.004 means the
+    relationship between inequality and polarization is
+    strong, since the p-value is very small.",
+    message = "A p-value measures how surprising the result
+    would be if the null were true, not how large the
+    relationship is --- that is what r = 0.41 reports. A tiny
+    correlation can carry a very small p-value in a large
+    sample, and a substantial one can miss significance in a
+    small sample."
   ),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -463,7 +386,7 @@ question(
 )
 ```
 
-**Practice: Significance versus importance**
+**Apply 5: Significance versus importance**
 
 ```{r q-sig-vs-importance, echo=FALSE}
 question(
@@ -472,6 +395,7 @@ question(
   with p = 0.21. Both use alpha = 0.05. A student says
   Study 2 is more convincing because it found a larger
   effect. What is wrong with this reasoning?",
+  correct = "Right. A small p-value and a large effect are separate questions, and sample size drives the first.",
   answer(
     "The student is correct. A larger result is always
     stronger evidence against the null hypothesis.",
@@ -492,14 +416,11 @@ question(
     fail to reject."
   ),
   answer(
-    "Statistical significance and practical importance
-    are different things. Study 1 is statistically
-    significant (p < 0.05) even though it found a smaller
-    effect. Study 2 found a larger effect but failed to
-    reach significance, possibly because its sample was
-    smaller or its data more variable.",
+    "Statistical significance and practical importance are
+    different things, and Study 2's larger effect did not
+    reach significance.",
     correct = TRUE,
-    message = "Right. Statistical significance and practical importance are not the same thing. Study 1 is statistically significant despite the smaller effect because the result provides stronger evidence against the null --- a result this far from zero would be unlikely if the null were true. Study 2 found a larger effect but the evidence against the null was not strong enough --- possibly due to a smaller or noisier sample. Always consider both the p-value and the magnitude of the effect."
+    message = "Statistical significance and practical importance are not the same thing. Study 1 is statistically significant despite the smaller effect because the result provides stronger evidence against the null --- a result this far from zero would be unlikely if the null were true. Study 2 found a larger effect but the evidence against the null was not strong enough --- possibly due to a smaller or noisier sample. Always consider both the p-value and the magnitude of the effect."
   ),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -510,62 +431,33 @@ question(
 
 ## Confidence Intervals
 
-Hypothesis testing gives you a yes/no decision: reject the null or
-fail to reject. But it does not tell you the magnitude of the association
-or how precisely your sample estimates the population parameter. A
-[**confidence interval**]{.important-text} provides that complementary
-information. Rather than asking "is the parameter different from
-zero?", a confidence interval asks "what range of values for the
-population parameter is consistent with my data?"
+Hypothesis testing gives you a yes/no decision: reject the null or fail to reject. But it does not tell you the magnitude of the association or how precisely your sample estimates the population parameter. A [**confidence interval**]{.important-text} provides that complementary information. Rather than asking "is the parameter different from zero?", a confidence interval asks "what range of values for the population parameter is consistent with my data?"
 
-The key to constructing a confidence interval is knowing how far to
-stretch the interval in each direction from your sample statistic.
-That distance is measured in standard errors, and the number of
-standard errors you go out depends on two things: how confident you
-want to be, and the shape of the sampling distribution. The number
-that captures this is called the [**critical value**]{.important-text}.
-We will define it precisely shortly, but keep it in mind as we build
-the interval.
+The key to constructing a confidence interval is knowing how far to stretch the interval in each direction from your sample statistic. That distance is measured in standard errors, and the number of standard errors you go out depends on two things: how confident you want to be, and the shape of the sampling distribution. The number that captures this is called the [**critical value**]{.important-text}. We will define it precisely shortly, but keep it in mind as we build the interval.
 
-### Building a confidence interval from the sampling distribution
+### Building a Confidence Interval from the Sampling Distribution
 
-Recall from the Empirical Rule that in a normal distribution, about
-95% of values fall within 1.96 standard deviations of the mean.
-Applied to the sampling distribution, this means that about 95% of
-all sample means fall within 1.96 standard errors of the true
-population mean $\mu$.
+Recall from the Empirical Rule that in a normal distribution, about 95% of values fall within 1.96 standard deviations of the mean. Applied to the sampling distribution, this means that about 95% of all sample means fall within 1.96 standard errors of the true population mean $\mu$.
 
 Now turn that logic around. If 95% of sample means land within
 1.96 standard errors of $\mu$, then an interval stretching 1.96
-standard errors in each direction from our sample mean will capture
-$\mu$ in 95% of repeated samples. That is the confidence interval,
-and 1.96 is the critical value for 95% confidence.
+standard errors in each direction from our sample mean will capture $\mu$ in 95% of repeated samples. That is the confidence interval, and 1.96 is the critical value for 95% confidence.
 
 ::: {.important-note}
 **The 95% confidence interval**
 
-A [**95% confidence interval**]{.important-text} for the population
-mean consists of a lower bound and an upper bound:
+A [**95% confidence interval**]{.important-text} for the population mean consists of a lower bound and an upper bound:
 
 $$\text{Lower bound} = \bar{Y} - 1.96 \times s.e. = \bar{Y} - 1.96 \times \frac{s}{\sqrt{n}}$$
 
 $$\text{Upper bound} = \bar{Y} + 1.96 \times s.e. = \bar{Y} + 1.96 \times \frac{s}{\sqrt{n}}$$
 
-where $\bar{Y}$ is the sample mean, $s$ is the sample standard
-deviation, $n$ is the sample size, and 1.96 is the critical value
-corresponding to 95% confidence. The interval is written as
-[lower bound, upper bound].
+where $\bar{Y}$ is the sample mean, $s$ is the sample standard deviation, $n$ is the sample size, and 1.96 is the critical value corresponding to 95% confidence. The interval is written as [lower bound, upper bound].
 :::
 
-### Critical values and when they apply
+### Critical Values and When They Apply
 
-The critical value of 1.96 is not arbitrary. It comes directly from
-the standard normal distribution --- the specific value that puts 95%
-of the distribution in the middle and 2.5% in each tail. This is the
-precise version of the Empirical Rule's "approximately 2 standard
-deviations." Different confidence levels require different critical
-values, because capturing a larger percentage of the distribution
-requires going further out into the tails.
+The critical value of 1.96 is not arbitrary. It comes directly from the standard normal distribution --- the specific value that puts 95% of the distribution in the middle and 2.5% in each tail. This is the precise version of the Empirical Rule's "approximately 2 standard deviations." Different confidence levels require different critical values, because capturing a larger percentage of the distribution requires going further out into the tails.
 
 | Confidence level | Critical value |
 |:-----------------|:--------------:|
@@ -573,34 +465,20 @@ requires going further out into the tails.
 | 95% | 1.96 |
 | 99% | 2.576 |
 
-A higher confidence level uses a larger critical value, which
-produces a wider interval. This is the tradeoff at the heart of
-confidence intervals: more confidence requires more width.
+A higher [**confidence level**]{.important-text} uses a larger critical value, which produces a wider interval. This is the tradeoff at the heart of confidence intervals: more confidence requires more width.
 
 ::: {.caution}
 **These critical values assume the relevant sampling distribution is approximately normal.** For sample means and proportions, the CLT often justifies this approximation when samples are large enough. For small samples, the
-[**t-distribution**]{.important-text} is used instead of the normal
-distribution, and the critical value is larger than 1.96 --- how
-much larger depends on the sample size. For other types of tests
-entirely --- chi-square tests for categorical variables, F-tests in
-regression --- different distributions apply and different critical
-values are used. What does not change is the basic logic: use the appropriate reference distribution to decide which values are plausible, given the sample statistic and its uncertainty. In practice, R functions like `t.test()`, `chisq.test()`, and `lm()` determine the correct critical value automatically. The interpretation of the resulting interval is the same regardless of which distribution is used.
+[**t-distribution**]{.important-text} is used instead of the normal distribution, and the critical value is larger than 1.96 --- how much larger depends on the sample size. For other types of tests entirely --- chi-square tests for categorical variables, F-tests in regression --- different distributions apply and different critical values are used. What does not change is the basic logic: use the appropriate reference distribution to decide which values are plausible, given the sample statistic and its uncertainty. In practice, R functions like `t.test()`, `chisq.test()`, and `lm()` determine the correct critical value automatically. The interpretation of the resulting interval is the same regardless of which distribution is used.
 :::
 
-### A worked example
+### A Worked Example
 
-Back in the Introduction, Gallup reported that 30% of a sample of
-1,200 American adults approved of the way the president was handling
-the job. That 30% is our point estimate. But how much uncertainty
-surrounds it?
+Back in the Introduction, Gallup reported that 30% of a sample of 1,200 American adults approved of the way the president was handling the job. That 30% is our point estimate. But how much uncertainty surrounds it?
 
 Suppose the standard deviation of approval ratings in the sample is
 45.8 percentage points (treating approval as a 0/1 variable --- 1 for
-approve, 0 for disapprove --- the standard deviation of a proportion
-$p$ is $\sqrt{p(1-p)}$, and for $p = 0.30$ that gives
-$\sqrt{0.30 \times 0.70} \times 100 = 45.8$ percentage points).
-Using the 95% critical value of 1.96, we construct the interval in
-four steps.
+approve, 0 for disapprove --- the standard deviation of a proportion $p$ is $\sqrt{p(1-p)}$, and for $p = 0.30$ that gives $\sqrt{0.30 \times 0.70} \times 100 = 45.8$ percentage points). Using the 95% critical value of 1.96, we construct the interval in four steps.
 
 **Step 1: Compute the standard error.**
 
@@ -618,9 +496,7 @@ $$\text{Upper bound} = 30.0 + 2.59 = 32.59\%$$
 
 **Step 4: State the interval.**
 
-The 95% confidence interval is [27.41%, 32.59%]. We estimate that
-between 27% and 33% of all American adults approve of the president,
-with 95% confidence.
+The 95% confidence interval is [27.41%, 32.59%]. We estimate that between 27% and 33% of all American adults approve of the president, with 95% confidence.
 
 <!-- ============================================================
      FIGURE: Gallup confidence interval, first visual introduction
@@ -660,26 +536,16 @@ ggplot(gallup_data, aes(x = estimate, y = label)) +
         axis.ticks.y = element_blank())
 ```
 
-The dot marks the point estimate --- our single best guess at the
-population value. The horizontal line extending from it shows the
-margin of error in both directions: the full range of values the
-data are consistent with. Every confidence interval you build from
-here on will have this same basic shape --- a center and a width ---
-whether you compute it by hand or with R.
+The dot marks the point estimate --- our single best guess at the population value. The horizontal line extending from it shows the [**margin of error**]{.important-text} in both directions: the full range of values the data are consistent with. Every confidence interval you build from here on will have this same basic shape --- a center and a width --- whether you compute it by hand or with R.
 
-### What "95% confidence" actually means
+### What "95% Confidence" Actually Means
 
-The phrase "95% confidence" has a precise meaning that is easy to
-misstate.
+The phrase "95% confidence" has a precise meaning that is easy to misstate.
 
 ::: {.important-note}
 **Correct interpretation**
 
-In repeated sampling, 95% of confidence intervals constructed this
-way will contain the true population parameter. The 95% refers to
-the long-run performance of the procedure across many samples ---
-not to the probability that this particular interval contains the
-truth.
+In repeated sampling, 95% of confidence intervals constructed this way will contain the true population parameter. The 95% refers to the long-run performance of the procedure across many samples --- not to the probability that this particular interval contains the truth.
 :::
 
 <!-- ============================================================
@@ -688,7 +554,7 @@ truth.
      before the caution box on misinterpretation
      ============================================================ -->
 
-```{r ci-repeated-intervals, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Twenty-five confidence intervals, each constructed from a different random sample of size 100 from the bowl. The dashed red line marks the true population proportion of 0.375. Most intervals (shown in teal) contain the true value. Intervals shown in red miss it entirely. In the long run, 95% of intervals constructed this way will contain the true proportion.", fig.alt="Horizontal dot-and-whisker plot showing twenty-five 95 percent confidence intervals stacked vertically, each from a different random sample of size 100. A dashed red vertical line marks the true population proportion of 0.375. Most intervals are colored teal and cross the red line, meaning they contain the true proportion. A small number of intervals are colored red and fall entirely to one side of the line, meaning they miss the true proportion."}
+```{r ci-repeated-intervals, echo=FALSE, warning=FALSE, message=FALSE, fig.height=6, fig.width=7, fig.cap="Twenty-five confidence intervals, each constructed from a different random sample of size 100 from the bowl. The dashed red line marks the true population proportion of 0.375. Most intervals cross that line and contain the true value; the few drawn as dashed lines fall entirely to one side and miss it. In the long run, 95% of intervals constructed this way will contain the true proportion.", fig.alt="Horizontal dot-and-whisker plot showing twenty-five 95 percent confidence intervals stacked vertically, each from a different random sample of size 100. A dashed red vertical line marks the true population proportion of 0.375. Most intervals are drawn as solid lines that cross the dashed line, meaning they contain the true proportion. A small number are drawn as dashed lines that fall entirely to one side of it, meaning they miss the true proportion."}
 set.seed(42)
 n_intervals <- 25
 sample_size <- 100
@@ -709,25 +575,27 @@ ci_data <- map_dfr(1:n_intervals, function(i) {
 
 ggplot(ci_data,
        aes(x = estimate, y = sample_id,
-           color = contains, xmin = lower, xmax = upper)) +
+           color = contains, linetype = contains,
+           xmin = lower, xmax = upper)) +
   geom_vline(xintercept = true_pi, linetype = "dashed",
              color = "#C62828", linewidth = 0.8) +
   geom_errorbarh(height = 0.4, linewidth = 0.7) +
   geom_point(size = 2) +
   scale_color_manual(
-    values = c("FALSE" = "#C62828", "TRUE" = "#00897B"),
+    values = c("FALSE" = "#B8860B", "TRUE" = "#00897B"),
     labels = c("FALSE" = "Misses true proportion",
                "TRUE"  = "Contains true proportion"),
     name = NULL
   ) +
-  annotate("text",
-           x     = true_pi - 0.005,
-           y     = n_intervals - 1,
-           label = paste0("True proportion\n= ", round(true_pi, 3)),
-           hjust = 1.1, size = 3, color = "#C62828") +
+  scale_linetype_manual(
+    values = c("FALSE" = "dashed", "TRUE" = "solid"),
+    labels = c("FALSE" = "Misses true proportion",
+               "TRUE"  = "Contains true proportion"),
+    name = NULL
+  ) +
   labs(
     title    = "Twenty-Five 95% Confidence Intervals",
-    subtitle = "Each from a different random sample of size 100 from the bowl",
+    subtitle = paste0("Each from a different random sample of size 100; dashed line marks the true proportion of ", round(true_pi, 3)),
     x        = "Sample Proportion (Red Balls)",
     y        = "Sample number"
   ) +
@@ -741,12 +609,10 @@ ggplot(ci_data,
 95% probability that the true approval rate falls between 27.41% and
 32.59%." This is incorrect. The true approval rate is a fixed value
 --- it either is or is not in this interval. The 95% describes the
-procedure: if Gallup ran this survey many times and constructed a
-confidence interval each time, about 95% of those intervals would
-contain the true approval rate.
+procedure: if Gallup ran this survey many times and constructed a confidence interval each time, about 95% of those intervals would contain the true approval rate.
 :::
 
-**Practice: Computing a confidence interval**
+**Apply 6: Computing a confidence interval**
 
 ```{r q-ci-compute, echo=FALSE}
 question(
@@ -755,46 +621,47 @@ question(
   20 points. Using the 95% critical value of 1.96, what are
   the lower and upper bounds of the confidence interval for
   the population mean democracy score?",
+  correct = "Right. The interval is the mean plus and minus 1.96 standard errors.",
   answer(
     "Lower bound: 34, upper bound: 74. Computed as
-    54 minus 20 and 54 plus 20.",
+    $54 - 20$ and $54 + 20$.",
     message = "This uses the standard deviation directly rather
     than the standard error. The standard error accounts for
-    sample size: s.e. = 20 / sqrt(100) = 20 / 10 = 2.0. The
-    margin of error is 1.96 x 2.0 = 3.92, not 20."
+    sample size: $20 / \\sqrt{100} = 20 / 10 = 2.0$. The margin
+    of error is $1.96 \\times 2.0 = 3.92$, not 20."
   ),
   answer(
     "Lower bound: 50.1, upper bound: 57.9. Computed as
-    54 minus 1.96 times (20 / sqrt(100)) and 54 plus
-    1.96 times (20 / sqrt(100)).",
+    $54 - 1.96 \\times (20/\\sqrt{100})$ and
+    $54 + 1.96 \\times (20/\\sqrt{100})$.",
     correct = TRUE,
-    message = "Right. Step by step: the standard error is 20 / sqrt(100) = 20 / 10 = 2.0. The margin of error is 1.96 times 2.0 = 3.92. The lower bound is 54 minus 3.92 = 50.08, which rounds to 50.1; the upper bound is 54 plus 3.92 = 57.92, which rounds to 57.9. We estimate that the true mean democracy score across all countries falls between 50.1 and 57.9 with 95% confidence."
+    message = "Step by step: the standard error is $20 / \\sqrt{100} = 20 / 10 = 2.0$. The margin of error is $1.96 \\times 2.0 = 3.92$. The lower bound is $54 - 3.92 = 50.08$, which rounds to 50.1; the upper bound is $54 + 3.92 = 57.92$, which rounds to 57.9. We estimate that the true mean democracy score across all countries falls between 50.1 and 57.9 with 95% confidence."
   ),
   answer(
-    "Lower bound: 50.1, upper bound: 57.9. Computed as
-    54 minus 1.96 times (20 / 100) and 54 plus 1.96 times
-    (20 / 100).",
-    message = "The standard error formula divides by sqrt(n),
-    not n. The standard error is 20 / sqrt(100) = 2.0,
-    not 20 / 100 = 0.20. This would produce an interval
-    that is far too narrow."
+    "Lower bound: 53.6, upper bound: 54.4. Computed as
+    $54 - 1.96 \\times (20/100)$ and
+    $54 + 1.96 \\times (20/100)$.",
+    message = "The standard error formula divides by
+    $\\sqrt{n}$, not $n$. The standard error is
+    $20 / \\sqrt{100} = 2.0$, not $20 / 100 = 0.20$, so this
+    interval comes out far too narrow."
   ),
   answer(
-    "Lower bound: 53.8, upper bound: 54.2. Computed as
-    54 minus 1.96 times (20 / sqrt(100) / 100) and
-    54 plus 1.96 times (20 / sqrt(100) / 100).",
-    message = "This divides the standard error by an
-    extra factor of 100, making the interval far too
-    narrow. The standard error is simply
-    s / sqrt(n) = 20 / sqrt(100) = 2.0."
+    "Lower bound: 54.0, upper bound: 54.0. Computed as
+    $54 - 1.96 \\times (20/\\sqrt{100}/100)$ and
+    $54 + 1.96 \\times (20/\\sqrt{100}/100)$.",
+    message = "This divides the standard error by an extra
+    factor of 100, leaving an interval so narrow it collapses
+    onto the sample mean. The standard error is simply
+    $s / \\sqrt{n} = 20 / \\sqrt{100} = 2.0$."
   ),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Work through the four steps: compute the standard error (s / sqrt(n)), compute the margin of error (1.96 times the standard error), then add and subtract from the sample mean."
+  try_again = "Hint: Work through the four steps: compute the standard error ($s / \\sqrt{n}$), compute the margin of error (1.96 times the standard error), then add and subtract from the sample mean."
 )
 ```
 
-**Practice: Interpreting confidence level and width**
+**Apply 7: Interpreting confidence level and width**
 
 ```{r q-ci-width, echo=FALSE}
 question(
@@ -803,10 +670,13 @@ question(
   using the critical value of 2.576 instead of 1.96. She
   finds the interval is wider and says this makes it less
   useful. What is the flaw in her reasoning?",
+  correct = "Right. Width and usefulness are not the same thing --- a wider interval buys stronger coverage.",
   answer(
-    "Her reasoning is incomplete. A wider interval is less precise, but that does not automatically make it less useful. The 99% interval uses a larger critical value (2.576 instead of 1.96), which gives stronger long-run coverage. Whether 95% or 99% is more appropriate depends on the stakes of being wrong.",
+    "Her reasoning is incomplete. A wider interval is less
+    precise, but the wider one buys stronger long-run
+    coverage, and which you want depends on the stakes.",
     correct = TRUE,
-    message = "Right. There is always a tradeoff between confidence and precision. A 99% interval is wider --- [48.9, 59.1] versus [50.1, 57.9] --- but it is less likely to miss the true parameter across repeated samples. In high-stakes decisions where the cost of missing the truth is high, that additional coverage may be exactly what is needed. Width is a cost; coverage is a benefit. Whether the tradeoff is worth it depends on context."
+    message = "There is always a tradeoff between confidence and precision. A 99% interval is wider --- [48.9, 59.1] versus [50.1, 57.9] --- but it is less likely to miss the true parameter across repeated samples. In high-stakes decisions where the cost of missing the truth is high, that additional coverage may be exactly what is needed. Width is a cost; coverage is a benefit. Whether the tradeoff is worth it depends on context."
   ),
   answer(
     "She is correct. A wider interval is always less
@@ -832,40 +702,17 @@ question(
 )
 ```
 
-### The connection between confidence intervals and hypothesis tests
+### The Connection Between Confidence Intervals and Hypothesis Tests
 
-Confidence intervals and hypothesis tests are two sides of the same
-logic. Both are built from the sampling distribution. Both use the
-standard error and the critical value. And when the confidence level
-and test significance level match, a two-sided hypothesis test and
-its corresponding confidence interval reach the same
-reject/fail-to-reject conclusion about the null value.
+Confidence intervals and hypothesis tests are two sides of the same logic. Both are built from the sampling distribution. Both use the standard error and the critical value. And when the confidence level and test significance level match, a two-sided hypothesis test and its corresponding confidence interval reach the same reject/fail-to-reject conclusion about the null value.
 
-Think of it this way: a 95% confidence interval marks the range of
-parameter values that are consistent with your data at the 0.05
-level. A two-sided hypothesis test at $\alpha = 0.05$ asks whether
-the null value is consistent with your data at the same level. If
-the null value falls outside the interval --- outside the range of
-values consistent with the data at the 0.05 level --- the p-value is
-less than 0.05 and you reject the null.
-If it falls inside the interval, the p-value is greater than 0.05
-and you fail to reject.
+Think of it this way: a 95% confidence interval marks the range of parameter values that are consistent with your data at the 0.05 level. A two-sided hypothesis test at $\alpha = 0.05$ asks whether the null value is consistent with your data at the same level. If the null value falls outside the interval --- outside the range of values consistent with the data at the 0.05 level --- the p-value is less than 0.05 and you reject the null. If it falls inside the interval, the p-value is greater than 0.05 and you fail to reject.
 
-This equivalence holds specifically for two-sided tests at the
-matching significance level: a 95% CI corresponds to a two-sided
-test at $\alpha = 0.05$, a 99% CI to a two-sided test at
-$\alpha = 0.01$, and so on.
+This equivalence holds specifically for two-sided tests at the matching significance level: a 95% CI corresponds to a two-sided test at $\alpha = 0.05$, a 99% CI to a two-sided test at $\alpha = 0.01$, and so on.
 
-This equivalence is useful in practice: once you have a confidence
-interval, you can evaluate the corresponding two-sided hypothesis test about the mean at the matching significance level without
-computing a separate p-value --- simply check whether the null value
-falls inside or outside the interval.
+This equivalence is useful in practice: once you have a confidence interval, you can evaluate the corresponding two-sided hypothesis test about the mean at the matching significance level without computing a separate p-value --- simply check whether the null value falls inside or outside the interval.
 
-The figure below uses the same kind of plot you saw earlier for the
-Gallup approval estimate --- a point and a horizontal interval ---
-but adds one new feature: the null hypothesis value, marked
-separately, so you can see directly whether it falls inside or
-outside the interval.
+The figure below uses the same kind of plot you saw earlier for the Gallup approval estimate --- a point and a horizontal interval --- but adds one new feature: the null hypothesis value, marked separately, so you can see directly whether it falls inside or outside the interval.
 
 <!-- ============================================================
      FIGURE 3: CI vs. null value diagram
@@ -875,7 +722,7 @@ outside the interval.
      (reject) the interval.
      ============================================================ -->
 
-```{r ci-ht-connection, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="A 95% confidence interval of [50.1, 57.9] for the mean democracy score across 100 countries, with the null hypothesis value of 50 marked. Because the null value falls outside the interval, the corresponding two-sided hypothesis test at alpha = 0.05 rejects the null.", fig.alt="Horizontal dot-and-whisker plot showing a 95 percent confidence interval from 50.1 to 57.9 for the mean democracy score, marked in teal with a point at the center estimate of 54. A red X to the left of the interval, at 50, marks the null hypothesis value. The X falls outside the teal interval, illustrating that the null value is excluded by the data."}
+```{r ci-ht-connection, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="A 95% confidence interval of [50.1, 57.9] for the mean democracy score across 100 countries, with the null hypothesis value of 50 marked. Because the null value falls outside the interval, the corresponding two-sided hypothesis test at alpha = 0.05 rejects the null.", fig.alt="Horizontal dot-and-whisker plot showing a 95 percent confidence interval from 50.1 to 57.9 for the mean democracy score, drawn as a horizontal bar with a point at the center estimate of 54. A red X to the left of the interval, at 50, marks the null hypothesis value. The X falls outside the bar, illustrating that the null value is excluded by the data."}
 ci_lower    <- 50.1
 ci_upper    <- 57.9
 ci_estimate <- 54.0
@@ -912,15 +759,9 @@ ggplot(connection_data, aes(x = estimate, y = label)) +
         axis.ticks.y = element_blank())
 ```
 
-The null value (50, marked with the red X) sits to the left of the
-entire interval --- it is not among the values consistent with the
-data at the 0.05 level. That is exactly the connection: when the null
-value falls outside the corresponding 95% confidence interval, the
-two-sided p-value is below 0.05. If the null value had fallen between
-the two ends of the teal bar instead, the test would fail to reject,
-because the null would be one of the plausible values given the data.
+The null value (50, marked with the red X) sits to the left of the entire interval --- it is not among the values consistent with the data at the 0.05 level. That is exactly the connection: when the null value falls outside the corresponding 95% confidence interval, the two-sided p-value is below 0.05. If the null value had fallen between the two ends of the bar instead, the test would fail to reject, because the null would be one of the plausible values given the data.
 
-**Practice: Using a CI to evaluate a hypothesis test**
+**Apply 8: Using a CI to evaluate a hypothesis test**
 
 ```{r q-ci-ht, echo=FALSE}
 question(
@@ -930,6 +771,7 @@ question(
   yields a 95% confidence interval of [50.1, 57.9]. At alpha = 0.05,
   what should she conclude, and what does the confidence interval
   tell her beyond the hypothesis test?",
+  correct = "Right. A null value outside the interval and a rejected null are the same finding twice.",
   answer(
     "Fail to reject the null. The interval [50.1, 57.9]
     is close to 50, so the difference is probably not
@@ -951,15 +793,20 @@ question(
     reject. No separate p-value calculation is needed here."
   ),
   answer(
-    "Reject the null hypothesis. The null value of 50
-    falls below the lower bound of the confidence interval,
-    meaning the data are inconsistent with a true mean of
-    50 at the 0.05 level. The confidence interval also
-    tells her the true mean is estimated to lie between
-    50.1 and 57.9 --- above the midpoint of the scale ---
-    which the p-value alone would not reveal.",
+    "Reject the null hypothesis. The null value of 50 falls
+    below the lower bound of the interval.",
     correct = TRUE,
-    message = "Right. Because the null value of 50 falls outside the interval [50.1, 57.9], the p-value must be below 0.05 --- reject the null. But the confidence interval adds something a p-value alone cannot provide: the range of plausible values for the mean. The population mean democracy score is estimated to lie between 50.1 and 57.9, so the entire 95% confidence interval lies above the scale midpoint. That gives substantively useful information beyond the yes/no hypothesis-test decision."
+    message = "Because the null value of 50 falls outside the interval [50.1, 57.9], the p-value must be below 0.05 --- reject the null. But the confidence interval adds something a p-value alone cannot provide: the range of plausible values for the mean. The population mean democracy score is estimated to lie between 50.1 and 57.9, so the entire 95% confidence interval lies above the scale midpoint. That gives substantively useful information beyond the yes/no hypothesis-test decision."
+  ),
+  answer(
+    "Reject the null hypothesis. The null value of 50 falls
+    above the upper bound of the interval, so the true mean
+    is below the scale midpoint.",
+    message = "Check which side. The interval runs from 50.1
+    to 57.9, so 50 sits below its lower bound, not above its
+    upper bound. The decision is right but the direction is
+    backwards: the estimated mean is above the midpoint of
+    the scale, not below it."
   ),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -969,52 +816,25 @@ question(
 
 ## A Note on Inference with Complete Data
 
-Throughout this tutorial the examples have involved clear sampling
-situations: surveys of voters, samples of countries, bowls of colored
-balls. You have a subset of a larger population and you want to say
-something about the whole.
+Throughout this tutorial the examples have involved clear sampling situations: surveys of voters, samples of countries, bowls of colored balls. You have a subset of a larger population and you want to say something about the whole.
 
-But research in political science often uses data that cover every
-case in a defined population --- all 50 states and DC, all members of
-Congress in a given session, all countries in the world for a given
-year. Nothing was left out. Is inference even appropriate?
+But research in political science often uses data that cover every case in a defined population --- all 50 states and DC, all members of Congress in a given session, all countries in the world for a given year. Nothing was left out. Is inference even appropriate?
 
-It depends on what you are trying to do. If your question is purely
-descriptive --- "what is the mean voter turnout rate across U.S.
-states this year?" --- then you have the full population of interest
-and no inference is needed. The statistic you compute is the
-population parameter, not an estimate of it.
+It depends on what you are trying to do. If your question is purely descriptive --- "what is the mean voter turnout rate across U.S. states this year?" --- then you have the full population of interest and no inference is needed. The statistic you compute is the population parameter, not an estimate of it.
 
-But that is almost never the research question in political science.
-When you ask whether income inequality predicts polarization, whether
-stricter gun laws reduce crime rates, or whether states with higher
-education spending have better health outcomes, you are asking about a
-[**relationship**]{.important-text} --- a systematic pattern that
-could have looked different under different historical conditions.
-Inference is the tool for asking whether the observed pattern is
-strong enough to be unlikely if no systematic relationship existed.
+But that is almost never the research question in political science. When you ask whether income inequality predicts polarization, whether stricter gun laws reduce crime rates, or whether states with higher education spending have better health outcomes, you are asking about a [**relationship**]{.important-text} --- a systematic pattern that could have looked different under different historical conditions. Inference is the tool for asking whether the observed pattern is strong enough to be unlikely if no systematic relationship existed.
 
-When you run a hypothesis test or compute a confidence interval on
-complete data, the p-value answers: **if there were truly no
-relationship between these variables, how surprising would it be to
-observe a pattern this strong in these data?** A small p-value means
-the pattern would be unlikely under the null. It does not prove
-causation, but it is evidence the relationship is not simply noise.
-Researchers may therefore apply inferential tools to complete data when they treat the observed cases as realizations of a broader process that could have produced different outcomes. That broader inferential target must be made explicit; asking about a relationship does not by itself create sampling uncertainty.
+When you run a hypothesis test or compute a confidence interval on complete data, the p-value answers: **if there were truly no relationship between these variables, how surprising would it be to observe a pattern this strong in these data?** A small p-value means the pattern would be unlikely under the null. It does not prove causation, but it is evidence the relationship is not simply noise. Researchers may therefore apply inferential tools to complete data when they treat the observed cases as realizations of a broader process that could have produced different outcomes. That broader inferential target must be made explicit; asking about a relationship does not by itself create sampling uncertainty.
 
 ::: {.important-note}
 **When to use inference with complete data**
 
 Use inference when your research question concerns a broader relationship or process and the observed cases can reasonably be treated as realizations of that process --- even if your data cover every case in a narrowly defined population. The p-value then answers: is this pattern strong enough to be unlikely under the null?
 
-Skip inference when your question is purely **descriptive** of a
-fixed, enumerable population at a specific point in time. If you want
-to know the mean turnout rate across all U.S. states last year, and
-you have data on all of them, the mean you compute is the answer ---
-no uncertainty to quantify.
+Skip inference when your question is purely **descriptive** of a fixed, enumerable population at a specific point in time. If you want to know the mean turnout rate across all U.S. states last year, and you have data on all of them, the mean you compute is the answer --- no uncertainty to quantify.
 :::
 
-**Practice: Inference or no inference?**
+**Apply 9: Inference or no inference?**
 
 ```{r q-states-inference, echo=FALSE}
 question(
@@ -1027,6 +847,7 @@ question(
   states with higher poverty rates have lower voter turnout,
   and reports a p-value. For which analysis is statistical
   inference appropriate, and why?",
+  correct = "Right. Describing the cases you have needs no inference; claiming a relationship holds beyond them does.",
   answer(
     "Inference is appropriate for both. Any time you
     compute a statistic from data you need a p-value
@@ -1055,15 +876,11 @@ question(
     relationship exists."
   ),
   answer(
-    "Inference is appropriate for Analysis 2 but not
-    Analysis 1. Reporting a mean poverty rate as a
-    descriptive fact about all 51 observations requires
-    no inference. Testing whether poverty predicts turnout
-    involves a claim about a relationship in an underlying
-    process, and inference quantifies whether the observed
-    pattern could easily have arisen by chance.",
+    "Inference is appropriate for Analysis 2 but not Analysis
+    1. Describing all 51 observations needs no inference;
+    claiming a relationship does.",
     correct = TRUE,
-    message = "Right. Analysis 1 is a descriptive claim about a fixed, enumerable population --- all U.S. states and DC --- and the mean computed from all 51 observations is the population parameter, not an estimate. Analysis 2 is a claim about a systematic relationship between two variables that could generalize beyond this particular historical moment, and inference is the right tool for assessing whether the observed pattern is stronger than chance would produce."
+    message = "Analysis 1 is a descriptive claim about a fixed, enumerable population --- all U.S. states and DC --- and the mean computed from all 51 observations is the population parameter, not an estimate. Analysis 2 is a claim about a systematic relationship between two variables that could generalize beyond this particular historical moment, and inference is the right tool for assessing whether the observed pattern is stronger than chance would produce."
   ),
   answer(
     "Inference is appropriate for Analysis 1 but not
@@ -1086,47 +903,29 @@ question(
 
 ## The Takeaways
 
-This tutorial covered the two main tools of statistical inference.
-Here is what to carry forward.
+This tutorial covered the two main tools of statistical inference. Here is what to carry forward.
 
 **Two tools, one foundation.** Both hypothesis tests and confidence
-intervals are built on the same machinery from Tutorial 10: the
-sampling distribution, the standard error, and the CLT. They simply
-answer different questions. A [**hypothesis test**]{.important-text}
-asks: could this result have arisen by chance? The
-[**p-value**]{.important-text} quantifies how surprising your result
-would be if the null hypothesis were true. A
-[**confidence interval**]{.important-text} asks: what range of values
-for the population parameter is consistent with my data? For a
-two-sided test at $\alpha = 0.05$, using the same model and
-assumptions, the hypothesis test and the 95%
-confidence interval reach the same reject/fail-to-reject
-conclusion about the null value.
+intervals are built on the same machinery from Tutorial 10: the sampling distribution, the standard error, and the CLT. They simply answer different questions. A [**hypothesis test**]{.important-text} asks: could this result have arisen by chance? The [**p-value**]{.important-text} quantifies how surprising your result would be if the null hypothesis were true. A [**confidence interval**]{.important-text} asks: what range of values for the population parameter is consistent with my data? For a two-sided test at a [**significance level**]{.important-text} of $\alpha = 0.05$, using the same model and assumptions, the hypothesis test and the [**95% confidence interval**]{.important-text} reach the same reject/fail-to-reject conclusion about the null value.
+
+**How a confidence interval is built.** Start at the point estimate and go out in both directions by the [**margin of error**]{.important-text}, which is the [**critical value**]{.important-text} times the standard error. The critical value comes from the [**confidence level**]{.important-text} you choose --- 1.96 for 95%, 2.576 for 99% --- so raising the confidence level widens the interval. That is the trade-off at the heart of confidence intervals: more confidence costs precision, and which you want depends on what it costs to be wrong.
 
 **Four things to remember when interpreting results.**
 
 - A p-value is not the probability the null hypothesis is true --- it is the probability of observing your result, or something more extreme, if the null were true.
 - Failing to reject the null is not the same as accepting it; it means the data are not sufficiently surprising under the null, not that the null is proven correct.
 - A 95% confidence interval does not mean there is a 95% probability the true value is in this particular interval; it means 95% of intervals constructed this way will contain the true value across repeated samples.
-- Statistical significance and practical importance are not the same thing --- a result can be statistically significant but substantively trivial, or practically important but not yet significant with the sample size available.
+- Statistical significance and practical importance are not the same thing --- a result can be [**statistically significant**]{.important-text} but substantively trivial, or practically important but not yet significant with the sample size available.
 
 
-**Organizing what you've learned into five steps.** Every hypothesis test you have just learned about --- and every one you will see in the tutorials that follow --- uses the same five pieces: a null hypothesis, an alternative hypothesis, a test statistic, a p-value, and a decision based on comparing that p-value to a threshold. Starting in the next tutorial, we will put those pieces into five explicit steps: state $H_0$, state $H_A$, run the test, find the p-value, and decide. The ideas are not new --- you already have them --- but the five-step structure will make the same logic easier to apply consistently, test after test.
+**When complete data still needs inference.** Political science data often cover every case in a defined population --- all 50 states, all members of a Congress, all countries in a year --- and nothing was sampled. Whether inference applies depends on the question, not on how the data were collected. A purely descriptive question about those cases at that moment needs none: you have the answer. But when you ask whether one thing predicts another, you are asking about a [**relationship**]{.important-text} --- a systematic pattern that could have come out differently under different conditions --- and inference is what tells you whether the pattern you see is more than chance.
+
+**Organizing what you've learned into five steps.** Every hypothesis test you have just learned about --- and every one you will see in the tutorials that follow --- uses the same five pieces: a [**null hypothesis**]{.important-text}, an [**alternative hypothesis**]{.important-text}, a test statistic, a p-value, and a decision based on comparing that p-value to a threshold. Starting in the next tutorial, we will put those pieces into five explicit steps: state $H_0$, state $H_A$, run the test, find the p-value, and decide. The ideas are not new --- you already have them --- but the five-step structure will make the same logic easier to apply consistently, test after test.
 
 
 **What comes next.** The logic you learned across Tutorials 10 and 11
 --- construct a sampling distribution under the null, locate your
-observed result, compute the probability --- underlies every
-hypothesis test in the remaining tutorials. What changes is the
-specific distribution used. For means with large samples, the normal
-distribution applies. For means with small samples, the
-[**t-distribution**]{.important-text} is used instead, with slightly
-wider critical values to account for additional uncertainty. For tests
-involving categorical variables, the
-[**chi-square distribution**]{.important-text} applies. For
-correlation, yet another distribution is used. In every case R
-handles the distribution automatically. Your job is to interpret
-the result correctly --- and you now have the tools to do that.
+observed result, compute the probability --- underlies every hypothesis test in the remaining tutorials. What changes is the specific distribution used. For means with large samples, the normal distribution applies. For means with small samples, the [**t-distribution**]{.important-text} is used instead, with slightly wider critical values to account for additional uncertainty. Tutorial 12 introduces the **chi-square distribution** for relationships between two categorical variables, Tutorial 13 brings in both the t-distribution and F for comparing group means, and Tutorial 14 extends the same logic to correlation. In every case R handles the distribution automatically. Your job is to interpret the result correctly --- and you now have the tools to do that.
 
 ## Submit Your Work
 
@@ -1149,7 +948,7 @@ learnrhash::encoder_ui(
 cat('
 <p class="tutorial-complete"
    role="status"
-   aria-label="Terrific work! You have completed this tutorial and can now apply hypothesis tests and confidence intervals, the core tools of statistical inference.">
+   aria-label="Terrific work! You can now apply hypothesis tests and confidence intervals, the core tools of statistical inference.">
   <span aria-hidden="true">🎉</span>
   Terrific work! You can now apply hypothesis tests and confidence intervals, the core tools of statistical inference.
 </p>
