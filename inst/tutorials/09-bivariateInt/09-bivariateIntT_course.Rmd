@@ -17,14 +17,15 @@ description: >
 
 In this tutorial, you will learn:
 
-* How to visualize the relationship between two interval variables with a scatter plot, using `geom_point()` and `geom_smooth()` from [ggplot2]{.package-name}
+* How to visualize the relationship between two interval variables with a scatter plot, using `ggplot()` from the [ggplot2]{.package-name} package with `geom_point()` and `geom_smooth()`
 * How to summarize the direction and strength of a linear relationship with Pearson's correlation coefficient, using `cor()` from base R
 * How to evaluate whether the pattern in a scatter plot and a correlation coefficient is consistent with a hypothesis
 
 
 ```{r setup, include=FALSE}
 library(learnr)
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
@@ -33,7 +34,7 @@ options(lifecycle_verbosity = "quiet")
 options(cli.num_colors = 1)
 data("counties", package = "QPATutorialsCourse")
 data("qog", package = "QPATutorialsCourse")
-data("world", package = "poliscidata")
+data("world", package = "QPATutorialsCourse")
 ```
 
 
@@ -49,10 +50,10 @@ A [**negative relationship**]{.important-text} means that higher values of one v
 
 [**No linear relationship**]{.important-text} means that higher or lower values of one variable do not systematically go with higher or lower values of the other in a straight-line pattern.
 
-Two tools let us describe these patterns. A [**scatter plot**]{.important-text} shows the relationship visually --- each point represents one case, positioned by its values on the two variables. A [**correlation coefficient**]{.important-text} summarizes the same pattern with a single number that captures both direction and strength.
+Two tools let us describe these patterns. A **scatter plot** shows the relationship visually --- each point represents one case, positioned by its values on the two variables. A **correlation coefficient** summarizes the same pattern with a single number that captures both direction and strength.
 
 
-The most direct way to see the relationship between two interval variables is to plot one against the other. The scatter plot below shows the relationship between **prop_college_grad**, the proportion of adults in a county who graduated from college, and **dem2p_percent**, the percent of the 2016 presidential two-party vote cast for Hillary Clinton. Each dot is one county. The vertical and horizontal lines mark the mean values of each variable, dividing the plot into four quadrants. Four counties are labeled in color --- one in each quadrant.
+The most direct way to see the relationship between two interval variables is to plot one against the other. A [**scatter plot**]{.important-text} does exactly that: each case becomes a point, placed by its value on the explanatory variable along the horizontal axis and its value on the outcome along the vertical. The scatter plot below shows the relationship between **prop_college_grad**, the proportion of a county's residents age 25 or older who have completed a bachelor's degree or higher, and **dem2p_percent**, the percent of the 2016 presidential two-party vote cast for Hillary Clinton. Each dot is one county. The vertical and horizontal lines mark the mean values of each variable, dividing the plot into four quadrants. Four counties are labeled in color --- one in each quadrant.
 
 ```{r scatterplot-clintonvote-by-education-labeled, echo=FALSE, message=FALSE, warning=FALSE, out.width='80%', fig.alt="Scatter plot of U.S. counties showing proportion of adults with a college degree on the x-axis and percent of two-party vote for Clinton in 2016 on the y-axis. Each point represents one county. Vertical and horizontal reference lines mark the means of the two variables, dividing the plot into four quadrants. Four counties are labeled in color: Arlington VA in the upper right (high education, high Clinton vote), Bronx NY in the upper left (low education, high Clinton vote), McDowell WV in the lower left (low education, low Clinton vote), and Williamson TN in the lower right (high education, low Clinton vote)."}
 library(ggplot2)
@@ -209,7 +210,7 @@ When you use `geom_smooth(method = "lm")`, R prints a message saying `geom_smoot
 
 ### Calculating Pearson's $r$ with `cor()`
 
-To calculate Pearson's $r$, use the `cor()` function in base R. Give it `x` for the explanatory variable and `y` for the outcome (as `data$variable`), set `use = "pairwise.complete.obs"` so R uses only cases with observed values on both variables, and set `method = "pearson"` to request Pearson's $r$. Following our course convention, we list the explanatory variable first --- though the order does not affect the result, since the correlation between $x$ and $y$ is always the same as the correlation between $y$ and $x$.
+To calculate Pearson's $r$, use the `cor()` function in base R. Give it the two variables as `x` and `y` (as `data$variable`), set `use = "pairwise.complete.obs"` so R uses only cases with observed values on both variables, and set `method = "pearson"` to request Pearson's $r$. The order of the two variables makes no difference here: a correlation measures how tightly two variables move together, not how one acts on the other, so `cor(x, y)` and `cor(y, x)` return the same number.
 
 We will use this same two-tool structure throughout the tutorial: inspect the scatter plot first, then calculate Pearson's $r$. Let's turn to three examples.
 
@@ -223,7 +224,7 @@ In a comparison of [countries], those with [more effective governments] will ten
 
 The theoretical explanation is that effective governments deliver the public goods that directly sustain population health --- clean water, sanitation, vaccination programs, and reliable healthcare systems --- while less effective governments leave these needs unmet.
 
-The data frame **world** contains the variable **effectiveness**, a measure of government effectiveness where higher values indicate more effective government. It is stored as a numeric variable. It also contains **lifeex_total**, life expectancy at birth, also stored as a numeric variable. **effectiveness** is our explanatory variable and **lifeex_total** is our outcome, so **effectiveness** goes on the `x`-axis and **lifeex_total** goes on the `y`-axis. **effectiveness** is missing for 14 countries and **lifeex_total** for 2, and because a point needs both values to be drawn, 153 of the 167 countries appear in the plot.
+The data frame **world** contains the variable **effectiveness**, a measure of government effectiveness running from 0 to 100 where 100 is most effective. It is stored as a numeric variable. It also contains **lifeex_total**, life expectancy at birth, also stored as a numeric variable. **effectiveness** is our explanatory variable and **lifeex_total** is our outcome, so **effectiveness** goes on the `x`-axis and **lifeex_total** goes on the `y`-axis. **effectiveness** is missing for 14 countries and **lifeex_total** for 2, and because a point needs both values to be drawn, 153 of the 167 countries appear in the plot.
 
 ### Create the Scatter Plot
 
@@ -269,7 +270,7 @@ question("Based on the scatter plot, which statement best describes the relation
 
 ### Calculate Pearson's Correlation
 
-We use the same `cor()` syntax introduced above, with **effectiveness** and **lifeex_total** as the two interval variables whose relationship we want to summarize. Following our course convention, we list **effectiveness** first as `x` and **lifeex_total** second as `y` --- though the numerical result is the same either way.
+We use the same `cor()` syntax introduced above, with **effectiveness** and **lifeex_total** as the two interval variables whose relationship we want to summarize. Either variable can go first; the result is the same.
 
 **Run and observe 3: Calculate Pearson's r for government effectiveness and life expectancy**
 
@@ -358,6 +359,9 @@ grade_this({
   code_lines <- gsub("#[^\r\n]*", "", .user_code)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. Check for a missing + at the end of a line, unmatched parentheses, a label string missing its quotation marks, or a missing %>% in the pipeline.")
   }
@@ -390,10 +394,10 @@ grade_this({
     fail("Add `geom_smooth()` to show the fitted line.")
   }
   if (!grepl("method\\s*=\\s*['\"]lm['\"]", code_no_comments)) {
-    fail('Set method = "lm" inside `geom_smooth()` to draw a straight fitted line.')
+    fail('Set `method = "lm"` inside `geom_smooth()` to draw a straight fitted line.')
   }
   if (!grepl("se\\s*=\\s*FALSE", code_no_comments)) {
-    fail("Set se = FALSE inside `geom_smooth()` to remove the shaded confidence band.")
+    fail("Set `se = FALSE` inside `geom_smooth()` to remove the shaded confidence band.")
   }
 
   pass("Exactly! You filtered out missing values and mapped **wdi_gini** to x and **vdem_polyarchy** to y, matching their roles as explanatory variable and outcome.")
@@ -428,7 +432,7 @@ The scatter plot gave us a visual impression of the relationship. Now we can qua
 
 **Practice 7: Calculate the correlation between income inequality and democracy**
 
-Use **wdi_gini** and **vdem_polyarchy** from the **qog** data frame, following the same `cor()` syntax introduced earlier. The hypothesis tells you which of the two is doing the explaining. Two hints are available. Click "Submit Answer" to check your work.
+Use **wdi_gini** and **vdem_polyarchy** from the **qog** data frame, following the same `cor()` syntax introduced earlier. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r correlation-gini-polyarchy, exercise=TRUE, exercise.cap="Practice 7"}
 cor(x      = qog$___,
@@ -439,11 +443,9 @@ cor(x      = qog$___,
 
 ```{r correlation-gini-polyarchy-hint-1}
 # Hint 1 of 2
-# The order you list the two variables in does not change the number that
-# comes back --- a correlation is symmetric. The course convention is to put
-# the explanatory variable first anyway, so that the calculation itself
-# records what you are claiming about the relationship. The hypothesis above
-# says which of the two is doing the explaining.
+# You need both variables, plus the two arguments that tell cor() how to
+# handle missing values and which correlation to compute. The order you list
+# the two variables in makes no difference to the answer.
 ```
 
 ```{r correlation-gini-polyarchy-hint-2}
@@ -467,17 +469,15 @@ grade_this({
   if (!grepl("cor\\s*\\(", code_no_comments)) {
     fail("Use the `cor()` function to calculate Pearson's r.")
   }
-  if (!grepl("x\\s*=\\s*qog\\$wdi_gini", code_no_comments)) {
-    fail("The result is the same either way, but our course convention is to list the explanatory variable first. The hypothesis says which of the two that is --- put it in `x`.")
-  }
-  if (!grepl("y\\s*=\\s*qog\\$vdem_polyarchy", code_no_comments)) {
-    fail("Following our course convention, the outcome goes in `y` --- the variable the hypothesis says is being explained.")
+  if (!grepl("qog\\\\$wdi_gini", code_no_comments) ||
+      !grepl("qog\\\\$vdem_polyarchy", code_no_comments)) {
+    fail("Include both `qog$wdi_gini` and `qog$vdem_polyarchy` in your `cor()` call. Either order works.")
   }
   if (!grepl("use\\s*=\\s*['\"]pairwise\\.complete\\.obs['\"]", code_no_comments)) {
-    fail('Set use = "pairwise.complete.obs" so `cor()` handles missing values correctly.')
+    fail('Set `use = "pairwise.complete.obs"` so `cor()` handles missing values correctly.')
   }
   if (!grepl("method\\s*=\\s*['\"]pearson['\"]", code_no_comments)) {
-    fail('Set method = "pearson" since we are calculating Pearson\'s r.')
+    fail('Set `method = "pearson"` since we are calculating Pearson\'s r.')
   }
 
   expected <- cor(x = qog$wdi_gini,
@@ -486,10 +486,10 @@ grade_this({
                   method = "pearson")
 
   if (!isTRUE(all.equal(as.numeric(.result), as.numeric(expected), tolerance = 1e-6))) {
-    fail("Check that your `cor()` call uses `qog$wdi_gini` as x, `qog$vdem_polyarchy` as y, use = \"pairwise.complete.obs\", and method = \"pearson\".")
+    fail("Check your two variable names, `use = \"pairwise.complete.obs\"`, and `method = \"pearson\"`. Either order works for the two variables.")
   }
 
-  pass("Well done! **wdi_gini** is assigned to x and **vdem_polyarchy** to y, following the course convention of listing the explanatory variable first.")
+  pass("Well done! **wdi_gini** and **vdem_polyarchy** are both in the call, with the missing-value and method arguments set correctly.")
 })
 ```
 
@@ -529,7 +529,7 @@ In a comparison of [counties], those with [higher wage growth] will have [a high
 
 The theoretical explanation is that voters vote retrospectively: they credit the incumbent party for a strong local economy, so counties experiencing stronger wage growth should be more likely to reward that party's candidate at the polls.
 
-The data frame **counties** contains **wage_growth**, the percent change in average wages from 2008 to 2016, and **dem2p_percent**, the Democratic candidate's percent of the two-party vote in 2016. Both are stored as numeric variables. **wage_growth** is missing for 2 counties while every county has a recorded **dem2p_percent**, so 3,110 of the 3,112 counties appear in the plot.
+The data frame **counties** contains **wage_growth**, the percent change in a county's average weekly wage from the third quarter of 2015 to the third quarter of 2016, and **dem2p_percent**, the Democratic candidate's percent of the two-party vote in 2016. Both are stored as numeric variables. **wage_growth** is missing for 2 counties while every county has a recorded **dem2p_percent**, so 3,110 of the 3,112 counties appear in the plot.
 
 ### Create the Scatter Plot
 
@@ -592,6 +592,9 @@ grade_this({
   code_lines <- gsub("#[^\r\n]*", "", .user_code)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. Check for a missing + at the end of a line, unmatched parentheses, a label string missing its quotation marks, or a missing %>% in the pipeline.")
   }
@@ -625,20 +628,20 @@ grade_this({
     fail("Add `geom_smooth()` to add a fitted line.")
   }
   if (!grepl("method\\s*=\\s*['\"]lm['\"]", code_no_comments)) {
-    fail('Set method = "lm" inside `geom_smooth()` to draw a straight line.')
+    fail('Set `method = "lm"` inside `geom_smooth()` to draw a straight line.')
   }
   if (!grepl("se\\s*=\\s*FALSE", code_no_comments)) {
-    fail("Set se = FALSE inside `geom_smooth()` to remove the shaded band.")
+    fail("Set `se = FALSE` inside `geom_smooth()` to remove the shaded band.")
   }
   layer_geoms <- sapply(.result$layers, function(l) class(l$geom)[1])
   pt <- which(layer_geoms == "GeomPoint")
   sm <- which(layer_geoms == "GeomSmooth")
 
   if (length(pt) == 0 || !identical(.result$layers[[pt[1]]]$aes_params$colour, "steelblue")) {
-    fail("The prompt asks for steelblue points --- set the color inside `geom_point()`.")
+    fail("The prompt asks for steelblue points --- set `color = \"steelblue\"` inside `geom_point()`.")
   }
   if (length(sm) == 0 || !identical(.result$layers[[sm[1]]]$aes_params$colour, "darkorange")) {
-    fail("The prompt asks for a darkorange fitted line --- set the color inside `geom_smooth()`.")
+    fail("The prompt asks for a darkorange fitted line --- set `color = \"darkorange\"` inside `geom_smooth()`.")
   }
   if (!grepl("labs\\s*\\(", code_no_comments)) {
     fail("Add `labs()` to give the plot a title, axis labels, and caption.")
@@ -646,16 +649,16 @@ grade_this({
 
   plot_labels <- .result$labels
   if (!identical(plot_labels$title, "Wage Growth and Democratic Vote Percentage")) {
-    fail('Use "Wage Growth and Democratic Vote Percentage" as the title inside `labs()`.')
+    fail('Use `title = "Wage Growth and Democratic Vote Percentage"` inside `labs()`.')
   }
   if (!identical(plot_labels$x, "Wage Growth")) {
-    fail('Set x = "Wage Growth" inside `labs()`.')
+    fail('Set `x = "Wage Growth"` inside `labs()`.')
   }
   if (!identical(plot_labels$y, "Percent of Two-Party Vote")) {
-    fail('Set y = "Percent of Two-Party Vote" inside `labs()`.')
+    fail('Set `y = "Percent of Two-Party Vote"` inside `labs()`.')
   }
   if (!identical(plot_labels$caption, "Source: Linn, Nagler, Zilinsky")) {
-    fail('Set caption = "Source: Linn, Nagler, Zilinsky" inside `labs()`.')
+    fail('Set `caption = "Source: Linn, Nagler, Zilinsky"` inside `labs()`.')
   }
 
   pass("Good work! **wage_growth** is mapped to x and **dem2p_percent** is mapped to y, with missing values filtered out and the plot properly labeled and cited.")
@@ -698,8 +701,8 @@ Use **wage_growth** and **dem2p_percent** from the **counties** data frame, foll
 
 ```{r correlation-wagegrowth-demvoteshare-hint-1}
 # Hint 1 of 3
-# Which variable is explanatory and which is the outcome? They go in the same
-# x/y order you used for the scatter plot.
+# This call takes the same four arguments as the two earlier examples. Either
+# order works for the two variables --- a correlation is symmetric.
 ```
 
 ```{r correlation-wagegrowth-demvoteshare-hint-2}
@@ -711,8 +714,7 @@ Use **wage_growth** and **dem2p_percent** from the **counties** data frame, foll
 ```{r correlation-wagegrowth-demvoteshare-hint-3}
 # Hint 3 of 3
 # The hardest piece is remembering all four arguments and their values:
-# x is the explanatory variable, written as counties$variable
-# y is the outcome variable, written as counties$variable
+# x and y are the two variables, each written as counties$variable
 # use = "pairwise.complete.obs" handles the missing values
 # method = "pearson" requests Pearson's r
 ```
@@ -731,17 +733,15 @@ grade_this({
   if (!grepl("cor\\s*\\(", code_no_comments)) {
     fail("Use the `cor()` function to calculate Pearson's r.")
   }
-  if (!grepl("x\\s*=\\s*counties\\$wage_growth", code_no_comments)) {
-    fail("The result is the same either way, but our course convention is to list the explanatory variable first. The hypothesis says which of the two that is --- put it in `x`.")
-  }
-  if (!grepl("y\\s*=\\s*counties\\$dem2p_percent", code_no_comments)) {
-    fail("Following our course convention, the outcome goes in `y` --- the variable the hypothesis says is being explained.")
+  if (!grepl("counties\\\\$wage_growth", code_no_comments) ||
+      !grepl("counties\\\\$dem2p_percent", code_no_comments)) {
+    fail("Include both `counties$wage_growth` and `counties$dem2p_percent` in your `cor()` call. Either order works.")
   }
   if (!grepl("use\\s*=\\s*['\"]pairwise\\.complete\\.obs['\"]", code_no_comments)) {
-    fail('Set use = "pairwise.complete.obs" so `cor()` handles missing values correctly.')
+    fail('Set `use = "pairwise.complete.obs"` so `cor()` handles missing values correctly.')
   }
   if (!grepl("method\\s*=\\s*['\"]pearson['\"]", code_no_comments)) {
-    fail('Set method = "pearson" since we are calculating Pearson\'s r.')
+    fail('Set `method = "pearson"` since we are calculating Pearson\'s r.')
   }
 
   expected <- cor(x = counties$wage_growth,
@@ -750,10 +750,10 @@ grade_this({
                   method = "pearson")
 
   if (!isTRUE(all.equal(as.numeric(.result), as.numeric(expected), tolerance = 1e-6))) {
-    fail("Check that your `cor()` call uses `counties$wage_growth` as x, `counties$dem2p_percent` as y, use = \"pairwise.complete.obs\", and method = \"pearson\".")
+    fail("Check your two variable names, `use = \"pairwise.complete.obs\"`, and `method = \"pearson\"`. Either order works for the two variables.")
   }
 
-  pass("Correct! **wage_growth** is assigned to x and **dem2p_percent** is assigned to y, following the course convention of listing the explanatory variable first.")
+  pass("Correct! **wage_growth** and **dem2p_percent** are both in the call, with the missing-value and method arguments set correctly.")
 })
 ```
 
@@ -842,6 +842,8 @@ question("Suppose x is a country's level of press freedom and y is the number of
          message = "This is the same logic from earlier in the tutorial: when higher values of one variable systematically occur with lower values of the other, the correlation is negative. Greater press freedom goes with fewer imprisoned journalists, so we'd expect r to be negative."),
   answer("Zero, because press freedom and imprisonment of journalists are unrelated",
          message = "Press freedom and the imprisonment of journalists are closely related --- that's exactly why we'd expect a relationship, just a negative one rather than no relationship at all."),
+  answer("Positive, because both variables measure how prominent the press is in a country",
+         message = "Both variables do involve the press, but they measure opposing things: one counts how free journalists are to work, the other counts how many have been jailed for it. Variables about the same subject can still move in opposite directions, and the sign of a correlation follows the direction they move, not the topic they share."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Picture two countries, one with a free press and one without. Which would you expect to have more journalists in prison?"
@@ -960,7 +962,7 @@ With this tutorial, you have completed the bivariate description sequence that b
 
 Two interval variables can be related in three ways. A [**positive relationship**]{.important-text} means that higher values of one tend to go with higher values of the other. A [**negative relationship**]{.important-text} means that higher values of one tend to go with lower values of the other. [**No linear relationship**]{.important-text} means that neither tendency holds --- knowing one variable tells you little about the other. The name for this kind of pattern is [**correlation**]{.important-text}, and the two tools below are how we describe it.
 
-[**Scatter plots**]{.important-text} are the visual tool for describing the relationship between two interval variables. Build one with `ggplot()`, mapping the explanatory variable to `x` and the outcome variable to `y` inside `aes()`. Add `geom_point()` to draw each case as a point and `geom_smooth(method = "lm", se = FALSE)` to add a straight fitted line without the shaded band. Before plotting, check both variables for missing values and use `filter()` only on the ones that have any --- a variable with nothing missing needs no condition.
+The [**scatter plot**]{.important-text} is the visual tool for describing the relationship between two interval variables. Build one with `ggplot()`, mapping the explanatory variable to `x` and the outcome variable to `y` inside `aes()`. Add `geom_point()` to draw each case as a point and `geom_smooth(method = "lm", se = FALSE)` to add a straight fitted line without the shaded band. Before plotting, check both variables for missing values and use `filter()` only on the ones that have any --- a variable with nothing missing needs no condition.
 
 [**Pearson's correlation coefficient**]{.important-text}, $r$, summarizes the scatter plot's pattern in a single number: its sign gives the direction (positive means the variables move together; negative means they move in opposite directions), and its size gives the strength (below about .3 is weak; from about .3 to .6 is moderate; above about .6 is strong). Calculate it with `cor(x = data$var1, y = data$var2, use = "pairwise.complete.obs", method = "pearson")`. These thresholds are a starting point --- always report both sign and size rather than mechanically applying cutoffs.
 

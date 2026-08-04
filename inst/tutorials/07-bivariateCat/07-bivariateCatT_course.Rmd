@@ -26,7 +26,8 @@ In this tutorial, you will learn:
 
 ```{r setup, include=FALSE}
 library(learnr)
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 library(descr)
 library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -35,7 +36,7 @@ knitr::opts_chunk$set(error = TRUE)
 options(lifecycle_verbosity = "quiet")
 options(cli.num_colors = 1)
 data("counties", package = "QPATutorialsCourse")
-data("world", package = "poliscidata")
+data("world", package = "QPATutorialsCourse")
 ```
 
 
@@ -53,19 +54,23 @@ This tutorial covers the first case. Tutorials 8 and 9 cover the other two.
 
 ## Describing the Relationship Between Two Nominal or Ordinal Variables
 
+Describing a relationship means asking how one variable changes across values of another, so the first step is deciding which variable plays which role. The [**explanatory variable**]{.important-text} is the one whose categories you compare across. The [**outcome variable**]{.important-text} is the one whose distribution you examine within each of those categories. Which is which comes from the hypothesis you are evaluating rather than from anything in the data --- the same two variables can trade roles under a different question.
+
+You may have met these under other names. The explanatory variable is also called the independent variable, and the outcome variable the dependent variable. These tutorials use explanatory and outcome throughout, because those names say what each variable does in the analysis: one explains, the other is the outcome being explained.
+
 We use a [**cross-tabulation**]{.important-text} --- or cross-tab --- to describe the relationship between two categorical variables. A cross-tab is a table that shows the distribution of cases across values of the outcome variable for cases that have different values on the explanatory variable. You've seen tables like this in textbooks and other contexts many times, even if you haven't called them cross-tabs before.
 
 Each row of the table presents the different values the outcome variable can take, and each column represents the values the explanatory variable can take. Each cell gives the number of cases with that combination of row and column values. The margins give the row and column totals, and the bottom-right corner gives the total number of cases. A cross-tab may also report proportions calculated out of the row total, the column total, or all cases in the table. Which representation is most useful depends on what we want to compare --- and for evaluating hypotheses, we will almost always want column proportions.
 
 The image below shows a cross-tab of the relationship between party identification and attitudes toward gay and lesbian relationships, with column proportions. Take a moment to orient yourself before reading the annotations --- find the row totals on the right, the column totals at the bottom, and try reading one cell on your own.
 
-```{r crosstab-gay-support-by-party, echo=FALSE, out.width='70%', fig.alt='Annotated table showing a crosstabulation of support for gay marriage by party identification, with colored arrows explaining how to interpret specific cells. Rows list three positions: allowing gay and lesbian couples to legally marry, allowing civil unions but not marriage, and no legal recognition. Columns show respondents who identify as Democrat, Republican, Independent, and the overall total. The annotations highlight examples including the count of Democrats who support legal marriage, the percent of Independents who oppose legal recognition, the total number and percent supporting civil unions only, the total number of Democrats, and the overall sample size of respondents.'}
+```{r crosstab-gay-support-by-party, echo=FALSE, out.width='70%', fig.alt='Annotated table showing a crosstabulation of support for gay marriage by party identification, with annotation arrows explaining how to interpret specific cells. Rows list three positions: allowing gay and lesbian couples to legally marry, allowing civil unions but not marriage, and no legal recognition. Columns show respondents who identify as Democrat, Republican, Independent, and the overall total. The annotations highlight examples including the count of Democrats who support legal marriage, the percent of Independents who oppose legal recognition, the total number and percent supporting civil unions only, the total number of Democrats, and the overall sample size of respondents.'}
 knitr::include_graphics("images/Crosstab2.jpg")
 ```
 
 Reading the table: 1,196 respondents, or 51.8% *of Democratic respondents*, supported legal marriage; 385 respondents, or 21.8% *of Independents*, opposed any legal recognition; there were 2,309 Democratic respondents in total; and 5,492 respondents answered both questions. Notice that each percentage is calculated within its column --- that is what makes cross-tabs useful for comparing groups.
 
-Cross-tabs are useful because they let us compare how common different outcomes are across groups. When the explanatory variable is in the columns and the outcome variable is in the rows, column proportions answer the question: within each category of the explanatory variable, what proportion of cases falls into each outcome category? That comparison helps us see whether the pattern in the data is consistent with what a hypothesis predicts.
+Cross-tabs are useful because they let us compare how common different outcomes are across groups. When the explanatory variable is in the columns and the outcome variable is in the rows, [**column proportions**]{.important-text} answer the question: within each category of the explanatory variable, what proportion of cases falls into each outcome category? That comparison helps us see whether the pattern in the data is consistent with what a hypothesis predicts.
 
 ### The `CrossTable()` Function
 
@@ -85,18 +90,29 @@ Rule 3: We report column proportions, which show how the outcome is distributed 
 
 Four more arguments control what appears inside each cell, and they matter because the default is unreadable. Left alone, `CrossTable()` prints five numbers in every cell: the count, the row proportion, the column proportion, the total proportion, and a chi-square contribution, which belongs to a hypothesis test you will meet in Tutorial 12. We keep two of the five. Setting `prop.c = TRUE` keeps the column proportion that Rule 3 calls for, and setting `prop.r = FALSE`, `prop.t = FALSE`, and `prop.chisq = FALSE` switches off the rest, leaving each cell with a count and the proportion of its column that falls in that row. A key at the top of the output lists whichever numbers you have kept, so you can always check which proportion you are reading.
 
+Putting those together, every cross-tab in this tutorial has the same shape. All six arguments are written out each time, because the four you set to `FALSE` are what keep the output readable.
+
+**Example code:**
+
+```{r crosstable-template, exercise=FALSE, eval=FALSE}
+CrossTable(x = yourdata$outcome_variable,
+           y = yourdata$explanatory_variable,
+           prop.r = FALSE,
+           prop.c = TRUE,
+           prop.t = FALSE,
+           prop.chisq = FALSE)
+```
+
 The three examples that follow put these rules to work. The first two ask about American electoral politics, using counties, and the third is cross-national, using countries. A final section returns to all three and shows how to visualize the same patterns with grouped bar plots.
 
 
 ## Are Rural Counties More Likely to Support Trump?
 
-Why might where a county sits on the urban--rural continuum matter for how it votes?
+One of the most repeated claims after the 2016 election was that rural voters delivered Trump's victory. Life in rural and urban America differs in what people do for work, what services are within reach, and which policies feel urgent --- and Trump campaigned hard on issues aimed squarely outside the cities: the loss of manufacturing jobs, the trade agreements he blamed for that loss, and federal regulation of coal and other extractive industries. The theoretical explanation is that those appeals had the most purchase where their subject matter was closest to daily life, in counties whose economies rest on manufacturing, mining and agriculture. Is the evidence consistent with that argument?
 
 ::: {.hypothesis}
 In a comparison of [counties], those that are [more rural] will be more likely to [give a majority of their support to Trump] than will those that are [less rural (more urban)].
 :::
-
-The theoretical explanation is that rural and urban counties often differ in their economic conditions, social composition, and political priorities. If Donald Trump's campaign was more successful in rural areas, then counties that are more rural should be more likely to have given Trump a majority of their votes.
 
 The data frame **counties** contains a variable called **rural**, a 3-category ordinal variable where 0 represents more urban counties, 1 represents counties that are neither urban nor rural, and 2 represents more rural counties. It also contains a nominal variable called **TrumpMajority**, which takes a value of 0 if Hillary Clinton won a majority of the vote and 1 if Donald Trump won a majority of the vote. Neither variable has any missing values, so all 3,112 counties appear in the table. We will use these variables to create our first cross-tab.
 
@@ -212,13 +228,11 @@ question("Which statement best describes the cross-tab evidence on the hypothesi
 
 ## Are Majority-White Counties More Likely to Support Trump?
 
-Why might the racial composition of a county shape the way it votes?
+Before the 1960s, Black voters leaned Democratic in the North while white southerners were the party's most reliable bloc. The Civil Rights Act and the Voting Rights Act broke that coalition apart, and within a decade Black voters had become the most consistently Democratic group in the country while the white South moved the other way. The theoretical explanation is that this realignment made race a durable dividing line in American elections. If it holds, the line should still be visible in 2016 --- an election in which immigration and racial grievance were unusually prominent, and in which both campaigns targeted racially distinct constituencies. Is the evidence consistent with that argument?
 
 ::: {.hypothesis}
 In a comparison of [counties], those that are [majority-white] will be more likely to [give a majority of their support to Trump] than will those that are [not majority-white].
 :::
-
-The theoretical explanation is that racial composition may be associated with local political context, party coalitions, and the social environments in which campaigns are received. If Donald Trump's campaign was more successful in majority-white counties, then majority-white counties should be more likely than other counties to have given Trump a majority of their votes.
 
 The data frame **counties** contains a nominal variable called **racial_majority** that takes the character values "Black Majority," "Hispanic Majority," "Other/No Majority," and "White Majority." Like **TrumpMajority**, it has no missing values, so again all 3,112 counties are included. We will use **racial_majority** as the explanatory variable and **TrumpMajority** as the outcome variable.
 
@@ -268,22 +282,22 @@ grade_this({
     fail("Use the `CrossTable()` function to create the cross-tab.")
   }
   if (!grepl("x\\s*=\\s*counties\\$TrumpMajority", code_no_comments)) {
-    fail("The outcome variable goes in the x argument, so it appears in the rows. Which of the two does the hypothesis treat as the outcome?")
+    fail("The outcome variable goes in the `x` argument, so it appears in the rows. Which of the two does the hypothesis treat as the outcome?")
   }
   if (!grepl("y\\s*=\\s*counties\\$racial_majority", code_no_comments)) {
-    fail("The explanatory variable goes in the y argument, so it appears in the columns.")
+    fail("The explanatory variable goes in the `y` argument, so it appears in the columns.")
   }
   if (!grepl("prop\\.c\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Set prop.c = TRUE to show column proportions.")
+    fail("Set `prop.c = TRUE` to show column proportions.")
   }
   if (!grepl("prop\\.r\\s*=\\s*FALSE", code_no_comments)) {
-    fail("Set prop.r = FALSE to suppress row proportions.")
+    fail("Set `prop.r = FALSE` to suppress row proportions.")
   }
   if (!grepl("prop\\.t\\s*=\\s*FALSE", code_no_comments)) {
-    fail("Set prop.t = FALSE to suppress total proportions.")
+    fail("Set `prop.t = FALSE` to suppress total proportions.")
   }
   if (!grepl("prop\\.chisq\\s*=\\s*FALSE", code_no_comments)) {
-    fail("Set prop.chisq = FALSE to suppress chi-square contributions and reduce clutter.")
+    fail("Set `prop.chisq = FALSE` to suppress chi-square contributions and reduce clutter.")
   }
 
   pass("Well done! Your cross-tab puts **TrumpMajority** in the rows as the outcome, **racial_majority** in the columns as the explanatory variable, and reports column proportions only.")
@@ -346,15 +360,15 @@ question("Which statement best describes whether the cross-tab is consistent wit
 
 ## Are Dictatorships Less Likely to Have High Gender Equality?
 
-Why might a country's form of government matter for the status of women?
+Countries differ enormously in how much their governments answer to the people they govern, and that difference has been linked to everything from public spending to civil liberties. The theoretical explanation for extending it to the status of women is that democratic institutions create pressure for equal rights, representation and policy responsiveness, while dictatorships face far less of it. Are dictatorships less likely than democracies to have a high degree of gender equality?
 
 ::: {.hypothesis}
 In a comparison of [countries], those that are [dictatorships] will be less likely to [have a high degree of gender equality] than will those that are [not dictatorships].
 :::
 
-The theoretical explanation is that democratic institutions may create more pressure for equal rights, representation, and policy responsiveness, while dictatorships may face fewer pressures to protect gender equality. For that reason, we might expect dictatorships to be less likely than democratic regimes to have high levels of gender equality.
-
 The data frame **world** contains the nominal variable **regime_type3**, which takes the values "Dictatorship," "Parliamentary democ," and "Presidential democ." It is stored as a factor. It also contains the ordinal variable **gender_equal3**, which may be "Low," "Medium," or "High." It is also stored as a factor. Both variables have substantial missing values: **regime_type3** is missing for 34 of the 167 countries and **gender_equal3** for 95. Only 61 countries have a recorded value for both, so that is the number a cross-tab of the two will describe. We will use **regime_type3** as the explanatory variable and **gender_equal3** as the outcome variable.
+
+It is worth knowing how `CrossTable()` handles the rest. It drops any country missing a value on either variable, and it does so silently: there is no NA row, no NA column, and no warning. The only sign is the total. A cross-tab of these two variables will report 61 at the bottom right rather than 167, and unless you know the counts going in, nothing on screen tells you that 106 countries have gone missing. This is why we check the counts before building the table rather than after.
 
 ### Create the Cross-tab
 
@@ -405,22 +419,22 @@ grade_this({
     fail("Use the `CrossTable()` function to create the cross-tab.")
   }
   if (!grepl("x\\s*=\\s*world\\$gender_equal3", code_no_comments)) {
-    fail("The outcome variable goes in the x argument, so it appears in the rows. Which of the two does the hypothesis treat as the outcome?")
+    fail("The outcome variable goes in the `x` argument, so it appears in the rows. Which of the two does the hypothesis treat as the outcome?")
   }
   if (!grepl("y\\s*=\\s*world\\$regime_type3", code_no_comments)) {
-    fail("The explanatory variable goes in the y argument, so it appears in the columns.")
+    fail("The explanatory variable goes in the `y` argument, so it appears in the columns.")
   }
   if (!grepl("prop\\.c\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Set prop.c = TRUE to show column proportions.")
+    fail("Set `prop.c = TRUE` to show column proportions.")
   }
   if (!grepl("prop\\.r\\s*=\\s*FALSE", code_no_comments)) {
-    fail("Set prop.r = FALSE to suppress row proportions.")
+    fail("Set `prop.r = FALSE` to suppress row proportions.")
   }
   if (!grepl("prop\\.t\\s*=\\s*FALSE", code_no_comments)) {
-    fail("Set prop.t = FALSE to suppress total proportions.")
+    fail("Set `prop.t = FALSE` to suppress total proportions.")
   }
   if (!grepl("prop\\.chisq\\s*=\\s*FALSE", code_no_comments)) {
-    fail("Set prop.chisq = FALSE to suppress chi-square contributions and reduce clutter.")
+    fail("Set `prop.chisq = FALSE` to suppress chi-square contributions and reduce clutter.")
   }
 
   pass("Exactly! Your cross-tab puts **gender_equal3** in the rows as the outcome, **regime_type3** in the columns as the explanatory variable, and reports column proportions only.")
@@ -436,7 +450,7 @@ Use the column proportions in the table to answer the next question.
 
 ```{r quiz-identify-proportions-gender-regime, echo=FALSE}
 question("Which of the following statements are true? Select all that apply.",
-  correct = "Right. Both statements correctly describe column proportions.",
+  correct = "Right. One statement reads down a column and the other reads across a row, and both quote column proportions.",
   answer("Of the countries with a regime type of Dictatorship, the level of gender equality with the highest proportion of cases is low (0.625)",
          correct = TRUE,
          message = "The Dictatorship column shows that 0.625 of dictatorships have low gender equality --- the highest proportion in that column."),
@@ -445,8 +459,8 @@ question("Which of the following statements are true? Select all that apply.",
   answer("Parliamentary democracies have the highest proportion of countries with high gender equality",
          correct = TRUE,
          message = "Looking across the High row, the Parliamentary democracy column has the highest proportion. Parliamentary democracies are the most likely regime type to have high gender equality."),
-  answer("Presidential democracies have the highest proportion of countries with medium gender equality",
-         message = "That claim reads down the Presidential democracy column to find its largest category. The table does not support it, and it is a different kind of statement from the one above: reading down a column tells you how one regime type is distributed, while reading across a row compares regime types to each other."),
+  answer("Of all 61 countries in the table, 0.552 have high gender equality",
+         message = "This would be a total proportion calculated out of every country in the table. The value 0.552 is a column proportion within the Parliamentary democracy column --- it is the share of parliamentary democracies with high gender equality, not the share of all countries."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Two of the four are true. For each one, ask whether the proportion quoted is a share of its column or of something else."
@@ -467,7 +481,7 @@ question("Which statement best describes whether the cross-tab is consistent wit
   correct = "Right. The pattern is consistent with the hypothesis.",
   answer("The pattern is consistent with the hypothesis --- dictatorships have a lower proportion with high gender equality than both democratic regime types",
          correct = TRUE,
-         message = "Only 0.062 of dictatorships have high gender equality, compared to 0.200 of presidential democracies and 0.448 of parliamentary democracies. Dictatorships are less likely to have high gender equality than either type of democracy, consistent with the hypothesis."),
+         message = "Only 0.062 of dictatorships have high gender equality, compared to 0.250 of presidential democracies and 0.552 of parliamentary democracies. Dictatorships are less likely to have high gender equality than either type of democracy, consistent with the hypothesis."),
   answer("The pattern is not consistent with the hypothesis --- some dictatorships do have high gender equality",
          message = "The hypothesis does not require that zero dictatorships have high gender equality. It predicts that dictatorships are less likely to have high gender equality than non-dictatorships."),
   answer("The cross-tab is uninformative because the columns have different numbers of countries",
@@ -493,7 +507,7 @@ The plot follows the same organization as the cross-tab: the outcome variable go
 
 **Run and observe 11: Create a side-by-side bar plot**
 
-```{r barplot-dodge-trump-majority-rural, exercise=TRUE, exercise.cap="Run and observe 11", fig.alt="Grouped bar chart of US counties. The x-axis has two positions, one for counties where Clinton won a majority and one for counties where Trump won, and within each position three bars of different colors stand side by side for the three rurality categories. The y-axis is labeled count. The three bars in the Trump group are all far taller than the three in the Clinton group."}
+```{r barplot-dodge-trump-majority-rural, exercise=TRUE, exercise.cap="Run and observe 11", fig.alt="Grouped bar chart of US counties. The x-axis has two positions, one for counties where Clinton won a majority and one for counties where Trump won, and within each position three bars stand side by side for urban counties, counties that are neither urban nor rural, and rural counties. The y-axis is labeled count. The three bars in the Trump group are all far taller than the three in the Clinton group."}
 library(ggplot2)
 ggplot(data = counties, mapping = aes(x = factor(TrumpMajority), fill = factor(rural))) +
   geom_bar(position = "dodge") 
@@ -508,13 +522,13 @@ The count plot is a useful starting point, but counts are misleading when the gr
 Two new arguments inside `geom_bar()` make this work:
 
 - **`y = after_stat(prop)`** inside `aes()` transforms the y-axis from raw counts to proportions. The `after_stat()` function computes a new quantity from the data after the bars have been tallied. Setting it to `prop` asks ggplot to divide each bar's count by the group total rather than showing the raw count.
-- **`group = factor(rural)`** tells ggplot which variable to use when calculating proportions. Without it, ggplot would calculate proportions out of the entire dataset, so each bar would show what fraction of all counties falls in that outcome category --- not what fraction within each rurality group. Setting `group = factor(rural)` makes the Clinton and Trump bars within each rurality group add to 1, giving the visual equivalent of the column proportions in the cross-tab.
+- **`group = factor(rural)`** tells ggplot which variable to use when calculating proportions. Without it, ggplot would calculate proportions out of the entire data set, so each bar would show what fraction of all counties falls in that outcome category --- not what fraction within each rurality group. Setting `group = factor(rural)` makes the Clinton and Trump bars within each rurality group add to 1, giving the visual equivalent of the column proportions in the cross-tab.
 
 Both arguments go inside a second `aes()` call within `geom_bar()`, not in the main `ggplot()` call. They belong here because they describe how the bars are computed, not how the overall data are mapped.
 
 **Run and observe 12: Plot proportions instead of frequencies**
 
-```{r barplot-proportions-trump-majority-rural, exercise=TRUE, exercise.cap="Run and observe 12", fig.alt="The same grouped bar chart, now with a y-axis running from 0 to 1 and labeled prop. Within each rurality color, the Clinton bar and the Trump bar together reach 1. The Trump bars rise from about 0.74 for urban counties to about 0.93 for rural counties, and the Clinton bars fall correspondingly."}
+```{r barplot-proportions-trump-majority-rural, exercise=TRUE, exercise.cap="Run and observe 12", fig.alt="The same grouped bar chart, now with a y-axis running from 0 to 1 and labeled prop. Within each rurality category, the Clinton bar and the Trump bar together reach 1. The Trump bars rise from about 0.74 for urban counties to about 0.93 for rural counties, and the Clinton bars fall correspondingly."}
 ggplot(data = counties, mapping = aes(x = factor(TrumpMajority), fill = factor(rural))) +
   geom_bar(position = "dodge", mapping = aes(y = after_stat(prop), group = factor(rural))) 
 ```
@@ -634,6 +648,9 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
+  if (is.null(.result)) {
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a ggplot call and that nothing is assigned to an object instead of being displayed.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. Check for a missing + at the end of a line, unmatched parentheses, or a label string missing its quotation marks.")
   }
@@ -643,38 +660,50 @@ grade_this({
   fill_expr <- rlang::as_label(plot_mapping$fill)
 
   if (!grepl("TrumpMajority", x_expr)) {
-    fail("Map the outcome variable to the x-axis inside `aes()` --- the same one that went in the rows of the cross-tab.")
+    fail("Map the outcome variable to the `x`-axis inside `aes()` --- the same one that went in the rows of the cross-tab.")
   }
   if (!grepl("^(as\\.)?factor\\s*\\(\\s*TrumpMajority\\s*\\)$", x_expr)) {
     fail("Wrap it in `factor()`: **TrumpMajority** is stored as a number, so without the wrapper ggplot treats 0 and 1 as points on a continuous scale rather than as two categories.")
   }
   if (!identical(fill_expr, "racial_majority")) {
-    fail("Map the explanatory variable to the fill aesthetic inside `aes()`.")
+    fail("Map the explanatory variable to the `fill` aesthetic inside `aes()`.")
   }
-  if (!grepl("geom_bar\\s*\\(", code_no_comments)) {
+  bar_layers <- Filter(function(l) inherits(l$geom, "GeomBar"), .result$layers)
+  if (length(bar_layers) == 0) {
     fail("Use `geom_bar()` to create the bar plot.")
   }
-  if (!grepl("position\\s*=\\s*['\"]dodge['\"]", code_no_comments)) {
-    fail('Add position = "dodge" inside `geom_bar()` to place bars side-by-side.')
+  bar_layer <- bar_layers[[1]]
+  bar_pos <- class(bar_layer$position)[1]
+  bar_map <- bar_layer$mapping
+  bar_y <- if (is.null(bar_map$y)) "" else rlang::as_label(bar_map$y)
+  bar_group <- if (is.null(bar_map$group)) "" else rlang::as_label(bar_map$group)
+  if (!identical(bar_pos, "PositionDodge")) {
+    fail('Add `position = "dodge"` inside `geom_bar()` to place bars side-by-side.')
   }
-  if (!grepl("y\\s*=\\s*after_stat\\s*\\(\\s*prop\\s*\\)", code_no_comments)) {
-    fail("Set y = `after_stat(prop)` inside the `aes()` call within `geom_bar()` to plot proportions.")
+  if (!grepl("after_stat\\s*\\(\\s*prop\\s*\\)", bar_y)) {
+    fail("Set `y = after_stat(prop)` inside the `aes()` call within `geom_bar()` to plot proportions.")
   }
-  if (!grepl("group\\s*=\\s*racial_majority", code_no_comments)) {
-    fail("Set group = **racial_majority** inside the `aes()` call within `geom_bar()` so proportions are calculated within each racial majority category.")
+  if (!identical(bar_group, "racial_majority")) {
+    fail("Set `group = racial_majority` inside the `aes()` call within `geom_bar()` so proportions are calculated within each racial majority category.")
   }
 
   # Check plot labels from object
   plot_labels <- .result$labels
   if (!grepl("Clinton", code_no_comments) || !grepl("Trump", code_no_comments)) {
-    fail('Add `scale_x_discrete()` with both "Clinton" and "Trump" as labels to replace the 0 and 1 x-axis values.')
+    fail('Add `scale_x_discrete()` with both "Clinton" and "Trump" as labels to replace the 0 and 1 `x`-axis values.')
   }
   if (!grepl("Black", code_no_comments) || !grepl("Hispanic", code_no_comments) ||
       !grepl("Other", code_no_comments) || !grepl("White", code_no_comments)) {
     fail('Add `scale_fill_discrete()` with all four racial majority category labels: "Black", "Hispanic", "Other/No", and "White".')
   }
+  fill_label_order <- regmatches(code_no_comments,
+                                 gregexpr("Black|Hispanic|Other|White", code_no_comments))[[1]]
+  if (length(fill_label_order) < 4 ||
+      !identical(fill_label_order[1:4], c("Black", "Hispanic", "Other", "White"))) {
+    fail('The four legend labels must be listed in the order the categories are stored --- "Black", "Hispanic", "Other/No", then "White". `scale_fill_discrete()` matches labels to positions, not to values, so a different order relabels the bars.')
+  }
   if (!identical(plot_labels$caption, "Source: Linn, Nagler, Zilinsky")) {
-    fail('Set caption = "Source: Linn, Nagler, Zilinsky" inside `labs()`.')
+    fail('Set `caption = "Source: Linn, Nagler, Zilinsky"` inside `labs()`.')
   }
 
   pass("Excellent! Your plot compares Clinton- and Trump-majority outcomes within each racial majority category, with the bars side by side and every axis and group labeled.")
@@ -697,9 +726,11 @@ ggplot(data = world, mapping = aes(x = gender_equal3, fill = regime_type3)) +
   geom_bar(position = "dodge", mapping = aes(y = after_stat(prop), group = regime_type3))
 ```
 
-The plot has four positions on the x-axis and four entries in the legend, not three of each. The extra ones are labelled NA, and they are not categories. The fourth x position holds the countries with no gender-equality rating; the fourth legend entry holds the countries with no recorded regime type. ggplot has drawn both as though "missing" were a level of gender equality and a form of government. They are not small, either: among dictatorships, the tallest bar of all is the one standing where no rating was recorded. Nothing is wrong with the code --- the plot is a faithful picture of a data frame you have not yet filtered.
+The plot has four positions on the x-axis and four entries in the legend, not three of each. The extra ones are labeled NA, and they are not categories. The fourth x position holds the countries with no gender-equality rating; the fourth legend entry holds the countries with no recorded regime type. ggplot has drawn both as though "missing" were a level of gender equality and a form of government. They are not small, either: among dictatorships, the tallest bar of all is the one standing where no rating was recorded. Nothing is wrong with the code --- the plot is a faithful picture of a data frame you have not yet filtered.
 
-This is the first plot in the tutorial that needs a `filter()` step. Neither variable in the two county examples had a missing value, so filtering them would have removed nothing. You have just seen what happens without one. You have used `filter()` in every tutorial since Tutorial 4, but always with a single condition, and always written out for you. Two things are new here. First, you write it yourself. Second, it needs two conditions rather than one, because two variables have gaps --- and `filter()` takes them separated by a comma, keeping only the rows that satisfy every condition you give it. Each condition names one variable and keeps the rows where that variable is not missing, which is `!is.na()` applied to it.
+This is the first plot in the tutorial that needs a `filter()` step. Neither variable in the two county examples had a missing value, so filtering them would have removed nothing. You have just seen what happens without one. You have used `filter()` in every tutorial since Tutorial 4, but always with a single condition, and always written out for you.
+
+Two things are new here. First, you write it yourself. Second, it needs two conditions rather than one, because two variables have gaps --- and `filter()` takes them separated by a comma, keeping only the rows that satisfy every condition you give it. Each condition names one variable and keeps the rows where that variable is not missing, which is `!is.na()` applied to it.
 
 Two details remain before you can build the finished plot. **gender_equal3** needs no attention on either: it is stored as a factor whose levels already run Low, Medium, High, so the bars will appear in rank order, and its values are already readable, so they need no replacement labels. **regime_type3** is different on the second count --- its stored values are abbreviated, so you will replace them in the legend, and replacement labels are matched positionally. Apply the rule you just met: **regime_type3** is a factor, so `levels()` returns its categories in their stored order. Check that order before writing the labels.
 
@@ -776,13 +807,16 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
+  if (is.null(.result)) {
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a ggplot call and that nothing is assigned to an object instead of being displayed.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
   }
-  if (!grepl("is\\.na.*gender_equal3", code_no_comments)) {
+  if (!grepl("!\\s*is\\.na\\s*\\(\\s*gender_equal3\\s*\\)", code_no_comments)) {
     fail("In `filter()`, remove rows where **gender_equal3** is missing with `!is.na(gender_equal3)`.")
   }
-  if (!grepl("is\\.na.*regime_type3", code_no_comments)) {
+  if (!grepl("!\\s*is\\.na\\s*\\(\\s*regime_type3\\s*\\)", code_no_comments)) {
     fail("In `filter()`, remove rows where **regime_type3** is missing with `!is.na(regime_type3)`.")
   }
 
@@ -792,42 +826,48 @@ grade_this({
   fill_mapping <- rlang::as_label(plot_mapping$fill)
 
   if (!identical(x_mapping, "gender_equal3")) {
-    fail("Map the outcome variable to the x-axis inside `aes()` --- the same one that went in the rows of the cross-tab.")
+    fail("Map the outcome variable to the `x`-axis inside `aes()` --- the same one that went in the rows of the cross-tab.")
   }
   if (!identical(fill_mapping, "regime_type3")) {
-    fail("Map the explanatory variable to the fill aesthetic inside `aes()`.")
+    fail("Map the explanatory variable to the `fill` aesthetic inside `aes()`.")
   }
 
   # Check geom, position, after_stat, group via code
-  if (!grepl("geom_bar", code_no_comments)) {
+  bar_layers <- Filter(function(l) inherits(l$geom, "GeomBar"), .result$layers)
+  if (length(bar_layers) == 0) {
     fail("Use `geom_bar()` to create the bar plot.")
   }
-  if (!grepl("dodge", code_no_comments)) {
-    fail('Add position = "dodge" inside `geom_bar()` to place bars side-by-side.')
+  bar_layer <- bar_layers[[1]]
+  bar_pos <- class(bar_layer$position)[1]
+  bar_map <- bar_layer$mapping
+  bar_y <- if (is.null(bar_map$y)) "" else rlang::as_label(bar_map$y)
+  bar_group <- if (is.null(bar_map$group)) "" else rlang::as_label(bar_map$group)
+  if (!identical(bar_pos, "PositionDodge")) {
+    fail('Add `position = "dodge"` inside `geom_bar()` to place bars side-by-side.')
   }
-  if (!grepl("after_stat\\s*\\(\\s*prop\\s*\\)", code_no_comments)) {
-    fail("Set y = `after_stat(prop)` inside the `aes()` call within `geom_bar()` to plot proportions.")
+  if (!grepl("after_stat\\s*\\(\\s*prop\\s*\\)", bar_y)) {
+    fail("Set `y = after_stat(prop)` inside the `aes()` call within `geom_bar()` to plot proportions.")
   }
-  if (!grepl("group\\s*=\\s*regime_type3", code_no_comments)) {
-    fail("Set group = **regime_type3** inside the `aes()` call within `geom_bar()`.")
+  if (!identical(bar_group, "regime_type3")) {
+    fail("Set `group = regime_type3` inside the `aes()` call within `geom_bar()`.")
   }
 
   # Check labels via plot object
   plot_labels <- .result$labels
   if (!identical(plot_labels$title, "Gender Equality")) {
-    fail('Set title = "Gender Equality" inside `labs()`.')
+    fail('Set `title = "Gender Equality"` inside `labs()`.')
   }
   if (!identical(plot_labels$y, "Proportion")) {
-    fail('Set y = "Proportion" inside `labs()`.')
+    fail('Set `y = "Proportion"` inside `labs()`.')
   }
   if (!is.null(plot_labels$x)) {
-    fail('Set x = NULL inside `labs()` so no x-axis title appears.')
+    fail('Set `x = NULL` inside `labs()` so no `x`-axis title appears.')
   }
   if (!is.null(plot_labels$subtitle)) {
-    fail('Leave subtitle out of `labs()` entirely --- this plot should not have one.')
+    fail('Leave `subtitle` out of `labs()` entirely --- this plot should not have one.')
   }
   if (!identical(plot_labels$caption, "Country Data from the United Nations")) {
-    fail('Add caption = "Country Data from the United Nations" inside `labs()`.')
+    fail('Add `caption = "Country Data from the United Nations"` inside `labs()`.')
   }
 
   # Check scale_fill_discrete and labels via code
@@ -835,14 +875,14 @@ grade_this({
     fail("Add `scale_fill_discrete()` to label the legend.")
   }
   if (!grepl("Regime Type", code_no_comments)) {
-    fail('Set name = "Regime Type" inside `scale_fill_discrete()`.')
+    fail('Set `name = "Regime Type"` inside `scale_fill_discrete()`.')
   }
   fill_scales <- Filter(function(sc) "fill" %in% sc$aesthetics, .result$scales$scales)
   fill_labels <- if (length(fill_scales) > 0) unname(fill_scales[[1]]$labels) else NULL
   expected_labels <- c("Dictatorship", "Parliamentary\nDemocracy", "Presidential\nDemocracy")
 
   if (!identical(fill_labels, expected_labels)) {
-    fail('Check the three category labels. They must read exactly "Dictatorship", "Parliamentary\\nDemocracy", and "Presidential\\nDemocracy" --- in that order, matching levels(world$regime_type3), and with the \\n line breaks in the two democracy labels.')
+    fail('Check the three category labels. They must read exactly "Dictatorship", "Parliamentary\\nDemocracy", and "Presidential\\nDemocracy" --- in that order, matching `levels(world$regime_type3)`, and with the \\n line breaks in the two democracy labels.')
   }
 
   pass("Good work! Your plot compares the distribution of gender equality within each regime type, with the three regime labels in their stored order.")
@@ -855,13 +895,11 @@ The completed plot presents the same information as the gender-equality cross-ta
 
 Now let's step back and practice the full workflow with a new example. You do not need to write any code. Focus on the logic: identify the outcome and explanatory variables, read the column proportions, and decide whether the pattern is consistent with the hypothesis.
 
-Why might a country's alliance commitments matter for whether it ends up in a conflict?
+Alliances are among the oldest instruments of statecraft, and the usual argument for them is deterrence. A state that would attack an isolated neighbor has to think again if the attack means fighting that neighbor's allies too. The theoretical explanation is that an alliance raises the expected cost of aggression, because a potential challenger must weigh the combined capabilities of every member rather than those of the target alone. Is the evidence consistent with that argument?
 
 ::: {.hypothesis}
 In a comparison of [countries], those that are [members of a military alliance] will be less likely to [experience an interstate conflict] than will those that are [not members of a military alliance].
 :::
-
-The theoretical explanation is that alliances may deter conflict by raising the expected costs of attacking an alliance member. If potential challengers expect an alliance partner to help defend a country, they may be less likely to initiate a conflict.
 
 Suppose we summarize the relationship with the following cross-tab. The entries in each cell show the count, with the column proportion in parentheses.
 
@@ -975,7 +1013,7 @@ The table below collects the tools for describing the relationship between two c
 
 This tutorial introduced [**bivariate description**]{.important-text} of two categorical variables --- examining whether the distribution of a categorical outcome differs across the categories of a categorical explanatory variable. The basic move is simple but powerful --- compare the distribution of an outcome across categories of an explanatory variable and ask whether the pattern matches what a hypothesis predicts. Tutorials 8 and 9 will apply the same logic to other combinations of variable types, but the underlying question is always the same: does the pattern in the data point in the direction the hypothesis predicts?
 
-- [**Cross-tabulations**]{.important-text} are the primary tool for describing the relationship between two categorical variables. A cross-tab shows how the distribution of an outcome variable differs across the categories of an explanatory variable. Three rules govern how we set them up and read them: the outcome variable goes in the rows, the explanatory variable goes in the columns, and we use column proportions. Column proportions show the share of cases within each column that fall in each row. To evaluate whether a pattern is consistent with a hypothesis, find the relevant outcome row and compare the column proportions across the categories of the explanatory variable. In R, `CrossTable()` from the [descr]{.package-name} package produces cross-tabs; load it once per session with `library(descr)`. Use `prop.c = TRUE` for column proportions and set `prop.r`, `prop.t`, and `prop.chisq` to `FALSE` to keep the table clean.
+- [**Cross-tabulations**]{.important-text} are the primary tool for describing the relationship between two categorical variables. A cross-tab shows how the distribution of an [**outcome variable**]{.important-text} differs across the categories of an [**explanatory variable**]{.important-text}. Three rules govern how we set them up and read them: the outcome variable goes in the rows, the explanatory variable goes in the columns, and we use [**column proportions**]{.important-text}. Column proportions show the share of cases within each column that fall in each row. To evaluate whether a pattern is consistent with a hypothesis, find the relevant outcome row and compare the column proportions across the categories of the explanatory variable. In R, `CrossTable()` from the [descr]{.package-name} package produces cross-tabs; load it once per session with `library(descr)`. Use `prop.c = TRUE` for column proportions and set `prop.r`, `prop.t`, and `prop.chisq` to `FALSE` to keep the table clean.
 
 - [**Grouped bar plots**]{.important-text} present the same information visually. The outcome variable goes on the x-axis and the explanatory variable maps to the `fill` argument inside `aes()`. Use `position = "dodge"` inside `geom_bar()` to place bars side by side. Three things are worth keeping straight:
 
@@ -983,7 +1021,7 @@ This tutorial introduced [**bivariate description**]{.important-text} of two cat
     
     - **Plotting proportions:** When groups have different sizes, plot proportions rather than counts by adding `aes(y = after_stat(prop), group = fill_variable)` inside `geom_bar()`. The `group` argument tells ggplot which variable to use when computing proportions --- without it, proportions would be calculated out of all cases rather than within each fill group.
     
-    - **Labels and cleanup:** Use `scale_x_discrete()` to relabel x-axis tick marks and `scale_fill_discrete()` to relabel the legend, with `name` for the legend title and `labels = c(...)` for the category names in the correct order. The order depends on how the variable is stored: use `levels()` for factors, alphabetical order for character variables, and ascending numeric order for numeric variables. Use `\n` inside a label string to insert a line break when labels are long. Always filter missing values in both variables before plotting with `filter(!is.na(var1), !is.na(var2))`.
+    - **Labels and cleanup:** Use `scale_x_discrete()` to relabel x-axis tick marks and `scale_fill_discrete()` to relabel the legend, with `name` for the legend title and `labels = c(...)` for the category names in the correct order. The order depends on how the variable is stored: use `levels()` for factors, alphabetical order for character variables, and ascending numeric order for numeric variables. Use `\n` inside a label string to insert a line break when labels are long. Before plotting, check the mapped variables for missing values. Include a `!is.na()` condition for each variable that has gaps; when both variables have missing values, place the two conditions inside the same `filter()` call, separated by a comma.
 
 The cross-tab and the grouped bar plot are complementary: the table gives exact numbers, the plot makes the pattern easier to see at a glance. For evaluating a hypothesis, you usually want both. A cross-tab can show whether the observed pattern is *consistent with* a hypothesis, but it does not tell us whether the difference is larger than we would expect by chance --- that requires a formal hypothesis test, covered in Tutorial 12.
 

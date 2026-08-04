@@ -25,20 +25,29 @@ In this tutorial you will learn:
 * How to compute and interpret a frequency and proportion table for a nominal variable
 * How to identify the mode of a nominal variable
 * How to describe the dispersion and shape of the distribution of a nominal variable
-* How to create and customize bar plots using [ggplot2]{.package-name}
+* How to create and customize bar plots using `ggplot()` from the [ggplot2]{.package-name} package with `geom_bar()`
+* How missing values affect frequency and proportion bar charts, and when to suppress an NA bar with `na.translate = FALSE` or filter missing cases before plotting
 
 ```{r setup, include=FALSE}
 library(learnr)
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
 knitr::opts_chunk$set(error = TRUE)
 options(lifecycle_verbosity = "quiet")
+options(cli.num_colors = 1)
 data("counties", package = "QPATutorialsCourse")
-data("df", package = "QPATutorialsCourse")
-data("world", package = "poliscidata")
-df$region <- factor(df$region, labels = c("South", "Northeast", "Midwest", "West"))
+data("world", package = "QPATutorialsCourse")
+df <- data.frame(
+  state = state.name,
+  region = factor(
+    state.region,
+    levels = c("South", "Northeast", "North Central", "West"),
+    labels = c("South", "Northeast", "Midwest", "West")
+  )
+)
 ```
 
 ## Descriptive Statistics
@@ -106,12 +115,12 @@ The [**mode**]{.important-text} is the most frequently occurring category in the
 
 ### Central Tendency and Vote for Donald Trump in US Counties
 
-To illustrate how to compute a frequency table and identify the mode, you will examine the variable **TrumpMajority** in the **counties** data frame. This variable is stored as a numeric variable, assigning a value of 0 to counties where Clinton won a majority of the vote and 1 to counties where Trump won a majority.
+To illustrate how to compute a frequency table and identify the mode, you will examine the variable **TrumpMajority** in the **counties** data frame. This variable is stored as a numeric variable, assigning a value of 0 to counties where Clinton won a majority of the vote and 1 to counties where Trump won a majority. Every one of the 3,112 counties has a recorded value, so all of them will appear in the tables you build.
 
 Our first question is simple: how many counties fall into each category? You need that count because the mode is not something you can identify from the variable name or from the numeric codes 0 and 1. You have to look at the distribution itself. To answer the question, you need to do three things: separate the counties into groups, count how many are in each group, and display the result. You will use three functions from the [dplyr]{.package-name} package to do this, connected by the pipe operator `%>%`.
 
 ::: {.tip}
-**The pipe operator** (`%>%`) passes the result of one step directly into the next. Wherever you see it, read it as "and then." So `counties %>% group_by(TrumpMajority)` means "take counties, and then group by TrumpMajority." That reading can make long pipelines much less intimidating.
+**The pipe operator** (`%>%`) passes the result of one step directly into the next. Wherever you see it, read it as "and then." So `counties %>% group_by(TrumpMajority)` means "take **counties**, and then group by **TrumpMajority**." That reading can make long pipelines much less intimidating.
 :::
 
 ### Step 1: `group_by()`
@@ -131,8 +140,6 @@ Once the groups have been defined, the next step is to summarize each one. The `
 
 **Run and observe 2: Use `group_by()` and `summarise()` to count observations**
 
-Run the code below and look at the output.
-
 ```{r analysis-summarise-majority, exercise=TRUE, warning=FALSE, exercise.cap="Run and observe 2"}
 library(dplyr)
 counties %>%
@@ -150,9 +157,9 @@ Now use the output as evidence. The **freq** column gives you everything you nee
 question("Based on the frequency table, which statement best describes the distribution of counties?",
   correct = "Right. Most counties cast a majority of votes for Donald Trump.",
   answer("Most counties cast a majority of their votes for Donald Trump", correct = TRUE,
-         message = "The category with the highest frequency is **TrumpMajority** = 1, which corresponds to counties where Trump received a majority. Two steps got you here: reading the counts to find the modal category, then translating that code into a statement a reader can use. That translation applies every time you work with coded data --- whatever the variable, whatever the coding scheme, the final statement should say what the typical case looks like, not what number was assigned to it."),
-  answer("The modal category is 1",
-         message = "This is technically correct but not useful. A reader who does not know the coding scheme gets no information from 'the mode is 1.' Translate the numeric code into a substantive statement about the counties."),
+         message = "The category with the highest frequency is **TrumpMajority** = 1, which corresponds to counties where Trump received a majority. Two steps got you here: reading the counts to find the modal category, then translating that code into a statement a reader can use."),
+  answer("The distribution is fully summarized by saying the mode is coded 1",
+         message = "Reporting the code is where the work starts, not where it ends. A reader who does not have the codebook learns nothing from 'the mode is 1' --- the summary is only complete once that code is translated into a statement about the counties."),
   answer("The mode is 1 because 1 is larger than 0",
          message = "The numeric coding does not determine the mode. **TrumpMajority** is nominal, so 0 and 1 are category labels rather than quantities --- the mode depends on which category occurs most often, which you read from the counts."),
   answer("The counties are evenly divided between the two categories",
@@ -169,13 +176,12 @@ Knowing that 2,622 counties went for Trump is informative, but it is harder to i
 
 To add proportions to our table, we pipe the result of `group_by()` and `summarise()` into a third function: `mutate()`. Unlike `summarise()`, which collapses groups into single rows, `mutate()` adds a new column to the existing output without changing its structure. We define the new column **prop** as each group's count divided by the total count across all groups: `prop = freq / sum(freq)`. As with **freq**, the name is ours --- short for proportion --- while `mutate()` and the calculation are fixed.
 
-Whenever you compute proportions, filter out missing values in the grouping variable first by adding `filter(!is.na(variable))` at the start of the pipeline. If any missing values are present, they form their own group and get included in the denominator --- making the substantive proportions sum to less than 1. Be clear about what the filtered proportions then describe: they are shares among the cases that have a recorded value, not among all cases in the data. That is usually what you want, but it is worth knowing how many cases you set aside and why they are missing. **TrumpMajority** has no missing values, so the filter changes nothing here.
+Before computing proportions, check whether the grouping variable has any missing values. If it does, they form a group of their own and land in the denominator, making the substantive proportions sum to less than 1. **TrumpMajority** has a recorded value for every county, so there is nothing to set aside here. You will meet a variable that does need attention later in this tutorial.
 
 **Run and observe 4: Calculate proportions using `mutate()`**
 
 ```{r analysis-calculate-proportions, exercise=TRUE, warning=FALSE, exercise.cap="Run and observe 4"}
 counties %>%
-  filter(!is.na(TrumpMajority)) %>%
   group_by(TrumpMajority) %>%
   summarize(freq = n()) %>%
   mutate(prop = freq / sum(freq))
@@ -206,15 +212,14 @@ question("What does the proportion table add to the frequency table?",
 
 Proportions transform raw counts into shares that can be evaluated and compared. That interpretive step is what separates a table that informs from one that merely reports.
 
-Now let's apply the same approach to a variable with more than two categories: **racial_majority** in the **counties** data frame. The variable records which racial or ethnic group comprised 50% or more of the county population, taking the values "Black Majority", "Hispanic Majority", "Other Majority", and "White Majority". It is stored as a character variable. Unlike **TrumpMajority**, this variable has missing values, so the filter step does real work here. With four categories instead of two, the proportion column becomes especially important --- knowing the modal category is more informative when you can also see how dominant it is relative to the others.
+Now let's apply the same approach to a variable with more than two categories: **racial_majority** in the **counties** data frame. The variable records which racial or ethnic group comprised 50% or more of the county population, taking the values "Black Majority", "Hispanic Majority", "Other/No Majority", and "White Majority". It is stored as a character variable. The fourth value covers two cases at once: counties where the largest group is none of the first three, and counties where no group reaches 50% at all. Like **TrumpMajority**, it has no missing values --- every county has a recorded value. With four categories instead of two, the proportion column becomes especially important --- knowing the modal category is more informative when you can also see how dominant it is relative to the others.
 
 **Practice 6: Create a proportion table**
 
-Complete the code below to produce a frequency and proportion table for **racial_majority**. The `filter()` step is provided --- keep it. Name your count variable **freq** and your proportion variable **prop**. Three hints are available. Click "Submit Answer" to check your work.
+Complete the code below to produce a frequency and proportion table for **racial_majority**. Name your count variable **freq** and your proportion variable **prop**. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r analysis-practice-proportions, exercise=TRUE, exercise.cap="Practice 6"}
 counties %>%
-  filter(!is.na(racial_majority)) %>%
   group_by(___) %>%
   ___(freq = n()) %>%
   mutate(prop = ___ / sum(___))
@@ -230,7 +235,6 @@ counties %>%
 
 ```{r analysis-practice-proportions-hint-2}
 # Hint 2 of 3
-# The filter() step is already provided --- keep it.
 # Use group_by() to separate the counties by category,
 # summarise() with n() to count them, and mutate() to
 # turn those counts into proportions.
@@ -246,7 +250,6 @@ counties %>%
 ```{r analysis-practice-proportions-check}
 grade_this({
   expected <- counties %>%
-    filter(!is.na(racial_majority)) %>%
     group_by(racial_majority) %>%
     summarise(freq = n()) %>%
     mutate(prop = freq / sum(freq))
@@ -254,9 +257,6 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
-  if (!grepl("filter\\s*\\(", code_no_comments)) {
-    fail("Keep the filter() step that removes missing values before the table is built.")
-  }
   if (!grepl("group_by\\s*\\(", code_no_comments)) {
     fail("Your pipeline is missing the step that separates the cases into categories.")
   }
@@ -267,17 +267,20 @@ grade_this({
     fail("Your pipeline is missing the step that adds the proportion column.")
   }
   if (!grepl("racial_majority", code_no_comments)) {
-    fail("Your pipeline should group by racial_majority.")
+    fail("Your pipeline should group by **racial_majority**.")
   }
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a table the grader can check.")
+  }
   if (!is.data.frame(.result)) {
-    fail("Your code should return a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside summarise() and mutate(), you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
+    fail("Your code should return a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()` and `mutate()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
   }
 
   required_cols <- c("racial_majority", "freq", "prop")
   missing_cols <- setdiff(required_cols, names(.result))
   if (length(missing_cols) > 0) {
-    fail("Make sure your result includes the columns racial_majority, freq, and prop.")
+    fail("Make sure your result includes the columns **racial_majority**, **freq**, and prop.")
   }
 
   normalize_table <- function(x) {
@@ -292,28 +295,26 @@ grade_this({
   expected_norm <- normalize_table(expected)
 
   if (nrow(actual) != nrow(expected_norm)) {
-    fail("Your table should include one row for each nonmissing value of racial_majority. Keep the provided filter(!is.na(racial_majority)) step so the missing-value row is excluded.")
+    fail("Your table should include one row for each value of **racial_majority**.")
   }
 
   if (!identical(actual$racial_majority, expected_norm$racial_majority)) {
-    fail("Check that you grouped by racial_majority and did not filter out any categories.")
+    fail("Check that you grouped by **racial_majority** and did not filter out any categories.")
   }
 
   if (!identical(as.numeric(actual$freq), as.numeric(expected_norm$freq))) {
-    fail("Check your freq column. It should count the number of counties in each racial_majority category.")
+    fail("Check your **freq** column. It should count the number of **counties** in each **racial_majority** category.")
   }
 
   if (!isTRUE(all.equal(as.numeric(actual$prop), as.numeric(expected_norm$prop), tolerance = 1e-8))) {
-    fail("Check your prop column. It should divide each category's freq by the total number of counties.")
+    fail("Check your **prop** column. It should divide each category's **freq** by the total number of **counties**.")
   }
 
-  pass("Correct! Your table now shows both the count and the share of counties in each racial majority category.")
+  pass("Correct! Your table now shows both the count and the share of **counties** in each racial majority category.")
 })
 ```
 
 **Practice 7: Identify the mode of racial_majority**
-
-Now interpret the table. A frequency or proportion table is only useful if you draw a conclusion from it.
 
 ```{r question-mode-racial, echo=FALSE}
 question("Based on the proportion table you just created, which statement best describes the central tendency of **racial_majority**?",
@@ -334,11 +335,11 @@ question("Based on the proportion table you just created, which statement best d
 
 ### The Central Tendency of US States across Regions
 
-As a final example, consider **region** in the **df** data frame, which assigns each US state to one of the four Census Bureau regions. It is stored as a factor. This example is worth examining because the modal category is less dominant than in the county examples above --- and that difference matters. When cases are spread fairly evenly across categories, the mode still identifies the most common category, but it gives only a limited summary of the distribution on its own.
+As a final example, consider **region** in the **df** data frame, which assigns each US state to one of the four Census Bureau regions. It is stored as a factor, and all 50 states have a recorded value. This example is worth examining because the modal category is less dominant than in the county examples above --- and that difference matters. When cases are spread fairly evenly across categories, the mode still identifies the most common category, but it gives only a limited summary of the distribution on its own.
 
 **Practice 8: Summarize the data by region**
 
-Write the pipeline to remove cases with a missing value of **region**, then produce **freq** and **prop** for each Census region. Three hints are available. Click "Submit Answer" to check your work.
+Write the pipeline that produces **freq** and **prop** for each Census region in the **df** data frame. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r analysis-practice-freq-by-region, exercise=TRUE, exercise.lines=6, exercise.cap="Practice 8"}
 
@@ -354,21 +355,19 @@ Write the pipeline to remove cases with a missing value of **region**, then prod
 
 ```{r analysis-practice-freq-by-region-hint-2}
 # Hint 2 of 3
-# Start from df. Use filter(), then group_by(), then
-# summarise() with n(), then mutate(), connected by %>%.
+# Start from df. Use group_by(), then summarise() with
+# n(), then mutate(), connected by %>%.
 ```
 
 ```{r analysis-practice-freq-by-region-hint-3}
 # Hint 3 of 3
-# Remove the missing values of region, group by region,
-# name the count column freq, and compute prop by
-# dividing freq by sum(freq).
+# Group by region, name the count column freq, and
+# compute prop by dividing freq by sum(freq).
 ```
 
 ```{r analysis-practice-freq-by-region-check}
 grade_this({
   expected <- df %>%
-    filter(!is.na(region)) %>%
     group_by(region) %>%
     summarise(freq = n()) %>%
     mutate(prop = freq / sum(freq))
@@ -376,9 +375,6 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
-  if (!grepl("filter\\s*\\(", code_no_comments)) {
-    fail("Remove cases with a missing value of region before building the table.")
-  }
   if (!grepl("group_by\\s*\\(", code_no_comments)) {
     fail("Your pipeline is missing the step that separates the cases into categories.")
   }
@@ -389,17 +385,20 @@ grade_this({
     fail("Your pipeline is missing the step that adds the proportion column.")
   }
   if (!grepl("region", code_no_comments)) {
-    fail("Your pipeline should group by region.")
+    fail("Your pipeline should group by **region**.")
   }
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a table the grader can check.")
+  }
   if (!is.data.frame(.result)) {
-    fail("Your code should return a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside summarise() and mutate(), you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
+    fail("Your code should return a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()` and `mutate()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
   }
 
   required_cols <- c("region", "freq", "prop")
   missing_cols <- setdiff(required_cols, names(.result))
   if (length(missing_cols) > 0) {
-    fail("Make sure your result includes the columns region, freq, and prop.")
+    fail("Make sure your result includes the columns **region**, **freq**, and prop.")
   }
 
   normalize_table <- function(x) {
@@ -414,22 +413,22 @@ grade_this({
   expected_norm <- normalize_table(expected)
 
   if (nrow(actual) != nrow(expected_norm)) {
-    fail("Your table should have one row for each Census region.")
+    fail("Your table should have one row for each Census **region**.")
   }
 
   if (!identical(actual$region, expected_norm$region)) {
-    fail("Check that you grouped by region.")
+    fail("Check that you grouped by **region**.")
   }
 
   if (!identical(as.numeric(actual$freq), as.numeric(expected_norm$freq))) {
-    fail("Check your freq column. It should count the number of states in each region.")
+    fail("Check your **freq** column. It should count the number of states in each **region**.")
   }
 
   if (!isTRUE(all.equal(as.numeric(actual$prop), as.numeric(expected_norm$prop), tolerance = 1e-8))) {
-    fail("Check your prop column. It should divide each region's freq by the total number of states.")
+    fail("Check your **prop** column. It should divide each **region**'s **freq** by the total number of states.")
   }
 
-  pass("Good work! Your table shows the count and the proportion of states in each Census region.")
+  pass("Good work! Your table shows the count and the proportion of states in each Census **region**.")
 })
 ```
 
@@ -461,8 +460,6 @@ A frequency or proportion table also describes the [**dispersion**]{.important-t
 Variables can differ substantially in how concentrated or spread out their distributions are. Some variables have one category that accounts for a large majority of all cases; others spread cases more evenly across several categories. The proportion tables you built earlier give you three examples to compare: **TrumpMajority** had about 84% of counties in one category, **racial_majority** had about 92% in one category, and **region** spread states across four categories ranging from about 18% to 32%.
 
 **Practice 10: Characterize the dispersion**
-
-Look at those three proportions before answering.
 
 ```{r question-dispersion, echo=FALSE}
 question("Based on the proportion tables you created earlier, which variable is most dispersed --- that is, most evenly spread across its categories?",
@@ -542,7 +539,7 @@ question("You computed the frequency table for **TrumpMajority** earlier in this
 A bar chart makes the distribution of a nominal variable easier to take in at a glance. It shows the same basic information as a frequency or proportion table, but in a form that makes comparisons across categories immediate: which category is largest, how dominant it is, and whether the distribution is concentrated or spread out. Tables are more precise, but a well-labeled chart often makes the main pattern easier to see. You will build one using [ggplot2]{.package-name}, adding one layer at a time.
 
 ::: {.tip}
-**How ggplot2 works:** Every ggplot is built by layering components on top of each other using `+`. You will always start with the `ggplot()` function to specify the data and variable, then add layers to draw the geometry, add labels, and customize the axes.
+**How [ggplot2]{.package-name} works:** Every ggplot is built by layering components on top of each other using `+`. You will always start with the `ggplot()` function to specify the data and variable, then add layers to draw the geometry, add labels, and customize the axes.
 :::
 
 ### Building a Bar Chart Step by Step
@@ -557,7 +554,7 @@ The `ggplot()` function takes two arguments: `data =` specifies which data frame
 
 **Run and observe 12: Set up the plot and map the variable**
 
-```{r visual-initialize-plot, exercise=TRUE, exercise.cap="Run and observe 12", fig.alt="An empty plot panel: gray background with gridlines and an x-axis showing the two values 0 and 1, but no bars, because no geometry layer has been added yet."}
+```{r visual-initialize-plot, exercise=TRUE, exercise.cap="Run and observe 12", fig.alt="An empty plot panel: gray background with gridlines, an x-axis showing the two values 0 and 1 with the default title factor(TrumpMajority), and no bars, because no geometry layer has been added yet."}
 library(ggplot2)
 ggplot(data = counties, mapping = aes(x = factor(TrumpMajority)))
 ```
@@ -572,7 +569,7 @@ The `geom_bar()` function takes no arguments here because it automatically inher
 
 **Run and observe 13: Add the bar layer**
 
-```{r visual-add-geom-bar, exercise=TRUE, exercise.cap="Run and observe 13", fig.alt="Bar chart with two bars on an x-axis labeled 0 and 1. The bar at 1 is roughly five times the height of the bar at 0. The axes carry no titles yet."}
+```{r visual-add-geom-bar, exercise=TRUE, exercise.cap="Run and observe 13", fig.alt="Bar chart with two bars on an x-axis labeled 0 and 1. The bar at 1 is roughly five times the height of the bar at 0. The axes carry ggplot's default titles: count on the y-axis and factor(TrumpMajority) on the x-axis."}
 ggplot(data = counties, mapping = aes(x = factor(TrumpMajority))) +
   geom_bar()
 ```
@@ -607,8 +604,6 @@ The `labs()` function in Step 3 set the axis *title* --- the overall label for t
 
 The `labels` argument takes a vector of replacement names listed in the same order as the numeric values stored in the data, from lowest to highest --- here, "Clinton" replaces 0 and "Trump" replaces 1 because 0 comes before 1. If **TrumpMajority** had been coded as "Clinton" and "Trump" rather than 0 and 1, the tick labels would already be interpretable and this step would not be needed. It exists because numeric codes are storage choices, not descriptions, and readers need the substantive category names to understand what the distribution shows.
 
-The `scale_x_discrete()` function also controls how missing values are handled. By default, ggplot treats NA as its own category and draws a separate bar for it. Setting `na.translate = FALSE` suppresses that bar so missing values do not appear on the x-axis. This is useful for **frequency bar charts** where you just want to hide the NA bar. For **proportion bar charts**, filtering before `ggplot()` is the better approach --- `after_stat(prop)` would include the NA bar in the group total, making the substantive proportions sum to less than 1. Filtering removes missing values entirely before any computation, ensuring the proportions are correct.
-
 **Run and observe 15: Replace the axis tick labels**
 
 ```{r visual-customize-scale-x, exercise=TRUE, exercise.cap="Run and observe 15", fig.alt="The same two-bar chart with the x-axis tick labels replaced by Clinton and Trump. The Trump bar is much the taller of the two."}
@@ -625,8 +620,6 @@ ggplot(data = counties, mapping = aes(x = factor(TrumpMajority))) +
 The plot now clearly communicates the mode, dispersion, and shape of the distribution of **TrumpMajority** at a glance.
 
 **Practice 16: What does a bar chart add?**
-
-Now step back from the code and think about what the visualization contributes. The chart should not change the conclusion you drew from the table; it should make the same distribution easier to compare and communicate.
 
 ```{r question-bar-trumpmajority, echo=FALSE}
 question("You already knew from the proportion table that about 84% of counties cast a majority for Trump. What does the bar chart add that the table did not provide?",
@@ -651,9 +644,9 @@ Now apply the same four-step structure to a nominal variable with more than two 
 
 **Practice 17: Create a bar chart for racial majority**
 
-Fill in the three blanks to complete the chart for **racial_majority**. The shortened category labels should drop the word \"Majority\" --- \"Black\", \"Hispanic\", \"Other\", \"White\" --- listed in alphabetical order, which is the order they are stored in the data. Two hints are available. Click \"Submit Answer\" to check your work.
+Fill in the three blanks to complete the chart for **racial_majority**. The shortened category labels should drop the word \"Majority\" --- \"Black\", \"Hispanic\", \"Other/No\", \"White\" --- listed in alphabetical order, which is the order they are stored in the data. Note the third one: dropping \"Majority\" from \"Other/No Majority\" leaves \"Other/No\", not \"Other\", because the \"No\" is doing work of its own. Two hints are available. Click \"Submit Answer\" to check your work.
 
-```{r visual-practice-bar-race, exercise=TRUE, exercise.cap="Practice 17", fig.alt="Bar chart of the racial majority of US counties with four bars labeled Black, Hispanic, Other, and White. The White bar towers over the other three, which are short by comparison."}
+```{r visual-practice-bar-race, exercise=TRUE, exercise.cap="Practice 17", fig.alt="Bar chart of the racial majority of US counties with four bars labeled Black, Hispanic, Other/No, and White. The White bar towers over the other three, which are short by comparison."}
 ggplot(data = counties, mapping = aes(x = ___)) +
   ___ +
   labs(title = "Number of US Counties by Racial Majority",
@@ -661,8 +654,7 @@ ggplot(data = counties, mapping = aes(x = ___)) +
        x = NULL,
        y = "Frequency",
        caption = "Source: Linn, Nagler, Zilinsky") +
-  scale_x_discrete(na.translate = FALSE,
-                   labels = ___)
+  scale_x_discrete(labels = ___)
 ```
 
 ```{r visual-practice-bar-race-hint-1}
@@ -678,11 +670,14 @@ ggplot(data = counties, mapping = aes(x = ___)) +
 # It is already a character variable, so factor() is not
 # needed. Use geom_bar() in the second blank. In the
 # third, use c() to list the four shortened labels
-# "Black", "Hispanic", "Other", "White" in that order.
+# "Black", "Hispanic", "Other/No", "White" in that order.
 ```
 
 ```{r visual-practice-bar-race-check}
 grade_this({
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
   }
@@ -692,7 +687,7 @@ grade_this({
   }, logical(1)))
 
   if (!has_geom_bar) {
-    fail("Add a geom_bar() layer so the plot draws a frequency bar chart.")
+    fail("Add a `geom_bar()` layer so the plot draws a frequency bar chart.")
   }
 
   mapping_text <- paste(
@@ -701,11 +696,11 @@ grade_this({
   )
 
   if (!grepl("racial_majority", mapping_text)) {
-    fail("Map racial_majority to the x-axis.")
+    fail("Map **racial_majority** to the x-axis.")
   }
 
   if (!"racial_majority" %in% names(.result$data)) {
-    fail("Use racial_majority from the counties data frame for this plot.")
+    fail("Use **racial_majority** from the **counties** data frame for this plot.")
   }
 
   expected_values <- sort(
@@ -717,7 +712,7 @@ grade_this({
   )
 
   if (!identical(actual_values, expected_values)) {
-    fail("Use all nonmissing observations of racial_majority from the counties data frame. Do not remove any valid observations.")
+    fail("Use all nonmissing observations of **racial_majority** from the **counties** data frame. Do not remove any valid observations.")
   }
 
   if (!identical(.result$labels$title, "Number of US Counties by Racial Majority")) {
@@ -746,26 +741,57 @@ grade_this({
   )
 
   if (length(x_scales) == 0) {
-    fail("Add scale_x_discrete() so you can shorten the category labels and exclude missing values.")
+    fail("Add `scale_x_discrete()` so you can shorten the category labels and exclude missing values.")
   }
 
   x_scale <- x_scales[[1]]
 
-  if (!isFALSE(x_scale$na.translate)) {
-    fail("Include na.translate = FALSE inside scale_x_discrete() so missing values do not appear as an x-axis category.")
-  }
-
-  expected_labels <- c("Black", "Hispanic", "Other", "White")
+  expected_labels <- c("Black", "Hispanic", "Other/No", "White")
 
   if (!identical(x_scale$labels, expected_labels)) {
-    fail("Use the shortened labels Black, Hispanic, Other, and White in that order.")
+    fail("Use the shortened labels Black, Hispanic, Other/No, and White in that order.")
   }
 
-  pass("Well done! Your chart has the right variable, the shortened category labels, and the missing-value category suppressed.")
+  pass("Well done! Your chart has the right variable and the shortened category labels.")
 })
 ```
 
 The modal category "White" is vastly more common than any other, and the shape of the distribution is clearly unimodal.
+
+### When a Variable Has Missing Values
+
+That chart included every county, because **racial_majority** has no gaps. Variables with gaps behave differently, and it is worth seeing how before you meet one in an exercise.
+
+By default, ggplot treats `NA` as a category of its own and draws a bar for it. The variable **regime_type3** in the **world** data frame classifies each country's regime, and 34 of the 167 countries have no recorded value --- so a plain frequency chart will show four bars rather than three.
+
+**Run and observe 18: See how ggplot handles missing values**
+
+```{r visual-na-bar, exercise=TRUE, exercise.cap="Run and observe 18", fig.alt="Frequency bar chart of regime type with four bars: Dictatorship, Parliamentary democ, Presidential democ, and a fourth bar labeled NA."}
+ggplot(data = world, mapping = aes(x = regime_type3)) +
+  geom_bar() +
+  labs(title = "Regime Type",
+       x = NULL,
+       y = "Frequency")
+```
+
+The fourth bar is the 34 countries with no classification --- and notice that it is taller than the bar for presidential democracies. The cases with no recorded value outnumber one of the categories you actually care about, which is a good reason to decide deliberately what to do with them rather than letting them sit in the chart.
+
+Adding `na.translate = FALSE` to `scale_x_discrete()` removes that bar.
+
+**Run and observe 19: Suppress the missing-value bar**
+
+```{r visual-na-suppressed, exercise=TRUE, exercise.cap="Run and observe 19", fig.alt="The same frequency bar chart with the NA bar removed, leaving three bars for Dictatorship, Parliamentary democ, and Presidential democ."}
+ggplot(data = world, mapping = aes(x = regime_type3)) +
+  geom_bar() +
+  labs(title = "Regime Type",
+       x = NULL,
+       y = "Frequency") +
+  scale_x_discrete(na.translate = FALSE)
+```
+
+R prints a warning that it removed 34 rows. That is not an error --- it is R reporting exactly what you asked for, and a useful confirmation that the number dropped matches the number you expected.
+
+That works for a frequency chart, where each bar is simply a count and hiding one changes nothing about the others. For a **proportion** bar chart it is not enough: `after_stat(prop)` computes each bar's share before the scale is applied, so the missing cases would still sit in the denominator and the substantive proportions would sum to less than 1. There the fix is to filter before plotting, which you will do in the next section.
 
 ## Visualizing a Nominal Variable: Proportion Bar Charts
 
@@ -775,16 +801,14 @@ Imagine comparing the distribution of racial majority across US counties to the 
 
 To produce a proportion bar chart, only the `geom_bar()` layer changes. `labs()` and `scale_x_discrete()` work exactly as they did before.
 
-One thing about the `ggplot()` call does look different, though it is not specific to proportion charts. Earlier you wrote `ggplot(data = counties, mapping = aes(...))`, naming the data frame directly. Here the data are piped in, so `data =` is gone: the pipe supplies it, and only `mapping =` needs writing. This is why the pipeline below begins with **df**, filters it, and then hands the filtered result to `ggplot()` --- the same move you would make with a frequency chart whenever you need to filter before plotting.
+The `ggplot()` call itself is unchanged: **df** is named directly in `data =`, as **counties** was earlier. When a variable does need filtering first, the data are piped in instead and `data =` disappears, because the pipe supplies it --- you will see that pattern in the regime type example later in this tutorial.
 
 Inside `geom_bar()`, two things are new to proportion charts, plus one that works on any bar chart. `after_stat(prop)` transforms the y-axis from counts to proportions: it tells ggplot to compute each category's share of all cases after the data have been tallied, rather than drawing raw counts. `group = 1` tells ggplot to compute those proportions across all bars together. Without it, ggplot would compute each bar's proportion relative to itself and every bar would show 1.0. Finally, `fill = "blue"` sets the bar color. This one has nothing to do with proportions --- it works the same way on a frequency bar chart, and you could have added it to any of the charts you built earlier. It sits outside the `aes()` call because it is a fixed setting applied equally to all bars, not a mapping from a variable: when a visual property is constant, it belongs outside `aes()`.
 
-**Run and observe 18: Build a proportion bar chart for Census region**
+**Run and observe 20: Build a proportion bar chart for Census region**
 
-```{r visual-bar-proportion-region, exercise=TRUE, exercise.cap="Run and observe 18", fig.alt="Proportion bar chart of US states by Census region, with four blue bars. The y-axis is labeled Proportion and runs from 0 to about 0.3."}
-df %>%
-  filter(!is.na(region)) %>%
-  ggplot(mapping = aes(x = region)) +
+```{r visual-bar-proportion-region, exercise=TRUE, exercise.cap="Run and observe 20", fig.alt="Proportion bar chart of US states by Census region, with four bars labeled South, Northeast, Midwest, and West. The y-axis is labeled Proportion and runs from 0 to about 0.3. South is tallest at just over 0.3, Northeast smallest at about 0.18, with Midwest and West in between."}
+ggplot(data = df, mapping = aes(x = region)) +
   geom_bar(aes(y = after_stat(prop), group = 1), fill = "blue") +
   labs(title = "Proportion of US States in Each Census Region",
        x = NULL,
@@ -793,9 +817,7 @@ df %>%
 
 Now interpret the plot. Look carefully at the y-axis before answering --- it is the only thing that has changed from the frequency charts you built earlier.
 
-**Practice 19: Interpret the proportion bar chart**
-
-Interpret what each bar in the proportion chart represents.
+**Practice 21: Interpret the proportion bar chart**
 
 ```{r question-bar-region-prop, echo=FALSE}
 question("In this plot, what does the height of each bar represent?",
@@ -818,34 +840,38 @@ A proportion bar chart and a proportion table should always tell the same story.
 
 ### Regime Type Around the World
 
-The next variable is **dem_level4** in the **world** data frame, which records regime type for countries in 2014 according to *The Economist*.
+The next variable is **regime_type3** in the **world** data frame, which classifies each country's regime using Cheibub's Democracy and Dictatorship data. It takes three values --- "Dictatorship," "Parliamentary democ," and "Presidential democ" --- and is stored as a factor.
 
-**Run and observe 20: Check the storage type and levels of dem_level4**
+**regime_type3** is missing for 34 of the 167 countries, and this is the first variable in this tutorial where filtering does real work. Some of those 34 are missing in the ordinary sense. Others are cases the classification has no place for: it recognizes three regime types, and France --- with a president and a prime minister who share executive power --- fits none of them. Missing values sometimes mean the data were not collected, and sometimes mean the scheme had no slot for a case.
 
-Before writing any plotting code, run the code below to check how **dem_level4** is stored and what categories it contains.
+Because missing values form their own group, they get counted in the denominator when you compute proportions, making the substantive proportions sum to less than 1. Filtering them out first is what keeps that from happening. The `filter()` function from [dplyr]{.package-name} does that work: it keeps only the rows meeting a condition you give it, and `!is.na(regime_type3)` keeps the rows where **regime_type3** has a recorded value. It goes at the start of the pipeline, before the data reach `ggplot()`. Be clear about what the filtered proportions then describe: they are shares among the 133 countries with a recorded regime type, not among all 167 in the data.
 
-```{r visual-regime-class, exercise=TRUE, exercise.cap="Run and observe 20"}
-class(world$dem_level4)
-levels(world$dem_level4)
+**Run and observe 22: Check the storage type and levels of regime_type3**
+
+Before writing any plotting code, run the code below to check how **regime_type3** is stored and what categories it contains.
+
+```{r visual-regime-class, exercise=TRUE, exercise.cap="Run and observe 22"}
+class(world$regime_type3)
+levels(world$regime_type3)
 ```
 
-**dem_level4** is stored as a factor, so ggplot already treats it as categorical --- no `factor()` wrapper is needed. The output of `levels()` shows the order in which the categories are stored. That order matters: when you supply replacement labels in `scale_x_discrete()`, you must list them in the same order as the levels, so the right label lands on the right bar. Some countries have missing data on **dem_level4**; pipe the data through `filter(!is.na(dem_level4))` before `ggplot()` so the proportions are shares among countries with a recorded value. This example gives you a new substantive setting and a more ambiguous distribution. The goal is not only to write the code but also to use the finished chart to decide how best to describe the shape.
+**regime_type3** is stored as a factor, so ggplot already treats it as categorical --- no `factor()` wrapper is needed. Notice that the stored values are abbreviated, so you will replace them with readable labels when you build the plot. The output of `levels()` shows the order in which the categories are stored. That order matters: when you supply replacement labels in `scale_x_discrete()`, you must list them in the same order as the levels, so the right label lands on the right bar. Pipe the data through `filter(!is.na(regime_type3))` before `ggplot()` so the proportions are shares among the countries with a recorded value. This example gives you a new substantive setting and a more ambiguous distribution. The goal is not only to write the code but also to use the finished chart to decide how best to describe the shape.
 
-**Practice 21: Create a proportion bar chart for regime type**
+**Practice 23: Create a proportion bar chart for regime type**
 
 Now build a complete proportion bar chart from scratch. Your chart should have:
 
 - Title: \"Regime Type\"
 - y-axis label: \"Proportion\"
 - x-axis label: omitted (`NULL`)
-- Caption: \"Source: The Economist\"
+- Caption: \"Source: Cheibub Democracy and Dictatorship data set\"
 - Bar fill color: \"red\"
 - Missing values excluded by filtering before `ggplot()`
-- Category labels: \"Full Democracy\", \"Partial Democracy\", \"Hybrid\", \"Authoritarian\" (in the order shown by `levels()`)
+- Category labels: \"Dictatorship\", \"Parliamentary democracy\", \"Presidential democracy\" (in the order shown by `levels()`)
 
 When you finish, look at the relative bar heights before moving to the interpretation question. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r visual-practice-bar-proportion-regime, exercise=TRUE, exercise.cap="Practice 21", fig.alt="Proportion bar chart of countries by regime type, with four red bars labeled Full Democracy, Partial Democracy, Hybrid, and Authoritarian. The y-axis is labeled Proportion and runs from zero to about 0.35."}
+```{r visual-practice-bar-proportion-regime, exercise=TRUE, exercise.cap="Practice 23", fig.alt="Proportion bar chart of countries by regime type, with three bars labeled Dictatorship, Parliamentary democracy, and Presidential democracy. The y-axis is labeled Proportion."}
 
 ```
 
@@ -859,7 +885,7 @@ When you finish, look at the relative bar heights before moving to the interpret
 ```{r visual-practice-bar-proportion-regime-hint-2}
 # Hint 2 of 3
 # Filter world, then pass the result to ggplot().
-# Map dem_level4 to the x-axis. You need geom_bar(),
+# Map regime_type3 to the x-axis. You need geom_bar(),
 # labs(), and scale_x_discrete().
 ```
 
@@ -867,7 +893,7 @@ When you finish, look at the relative bar heights before moving to the interpret
 # Hint 3 of 3
 # Inside geom_bar(), map y to after_stat(prop) and set
 # group = 1 in the same aes() call. Put fill = "red"
-# outside aes(). dem_level4 is already a factor, so no
+# outside aes(). regime_type3 is already a factor, so no
 # factor() wrapper is needed.
 ```
 
@@ -877,29 +903,32 @@ grade_this({
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (grepl("world\\s*<-", code_no_comments)) {
-    fail("Look at the first line. You have assigned something to world rather than passing world along the pipeline --- the arrow and the pipe do different things.")
+    fail("Look at the first line. You have assigned something to **world** rather than passing **world** along the pipeline --- the arrow and the pipe do different things.")
   }
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
   }
 
-  if (!is.data.frame(.result$data) || !"dem_level4" %in% names(.result$data)) {
-    fail("Build the plot from the world data frame, using dem_level4.")
+  if (!is.data.frame(.result$data) || !"regime_type3" %in% names(.result$data)) {
+    fail("Build the plot from the **world** data frame, using **regime_type3**.")
   }
 
   mapping_text <- paste(deparse(rlang::quo_get_expr(.result$mapping$x)), collapse = "")
-  if (!grepl("dem_level4", mapping_text)) {
-    fail("Map dem_level4 to the x-axis.")
+  if (!grepl("regime_type3", mapping_text)) {
+    fail("Map **regime_type3** to the x-axis.")
   }
 
-  if (any(is.na(.result$data$dem_level4))) {
-    fail("Filter out missing values with filter(!is.na(dem_level4)) before plotting.")
+  if (any(is.na(.result$data$regime_type3))) {
+    fail("Filter out missing values with `filter(!is.na(regime_type3))` before plotting.")
   }
 
   has_geom_bar <- any(vapply(.result$layers, function(layer) inherits(layer$geom, "GeomBar"), logical(1)))
   if (!has_geom_bar) {
-    fail("Add a geom_bar() layer.")
+    fail("Add a `geom_bar()` layer.")
   }
 
   bar_layers <- Filter(function(layer) inherits(layer$geom, "GeomBar"), .result$layers)
@@ -907,7 +936,7 @@ grade_this({
 
   y_mapping <- paste(deparse(rlang::quo_get_expr(bar_layer$mapping$y)), collapse = "")
   if (!grepl("after_stat\\s*\\(\\s*prop\\s*\\)", y_mapping)) {
-    fail("Inside geom_bar(), set y = after_stat(prop) so the bars show proportions.")
+    fail("Inside `geom_bar()`, set y = `after_stat(prop)` so the bars show proportions.")
   }
 
   group_quo <- bar_layer$mapping$group
@@ -915,7 +944,7 @@ grade_this({
     !is.null(group_quo) && identical(rlang::eval_tidy(group_quo), 1)
   }, error = function(e) FALSE)
   if (!group_ok) {
-    fail("Inside geom_bar(), include group = 1.")
+    fail("Inside `geom_bar()`, include group = 1.")
   }
 
   fill_value <- bar_layer$aes_params$fill
@@ -939,44 +968,45 @@ grade_this({
     fail("Set the y-axis label to \"Proportion\".")
   }
 
-  if (!identical(.result$labels$caption, "Source: The Economist")) {
-    fail("Check the caption. Use \"Source: The Economist\".")
+  if (!identical(.result$labels$caption, "Source: Cheibub Democracy and Dictatorship data set")) {
+    fail("Check the caption. Use \"Source: Cheibub Democracy and Dictatorship data set\".")
   }
 
   x_scales <- Filter(function(scale) "x" %in% scale$aesthetics, .result$scales$scales)
   if (length(x_scales) == 0) {
-    fail("Add scale_x_discrete() to label the regime categories.")
+    fail("Add `scale_x_discrete()` to label the regime categories.")
   }
 
   x_scale <- x_scales[[1]]
 
-  expected_labels <- c("Full Democracy", "Partial Democracy", "Hybrid", "Authoritarian")
+  expected_labels <- c("Dictatorship", "Parliamentary democracy", "Presidential democracy")
   if (!identical(x_scale$labels, expected_labels)) {
-    fail("Use the category labels Full Democracy, Partial Democracy, Hybrid, and Authoritarian in that order.")
+    fail("Use the category labels Dictatorship, Parliamentary democracy, and Presidential democracy in that order.")
   }
 
   pass("Exactly right --- you built a complete proportion bar chart from scratch, labels and all.")
 })
 ```
 
-**Practice 22: Describe the shape of the regime type distribution**
+**Practice 24: Describe the shape of the regime type distribution**
 
 Now use the chart as evidence. The point is not to force every distribution into a neat label; it is to decide whether a label helps summarize the pattern or whether the full distribution is more informative.
 
 ```{r question-shape-regime, echo=FALSE}
-question("Based on the proportion bar chart for **dem_level4**, how would you best describe the shape of the distribution?",
-  correct = "Right. This distribution is genuinely ambiguous.",
-  answer("Unimodal --- one category clearly dominates",
-         message = "No single category stands out clearly above the others. Look at the relative heights of all four bars before deciding."),
-  answer("Bimodal or roughly uniform --- either label is defensible here", correct = TRUE,
-         message = "This distribution is genuinely ambiguous. Partial Democracy and Authoritarian are the two most common categories, suggesting bimodal, but Full Democracy and Hybrid are not rare enough to be dismissed. Ambiguity in shape is not a failure --- it is a finding. When the label does not cleanly fit, describing the full distribution is more honest than forcing a single word onto a pattern that does not cooperate."),
-  answer("Uniform --- all four categories have exactly the same proportion",
-         message = "The four bars are not equal in height. One pair of categories is noticeably more common than the other pair, even if the overall distribution is fairly spread out."),
-  answer("Multimodal --- every category is a separate peak",
-         message = "Multimodal means several categories are notably more common than the rest. Here the bars are too similar in height for any category to stand out as a distinct peak."),
+question("Based on the proportion bar chart for **regime_type3**, how would you best describe the distribution?",
+  correct = "Right. One category stands clearly above the other two.",
+  answer("Unimodal --- dictatorship is clearly the most common regime type",
+         correct = TRUE,
+         message = "The three bars fall from about 0.46 to 0.31 to 0.23, and the gap between the tallest and the next is wide enough that no other category competes with it. Dictatorship is the modal category. Note what the 46% is a share of: the 133 countries with a recorded regime type, not all 167 in the data --- which is what filtering the missing values did to the denominator."),
+  answer("Roughly uniform --- the three categories have about the same share",
+         message = "They do not. The tallest bar is about twice the height of the shortest, at roughly 0.46 against 0.23. A uniform distribution would put all three near 0.33."),
+  answer("Bimodal --- dictatorship and parliamentary democracy are both peaks",
+         message = "Bimodal means two categories stand out from the rest, and here only one does. Parliamentary democracy at about 0.31 is much closer to presidential democracy at 0.23 than it is to dictatorship at 0.46, so it belongs with the lower group rather than forming a second peak."),
+  answer("Dictatorship is the most common regime type, so most countries in the world are dictatorships",
+         message = "Two problems in one sentence. About 46% is a plurality, not a majority --- most countries with a recorded value are not dictatorships. And the proportion describes the 133 countries with a classification, so it supports no claim about all countries in the world, let alone the 34 the classification could not place."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Look at the two tallest bars. Are they close enough in height that neither clearly dominates?"
+  try_again = "Compare the three bar heights against each other. Is one clearly tallest, are two similar and both above the third, or are all three close?"
 )
 ```
 
@@ -988,13 +1018,13 @@ The video shows R code being run in RStudio, demonstrating how to add `reorder()
 
 <a href="https://www.youtube.com/watch?v=030gs_nF5ss" target="_blank">Watch the short video on reordering and flipping bar charts</a>
 
-The Explore exercise below applies both techniques to the **racial_majority** chart. The `reorder()` function takes three arguments: the variable to reorder, a second variable to sort by, and a summary function that determines the sorting criterion. Here, `reorder(factor(racial_majority), racial_majority, length)` sorts the categories of **racial_majority** by how many counties fall in each, from fewest to most.
+The Explore exercise below applies both techniques to the **racial_majority** chart. The `reorder()` function takes three arguments: the variable to reorder, a second variable to sort by, and a summary function that determines the sorting criterion. Here, `reorder(factor(racial_majority), racial_majority, length)` sorts the categories of **racial_majority** by how many counties fall in each, from fewest to most. One consequence is easy to miss: once the categories are reordered, the labels you supply to `scale_x_discrete()` must be listed in the new order rather than alphabetically, because they are matched to positions on the axis and not to the values themselves.
 
-**Explore 23: Reorder categories and flip coordinates**
+**Explore 25: Reorder categories and flip coordinates**
 
 Run the code as given, then try removing `coord_flip()` or the `reorder()` call one at a time to see what each one does.
 
-```{r visual-reorder-and-flip, exercise=TRUE, exercise.cap="Explore 23", fig.alt="The racial majority bar chart with the categories reordered from fewest counties to most, so the bars rise from left to right and the White category sits at the right-hand end."}
+```{r visual-reorder-and-flip, exercise=TRUE, exercise.cap="Explore 25", fig.alt="Horizontal bar chart of US counties by racial majority, with categories ordered by count from fewest at the bottom to most at the top: Other/No, Hispanic, Black, then White. The White bar extends nearly the full width of the plot while the other three are very short by comparison."}
 ggplot(data = counties,
        mapping = aes(x = reorder(factor(racial_majority),
                                  racial_majority, length))) +
@@ -1005,7 +1035,7 @@ ggplot(data = counties,
        y = "Frequency",
        caption = "Source: Linn, Nagler, Zilinsky") +
   scale_x_discrete(na.translate = FALSE,
-                   labels = c("Black", "Hispanic", "Other", "White")) +
+                   labels = c("Other/No", "Hispanic", "Black", "White")) +
   coord_flip()
 ```
 
@@ -1015,9 +1045,7 @@ Without `coord_flip()` the bars stand vertically and the category labels compete
 
 The following questions ask you to pull together the main ideas from the tutorial. Your goal is to connect each question back to the logic of nominal variables: what their values mean, what kinds of summaries are appropriate, and how tables and plots help you describe a distribution.
 
-Start by thinking carefully about what it means to apply arithmetic to nominal codes.
-
-**Apply 24: Diagnose a mistake**
+**Apply 26: Diagnose a mistake**
 
 ```{r question-synthesis-nominal, echo=FALSE}
 question("A researcher codes political party affiliation as 1 = Democrat, 2 = Republican, 3 = Independent, 4 = Other, and reports that the mean party affiliation across survey respondents is 2.3. What is wrong with this?",
@@ -1038,9 +1066,7 @@ question("A researcher codes political party affiliation as 1 = Democrat, 2 = Re
 
 Next, think about audience and purpose. If you wanted someone to understand a nominal variable quickly, what form of presentation would make the distribution easiest to grasp?
 
-**Apply 25: Choose the right tool**
-
-Think about what each presentation format makes easy for a reader who is not a statistician.
+**Apply 27: Choose the right tool**
 
 ```{r question-tool-choice, echo=FALSE}
 question("A colleague wants to communicate the distribution of party affiliation in a survey sample to a general audience. Which of the following would be most effective?",
@@ -1061,9 +1087,7 @@ question("A colleague wants to communicate the distribution of party affiliation
 
 Finally, use the shape vocabulary from this tutorial. Read the pattern in the categories carefully before deciding which label best fits.
 
-**Apply 26: Identify the distribution shape**
-
-Describe the shape of the distribution from the numbers given.
+**Apply 28: Identify the distribution shape**
 
 ```{r question-distribution-shape, echo=FALSE}
 question("A bar chart of a nominal variable shows four categories. One category has about 60% of the observations, a second has about 30%, and the remaining two have about 5% each. How would you describe the shape of this distribution?",
@@ -1084,7 +1108,7 @@ question("A bar chart of a nominal variable shows four categories. One category 
 
 ## The Takeaways
 
-The table below collects the tools for describing a nominal variable, and everything that follows explains why those are the ones available and how to produce them in R. Tutorials 5 and 6 will add rows of their own as ordinal and interval variables make more measures available.
+The table below collects the tools for describing a nominal variable, and everything that follows explains why those are the ones available and how to produce them in R. Tutorials 5 and 6 will add columns of their own as ordinal and interval variables make more measures available.
 
 ::: {.qpa-infographic}
 <table class="qpa-table single">
@@ -1112,11 +1136,15 @@ The table below collects the tools for describing a nominal variable, and everyt
       <th scope="row">Visualization</th>
       <td>Bar Plot of Frequencies or Proportions</td>
     </tr>
+    <tr>
+      <th scope="row">R Functions</th>
+      <td><code>group_by()</code>, <code>summarise()</code>, <code>mutate()</code>, <code>filter()</code>, <code>geom_bar()</code></td>
+    </tr>
   </tbody>
 </table>
 :::
 
-Descriptive statistics provide simple summaries about the sample and the measures used to study it. Together with graphical analysis, they form the basis of virtually every quantitative analysis of data. This tutorial is the first of three on univariate description --- the practice of examining one variable at a time before studying relationships, testing hypotheses, or building models. The same three-part framework runs through all three tutorials: every variable you examine will be described in terms of its central tendency, its dispersion, and the shape of its distribution. What changes across the tutorials is not the framework but the tools, because the level of measurement determines which statistics and plots are meaningful.
+[**Descriptive statistics**]{.important-text} provide simple summaries about the sample and the measures used to study it. Together with graphical analysis, they form the basis of virtually every quantitative analysis of data. This tutorial is the first of three on [**univariate description**]{.important-text} --- the practice of examining one variable at a time before studying relationships, testing hypotheses, or building models. The same three-part framework runs through all three tutorials: every variable you examine will be described in terms of its central tendency, its dispersion, and the shape of its [**distribution**]{.important-text}. What changes across the tutorials is not the framework but the tools, because the level of measurement determines which statistics and plots are meaningful.
 
 - [**Central tendency**]{.important-text} refers to the typical value a variable takes. For a nominal variable, the only appropriate measure of central tendency is the [**mode**]{.important-text}: the category that occurs most often. The mean and median are not appropriate because they require either equal spacing between values or a meaningful rank order --- properties that unordered category labels do not have.
 
@@ -1124,13 +1152,13 @@ Descriptive statistics provide simple summaries about the sample and the measure
 
 - [**Shape**]{.important-text} gives a compact description of the overall pattern of the distribution. A nominal distribution is [**unimodal**]{.important-text} when one category clearly dominates, [**bimodal**]{.important-text} when two categories are similarly prominent, [**uniform**]{.important-text} when cases are spread approximately evenly, and [**multimodal**]{.important-text} when several categories stand out. When the pattern is ambiguous, describing the full distribution is more honest than forcing a label.
 
-In R, you implemented the analysis using a [dplyr]{.package-name} pipeline. Load each package once at the top of your script or Quarto document with `library(dplyr)` --- you do not need to repeat the call each time you use a dplyr function. Both `summarise()` and `summarize()` are valid spellings in [dplyr]{.package-name} and produce identical results.
+In R, you implemented the analysis using a [dplyr]{.package-name} pipeline. Load each package once at the top of your script or Quarto document with `library(dplyr)` --- you do not need to repeat the call each time you use a [dplyr]{.package-name} function. Both `summarise()` and `summarize()` are valid spellings in [dplyr]{.package-name} and produce identical results.
 
-You used the `group_by()` function to separate observations into categories, the `summarise()` function with `freq = n()` to count cases in each group, and the `mutate()` function with `prop = freq / sum(freq)` to convert counts to proportions.
+You used the `group_by()` function to separate observations into categories, the `summarise()` function with `freq = n()` to count cases in each group, producing a [**frequency table**]{.important-text}, and the `mutate()` function with `prop = freq / sum(freq)` to convert counts to proportions.
 
-You visualized distributions using [ggplot2]{.package-name}, loaded once with `library(ggplot2)`. Bar charts are built layer by layer: the `ggplot()` function sets up the data and maps the variable to the x-axis, the `geom_bar()` function counts cases and draws bars, the `labs()` function adds titles and axis labels, and the `scale_x_discrete()` function replaces stored values with meaningful category labels and suppresses missing values with `na.translate = FALSE` when needed. Use the `factor()` function when a variable is stored as numeric codes but should be treated as categorical; character variables and variables already stored as factors do not need it.
+You visualized distributions using [ggplot2]{.package-name}, loaded once with `library(ggplot2)`. Bar charts are built layer by layer: the `ggplot()` function sets up the data and maps the variable to the x-axis, the `geom_bar()` function adds a [**geom**]{.important-text} layer that counts cases and draws bars, the `labs()` function adds titles and axis labels, and the `scale_x_discrete()` function replaces stored values with meaningful category labels and suppresses missing values with `na.translate = FALSE` when needed. Use the `factor()` function when a variable is stored as numeric codes but should be treated as categorical; character variables and variables already stored as factors do not need it.
 
-For proportion bar charts, `aes(y = after_stat(prop), group = 1)` inside `geom_bar()` transforms the y-axis to show each category's share of the whole. When the variable has missing values, filter them out before `ggplot()` using `filter(!is.na(variable))` --- missing values would otherwise be included in the proportion computation, making the substantive proportions sum to less than 1. As with `na.rm = TRUE`, the resulting proportions describe the cases that have values. For frequency bar charts where you simply want to suppress an NA bar visually without filtering the data, use `na.translate = FALSE` inside `scale_x_discrete()`. Fixed visual properties like fill color go outside `aes()` because they are settings applied to all bars equally, not mappings from variables.
+For proportion bar charts, `aes(y = after_stat(prop), group = 1)` inside `geom_bar()` transforms the y-axis to show each category's share of the whole. Check whether the variable has missing values first. If it does, filter them out before `ggplot()` using `filter(!is.na(variable))` --- they would otherwise be included in the proportion computation, making the substantive proportions sum to less than 1. For a frequency chart, `na.translate = FALSE` is enough: hiding one bar changes nothing about the others. For a proportion chart it is not, because the missing cases would still sit in the denominator. The resulting proportions then describe the cases that have a recorded value. For frequency bar charts where you simply want to suppress an NA bar visually without filtering the data, use `na.translate = FALSE` inside `scale_x_discrete()`. Fixed visual properties like fill color go outside `aes()` because they are settings applied to all bars equally, not mappings from variables.
 
 When deciding how to present results, choose the format that serves your purpose and your audience. You may report the modal category and the proportion of cases in it, or you may present the entire distribution in a table or a bar chart. A table and a plot often communicate the same underlying distribution, so you usually do not need both in a final presentation unless each serves a distinct purpose. Use a proportion table when readers need exact values. Use a bar chart when you want the pattern to be visible at a glance. Use prose when one or two numbers tell the story on their own. Whatever format you choose, describe its contents in the text --- do not leave a table or figure to speak for itself. These choices --- which tool fits the variable, which format fits the audience --- recur in every tutorial that follows.
 

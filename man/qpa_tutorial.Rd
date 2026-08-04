@@ -6,6 +6,9 @@
 \usage{
 qpa_tutorial(...)
 }
+\arguments{
+\item{...}{Arguments passed to \code{learnr::tutorial()}.}
+}
 \description{
 Injects shared CSS, JS, and accessibility block into each tutorial
 at render time via post-processor.

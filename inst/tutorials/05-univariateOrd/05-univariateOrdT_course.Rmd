@@ -24,13 +24,15 @@ In this tutorial you will learn:
 
 * How to describe central tendency for ordinal variables using both the mode and the median
 * How to explain why the median becomes meaningful when categories have a rank order
-* How to use `median()` with `na.rm = TRUE`
+* How to use `median()`, and how to add `na.rm = TRUE` when a variable has missing values
 * How to use frequency and proportion tables to describe dispersion and shape
-* How to use `ggplot()` from the [ggplot2]{.package-name} package to create bar plots for ordinal variables while preserving the substantive order of the categories
+* How to use `ggplot()` from the [ggplot2]{.package-name} package with `geom_bar()` to create bar plots for ordinal variables while preserving the substantive order of the categories
+* How to check what order R will use for a variable's categories, and how to set the order yourself with `factor(levels = ...)`
 
 ```{r setup, include=FALSE}
 library(learnr)
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
@@ -39,9 +41,6 @@ options(lifecycle_verbosity = "quiet")
 options(cli.num_colors = 1)
 data("counties", package = "QPATutorialsCourse")
 data("fHouse", package = "QPATutorialsCourse")
-# Recode Freedom House status to an ordinal 0/1/2. Any value outside these
-# three --- including the 8 empty strings in the shipped data --- becomes NA.
-fHouse$FHStatus <- unname(c("NF" = 0, "PF" = 1, "F" = 2)[fHouse$FHStatus])
 ```
 
 ## Univariate Description
@@ -52,8 +51,6 @@ Before working through the examples, take a moment to identify which variables h
 
 **Practice 1: Identify ordinal level variables**
 
-Think about which variables have categories that can be ranked in a meaningful order --- and which do not.
-
 ```{r concepts-quiz-ordinal, echo=FALSE}
 question("Which of the following variables are ordinal level measures? Select all that apply.",
   correct = "Right. Both are ordinal variables.",
@@ -61,7 +58,7 @@ question("Which of the following variables are ordinal level measures? Select al
          message = "GDP is an interval (and ratio) measure. It is measured in dollars, so the values are ordered and the differences between them are equal at all points on the scale."),
   answer("Freedom House measure of whether a country is free, partly free, or not free", correct = TRUE,
          message = "The Freedom House measure is ordinal. Its response options are rank-ordered by how free a country is, but the differences between categories are not necessarily equal --- there is no guarantee that the political distance from Not Free to Partly Free equals the distance from Partly Free to Free."),
-  answer("The level of education of a respondent in a survey where the values include less than a high school degree, high school degree, college degree, and beyond college", correct = TRUE,
+  answer("A respondent's education level, from less than high school to beyond college", correct = TRUE,
          message = "Education level is ordinal. Each successive value indicates more education, but the differences between categories are not equal --- the gap between high school and college is not the same as the gap between college and beyond college. This is the defining feature of ordinal measurement: a meaningful order without equal spacing."),
   answer("A variable measuring whether a country supported or opposed a particular UN resolution",
          message = "This is a nominal variable. Supported or did not support are unordered categories with no meaningful rank."),
@@ -95,16 +92,15 @@ Each successive category is less urban than the one before it, but the differenc
 
 Before describing the "typical" county, you need to see how counties are distributed across the full urban-rural scale. A frequency and proportion table lets you see both the count in each category and the share of counties it represents --- and gives you the evidence you need to identify the mode.
 
-As established in Tutorial 4, the standard practice is to filter out missing values before computing proportions --- an NA group would otherwise be included in the denominator and make the substantive proportions sum to less than 1. **rural_urban** has no missing values, so the filter changes nothing here. Where a variable does have missing values, remember what the filtered proportions describe: shares among the cases that have a recorded value, not among all cases.
+**rural_urban** has a recorded value for every county, so the frequency and proportion table describes all 3,112 counties.
 
 **Practice 2: Create a frequency and proportion table for rural_urban**
 
-You built frequency and proportion tables in Tutorial 4 using `group_by()`, `summarise()`, and `mutate()` --- the same pipeline applies here. The filter step is already provided. Name your count column **freq** and your proportion column **prop**. Load [dplyr]{.package-name} with `library(dplyr)` at the top. Three hints are available. Click "Submit Answer" to check your work.
+You built frequency and proportion tables in Tutorial 4 using `group_by()`, `summarise()`, and `mutate()` --- the same pipeline applies here. Name your count column **freq** and your proportion column **prop**. Load [dplyr]{.package-name} with `library(dplyr)` at the top. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r analysis-practice-rural-table, exercise=TRUE, exercise.lines=6, exercise.cap="Practice 2"}
 library(dplyr)
 counties %>%
-  filter(!is.na(rural_urban)) %>%
 ```
 
 ```{r analysis-practice-rural-table-hint-1}
@@ -136,18 +132,20 @@ counties %>%
 ```{r analysis-practice-rural-table-check}
 grade_this({
   expected <- counties %>%
-    filter(!is.na(rural_urban)) %>%
     group_by(rural_urban) %>%
     summarise(freq = n(), .groups = "drop") %>%
     mutate(prop = freq / sum(freq))
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a table the grader can check.")
+  }
   if (!is.data.frame(.result)) {
-    fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside summarise() and mutate(), you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
+    fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()` and `mutate()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
   }
 
   needed <- c("rural_urban", "freq", "prop")
   if (!all(needed %in% names(.result))) {
-    fail("Make sure your table includes rural_urban, freq, and prop.")
+    fail("Make sure your table includes **rural_urban**, **freq**, and **prop**.")
   }
 
   result <- as.data.frame(.result)[needed]
@@ -158,16 +156,16 @@ grade_this({
   rownames(expected) <- NULL
 
   if (!identical(result$rural_urban, expected$rural_urban)) {
-    fail("Your table should have one row for each value of rural_urban.")
+    fail("Your table should have one row for each value of **rural_urban**.")
   }
   if (!identical(as.numeric(result$freq), as.numeric(expected$freq))) {
-    fail("Check your counts. Use n() inside summarise() to count counties in each rural_urban category.")
+    fail("Check your counts. Use `n()` inside `summarise()` to count **counties** in each **rural_urban** category.")
   }
   if (!isTRUE(all.equal(as.numeric(result$prop), as.numeric(expected$prop), tolerance = 1e-8))) {
-    fail("Check your proportions. Each proportion should be freq divided by the total number of counties.")
+    fail("Check your proportions. Each proportion should be **freq** divided by the total number of **counties**.")
   }
 
-  pass("Correct! Your frequency and proportion table is complete. The freq column gives the count in each of the nine categories and prop gives each category's share of all counties.")
+  pass("Correct! Your frequency and proportion table is complete. The **freq** column gives the count in each of the nine categories and **prop** gives each category's share of all **counties**.")
 })
 ```
 
@@ -184,7 +182,7 @@ question("Which of the following statements *best* describes the mode of **rural
          message = "One category has the highest count, even though the counts are fairly similar across categories. Compare the frequencies to identify it. Look at your frequency table and compare the counts."),
   answer("The modal category is 6",
          message = "Category 6 is indeed the most frequent, but reporting a numeric code without explanation is not informative. What does category 6 actually represent?"),
-  answer("The modal county is completely rural and not adjacent to a metro area",
+  answer("The modal county is completely rural, with no urban population, and is not adjacent to a metro area",
          message = "That describes category 9, which is not the most common. Go back to the frequency table and find the category with the highest count before translating it into words."),
   answer("The modal county has an urban population of 2,500 to 19,999 and is adjacent to a metro area", correct = TRUE,
          message = "The most frequently occurring category is 6, but it is more informative to give the substantive meaning. Reporting 'the mode is 6' conveys nothing to a reader who does not have the codebook in front of them. Reporting that the most common county has an urban population of 2,500 to 19,999 and is adjacent to a metro area tells readers something real about the geographic character of US counties."),
@@ -200,27 +198,25 @@ Does the middle of the distribution fall in the same category as the mode? The [
 
 One practical note: if the two middle observations fall in different categories, R's `median()` function returns the arithmetic mean of their numeric codes --- for example, 1.5 if the two middle values are coded 1 and 2. That number does not correspond to a real category. In that case, report the two bracketing categories rather than treating the numeric result as a meaningful value.
 
-R's `median()` function computes the median directly. Pass it the variable using the `$` operator and include `na.rm = TRUE` to exclude any missing values. The numeric codes must correctly represent the rank order of the categories --- always translate the numeric result back into the substantive category label when you report it.
+R's `median()` function computes the median directly. Pass it the variable using the `$` operator. Every county has a recorded value of **rural_urban**, so the median describes all 3,112 counties. The numeric codes must correctly represent the rank order of the categories --- always translate the numeric result back into the substantive category label when you report it.
 
 **Run and observe 4: Calculate the median of rural_urban**
 
 ```{r analysis-calculate-median, exercise=TRUE, exercise.cap="Run and observe 4"}
-median(counties$rural_urban, na.rm = TRUE)
+median(counties$rural_urban)
 ```
 
 The median is 6, which is not a quantity but a category: counties with an urban population of 2,500 to 19,999, adjacent to a metro area. Because the median depends on how the categories are ordered and coded, state how the scale runs whenever you report it. Here category 1 is the most urban and category 9 the most rural, so a median of 6 places the midpoint of the county distribution toward the more rural end of the scale.
 
 **Practice 5: Interpret the mode and median of rural_urban**
 
-Compare the mode and median of **rural_urban** and think about what their relationship tells you about the center of the distribution.
-
 ```{r question-median-rural, echo=FALSE}
 question("You just computed the mode and median of **rural_urban**. What does it mean when the mode and median fall in the same category?",
   correct = "Right. The mode and median both point to the same category.",
   answer("The distribution is perfectly symmetric",
          message = "Having the same mode and median does not guarantee symmetry. It means the most common value and the middle value coincide, but the distribution could still be skewed in either direction."),
-  answer("The most common county type and the middle county type are the same", correct = TRUE,
-         message = "Correct. The mode identifies category 6 as the most common category, while the median identifies it as the category holding the midpoint of the ordered distribution. The two point to the same part of the scale, even though counties remain spread across all nine categories."),
+  answer("The most common and middle county types are the same", correct = TRUE,
+         message = "The mode identifies category 6 as the most common category, while the median identifies it as the category holding the midpoint of the ordered distribution. The two point to the same part of the scale, even though counties remain spread across all nine categories."),
   answer("All counties have an urban population of 2,500 to 19,999",
          message = "The mode and median describe the center of the distribution, not all values. Many counties fall in other categories."),
   answer("The median cannot be computed for an ordinal variable",
@@ -237,7 +233,7 @@ question("You just computed the mode and median of **rural_urban**. What does it
 
 The frequency table you built shows that **rural_urban** is fairly dispersed: the counts range across all nine categories with no single category containing more than about 15% of counties. This means the mode is a less informative summary than it would be if one category dominated --- knowing the most common county type gives only a partial picture of how varied US counties actually are.
 
-[**Shape**]{.important-text} is the other half of what a table can tell you: the overall pattern the categories form. The same four labels from Tutorial 4 apply here --- a distribution is **unimodal** when one category clearly leads, **bimodal** when two are similarly prominent, **uniform** when cases are spread approximately evenly, and **multimodal** when several stand out. For an ordinal variable, though, the pattern also has a direction, because the categories are ranked: you can ask not just whether one category dominates but whether cases pile up at one end of the scale, thin out toward the other, or cluster in the middle. A frequency table contains all of that information, but it is much easier to see in a bar plot, where the relative size of the categories is visible at once.
+[**Shape**]{.important-text} is the other half of what a table can tell you: the overall pattern the categories form. The same four labels from Tutorial 4 apply here --- a distribution is [**unimodal**]{.important-text} when one category clearly leads, [**bimodal**]{.important-text} when two are similarly prominent, [**uniform**]{.important-text} when cases are spread approximately evenly, and [**multimodal**]{.important-text} when several stand out. For an ordinal variable, though, the pattern also has a [**direction across the scale**]{.important-text}, because the categories are ranked: you can ask not just whether one category dominates but whether cases pile up at one end of the scale, thin out toward the other, or cluster in the middle. A frequency table contains all of that information, but it is much easier to see in a bar plot, where the relative size of the categories is visible at once.
 
 ## Visualizing an Ordinal Variable
 
@@ -296,41 +292,44 @@ ggplot(data = counties, mapping = aes(x = ___)) +
 
 ```{r visual-practice-bar-rural-check}
 grade_this({
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
   }
 
   bar_layers <- Filter(function(layer) inherits(layer$geom, "GeomBar"), .result$layers)
   if (length(bar_layers) == 0) {
-    fail("Add geom_bar() to create a frequency bar plot.")
+    fail("Add `geom_bar()` to create a frequency bar plot.")
   }
 
   if (!is.data.frame(.result$data) || !"rural_urban" %in% names(.result$data)) {
-    fail("Use rural_urban from the counties data frame for this plot.")
+    fail("Use **rural_urban** from the **counties** data frame for this plot.")
   }
 
   expected_values <- sort(as.character(counties$rural_urban[!is.na(counties$rural_urban)]))
   actual_values   <- sort(as.character(.result$data$rural_urban[!is.na(.result$data$rural_urban)]))
   if (!identical(actual_values, expected_values)) {
-    fail("Use all nonmissing observations of rural_urban from the counties data frame. Do not remove any valid observations.")
+    fail("Use all nonmissing observations of **rural_urban** from the **counties** data frame. Do not remove any valid observations.")
   }
 
   x_expr <- paste(deparse(rlang::get_expr(.result$mapping$x)), collapse = "")
   if (!grepl("factor\\s*\\(\\s*rural_urban\\s*\\)", x_expr) &&
       !grepl("as.factor\\s*\\(\\s*rural_urban\\s*\\)", x_expr)) {
-    fail("Map factor(rural_urban) to the x-axis so the ordinal categories appear as categories.")
+    fail("Map `factor(rural_urban)` to the x-axis so the ordinal categories appear as categories.")
   }
 
   bar_layer <- bar_layers[[1]]
   y_map <- tryCatch(rlang::get_expr(bar_layer$mapping$y), error = function(e) NULL)
   y_expr <- if (!is.null(y_map)) paste(deparse(y_map), collapse = "") else ""
   if (grepl("after_stat\\s*\\(\\s*prop\\s*\\)", y_expr) || grepl("\\.\\.prop\\.\\.", y_expr)) {
-    fail("This exercise asks for a frequency bar chart, not a proportion chart. Remove the y = after_stat(prop) and group = 1 arguments from geom_bar().")
+    fail("This exercise asks for a frequency bar chart, not a proportion chart. Remove the `y = after_stat(prop)` and `group = 1` arguments from `geom_bar()`.")
   }
 
   fill_value <- bar_layer$aes_params$fill
   if (is.null(fill_value) || !identical(tolower(fill_value), "firebrick")) {
-    fail('Set fill = "firebrick" inside geom_bar() to color the bars.')
+    fail('Set `fill = "firebrick"` inside `geom_bar()` to color the bars.')
   }
 
   if (!identical(.result$labels$title, "USDA Urban/Rural Classification of US Counties")) {
@@ -351,7 +350,7 @@ grade_this({
 
   x_scales <- Filter(function(s) "x" %in% s$aesthetics, .result$scales$scales)
   if (length(x_scales) == 0) {
-    fail("Add scale_x_discrete() to replace the numeric codes with readable labels.")
+    fail("Add `scale_x_discrete()` to replace the numeric codes with readable labels.")
   }
 
   expected_labels <- c("1 million+", "250,000 to 1 million", "< 250,000",
@@ -360,7 +359,7 @@ grade_this({
                        "< 2,500 near metro", "< 2,500 not near metro")
   actual_labels <- x_scales[[1]]$labels
   if (!identical(actual_labels, expected_labels)) {
-    fail("Check your scale_x_discrete() labels carefully --- they must match the instructions exactly, including capitalization, spacing after < symbols, and hyphens between numbers.")
+    fail("Check your `scale_x_discrete()` labels carefully --- they must match the instructions exactly, including capitalization, spacing after < symbols, and hyphens between numbers.")
   }
 
   has_flip <- isTRUE(tryCatch({
@@ -371,7 +370,7 @@ grade_this({
     any(grepl("flip|Flip", class(.result$coordinates), ignore.case = TRUE))
   }))
   if (!has_flip) {
-    fail("Add coord_flip() as the final layer to flip the bars horizontal.")
+    fail("Add `coord_flip()` as the final layer to flip the bars horizontal.")
   }
 
   pass("Well done! Your chart has the right variable, the bar layer, the nine shortened category labels in their stored order, and the horizontal orientation that makes them readable.")
@@ -392,7 +391,7 @@ One thing worth noticing: the bars appear in the correct rank order because the 
 
 Now let's apply the same tools to a second ordinal variable. The variable **FHStatus** in the data frame **fHouse** contains Freedom House's annual assessment of political freedom in countries around the world. Freedom House is a non-governmental organization that rates political freedom and civil liberties in countries worldwide; their assessments are widely used in political science research as measures of democracy and human rights. The variable is stored as a numeric variable, taking three values: "Not Free" (coded 0), "Partly Free" (coded 1), and "Free" (coded 2). As you go from "Not Free" to "Free" a country becomes progressively more politically free, making this an ordinal variable.
 
-Unlike **rural_urban**, this variable has missing values --- so the `filter()` line in the starter code is doing real work here, and the proportions it produces will be shares of the countries that have a rating rather than of all countries in the data. The frequency and proportion table will tell you which category is most common and how much of the distribution falls below or above it.
+Unlike **rural_urban**, **FHStatus** is missing for 8 of the 203 countries --- so the `filter()` line in the starter code is doing real work here. Without it those countries would form a group of their own and land in the denominator, making the substantive proportions sum to less than 1. With it, the proportions describe the countries that have a rating rather than all countries in the data. The frequency and proportion table will tell you which category is most common and how much of the distribution falls below or above it.
 
 **Practice 7: Create a frequency and proportion table for FHStatus**
 
@@ -435,13 +434,16 @@ grade_this({
     summarise(freq = n(), .groups = "drop") %>%
     mutate(prop = freq / sum(freq))
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a table the grader can check.")
+  }
   if (!is.data.frame(.result)) {
-    fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside summarise() and mutate(), you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
+    fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()` and `mutate()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
   }
 
   needed <- c("FHStatus", "freq", "prop")
   if (!all(needed %in% names(.result))) {
-    fail("Make sure your table includes FHStatus, freq, and prop.")
+    fail("Make sure your table includes **FHStatus**, **freq**, and **prop**.")
   }
 
   result <- as.data.frame(.result)[needed]
@@ -452,13 +454,13 @@ grade_this({
   rownames(expected) <- NULL
 
   if (!identical(result$FHStatus, expected$FHStatus)) {
-    fail("Your table should have one row for each non-missing value of FHStatus. Make sure missing FHStatus values are excluded.")
+    fail("Your table should have one row for each non-missing value of **FHStatus**. Make sure missing **FHStatus** values are excluded.")
   }
   if (!identical(as.numeric(result$freq), as.numeric(expected$freq))) {
-    fail("Check your counts. Use n() inside summarise() after grouping by FHStatus.")
+    fail("Check your counts. Use `n()` inside `summarise()` after grouping by **FHStatus**.")
   }
   if (!isTRUE(all.equal(as.numeric(result$prop), as.numeric(expected$prop), tolerance = 1e-8))) {
-    fail("Check your proportions. Each proportion should be freq divided by the total number of non-missing FHStatus cases.")
+    fail("Check your proportions. Each proportion should be **freq** divided by the total number of non-missing **FHStatus** cases.")
   }
 
   pass("Good work! Your **FHStatus** table is complete, and the eight countries with no recorded status were excluded before the proportions were computed --- so each proportion is a share of the countries that have a rating.")
@@ -490,7 +492,7 @@ Because **FHStatus** is coded in rank order --- 0 for Not Free through 2 for Fre
 
 **Practice 9: Calculate the median for FHStatus**
 
-Now ask whether the midpoint of the ordered distribution falls in the same category as the mode. Use `median()` with `na.rm = TRUE` to calculate the median of **FHStatus** in the **fHouse** data frame. Three hints are available. Click "Submit Answer" to check your work.
+Now ask whether the midpoint of the ordered distribution falls in the same category as the mode. Calculate the median of **FHStatus** in the **fHouse** data frame. Eight countries have no recorded status, and `median()` returns `NA` if any value is missing --- your call needs to account for that. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r analysis-practice-fhstatus-median, exercise=TRUE, exercise.cap="Practice 9"}
 
@@ -527,26 +529,26 @@ grade_this({
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("median\\s*\\(", code_no_comments)) {
-    fail("Use the median() function to compute the median.")
+    fail("Use the `median()` function to compute the median.")
   }
   if (!grepl("fHouse\\s*\\$\\s*FHStatus", code_no_comments)) {
-    fail("Access the variable with the dollar-sign operator: fHouse$FHStatus.")
+    fail("Access the variable with the dollar-sign operator: `fHouse$FHStatus`.")
   }
   if (!grepl("na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Include na.rm = TRUE so median() excludes the missing FHStatus values.")
+    fail("Include `na.rm = TRUE` so `median()` excludes the missing **FHStatus** values.")
   }
 
   if (is.null(.result)) {
     fail("Make sure your code produces a result the grader can check.")
   }
   if (!is.numeric(.result) || length(.result) != 1) {
-    fail("Your result should be a single number returned by median().")
+    fail("Your result should be a single number returned by `median()`.")
   }
   if (is.na(.result)) {
-    fail("Your result is NA. Include na.rm = TRUE so R ignores missing values.")
+    fail("Your result is `NA`. Include `na.rm = TRUE` so R ignores missing values.")
   }
   if (!isTRUE(all.equal(as.numeric(.result), as.numeric(expected)))) {
-    fail("Check that you are computing the median of FHStatus in the fHouse data frame.")
+    fail("Check that you are computing the median of **FHStatus** in the **fHouse** data frame.")
   }
 
   pass(paste0("Correct! The median is ", expected, ", which corresponds to the category Partly Free."))
@@ -561,7 +563,7 @@ Build a proportion bar chart for **FHStatus**. Filter out the missing values bef
 
 Title: \"Political Freedom Around the World\", y-axis: \"Proportion\", caption: \"Source: Freedom House\", fill: \"steelblue\". Three hints are available. Click \"Submit Answer\" to check your work.
 
-```{r visual-practice-fhstatus-prop-bar, exercise=TRUE, exercise.cap="Practice 10", fig.alt="Proportion bar chart of countries by Freedom House status, with three steelblue bars labeled Not Free, Partly Free, and Free, in that order along the horizontal axis. The vertical axis is labeled Proportion and runs from zero to about 0.45."}
+```{r visual-practice-fhstatus-prop-bar, exercise=TRUE, exercise.cap="Practice 10", fig.alt="Proportion bar chart of countries by Freedom House status, with three bars labeled Not Free, Partly Free, and Free, in that order along the horizontal axis. Free is the tallest, Partly Free the shortest, and Not Free falls between them. The vertical axis is labeled Proportion and runs from zero to about 0.45."}
 
 ```
 
@@ -591,39 +593,42 @@ Title: \"Political Freedom Around the World\", y-axis: \"Proportion\", caption: 
 
 ```{r visual-practice-fhstatus-prop-bar-check}
 grade_this({
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
   }
 
   if (!is.data.frame(.result$data) || !"FHStatus" %in% names(.result$data)) {
-    fail("Use FHStatus from the fHouse data frame for this plot.")
+    fail("Use **FHStatus** from the **fHouse** data frame for this plot.")
   }
   if (any(is.na(.result$data$FHStatus))) {
-    fail("Filter out missing FHStatus values before plotting.")
+    fail("Filter out missing **FHStatus** values before plotting.")
   }
 
   expected_values <- sort(as.character(fHouse$FHStatus[!is.na(fHouse$FHStatus)]))
   actual_values   <- sort(as.character(.result$data$FHStatus))
   if (!identical(actual_values, expected_values)) {
-    fail("Use all nonmissing observations of FHStatus from the fHouse data frame. Do not remove any valid observations.")
+    fail("Use all nonmissing observations of **FHStatus** from the **fHouse** data frame. Do not remove any valid observations.")
   }
 
   bar_layers <- Filter(function(layer) inherits(layer$geom, "GeomBar"), .result$layers)
   if (length(bar_layers) == 0) {
-    fail("Add geom_bar() to create the bar plot.")
+    fail("Add `geom_bar()` to create the bar plot.")
   }
 
   x_expr <- paste(deparse(rlang::get_expr(.result$mapping$x)), collapse = "")
   if (!grepl("factor\\s*\\(\\s*FHStatus\\s*\\)", x_expr) &&
       !grepl("as.factor\\s*\\(\\s*FHStatus\\s*\\)", x_expr)) {
-    fail("Map factor(FHStatus) to the x-axis so the categories are treated as discrete rather than numeric.")
+    fail("Map `factor(FHStatus)` to the x-axis so the categories are treated as discrete rather than numeric.")
   }
 
   layer_map <- bar_layers[[1]]$mapping
   y_expr <- paste(deparse(rlang::get_expr(layer_map$y)), collapse = "")
 
   if (!grepl("after_stat\\s*\\(\\s*prop\\s*\\)", y_expr) && !grepl("\\.\\.prop\\.\\.", y_expr)) {
-    fail("Inside geom_bar(), map y to after_stat(prop) so the bars show proportions.")
+    fail("Inside `geom_bar()`, map y to `after_stat(prop)` so the bars show proportions.")
   }
 
   group_quo <- bar_layers[[1]]$mapping$group
@@ -631,12 +636,12 @@ grade_this({
     !is.null(group_quo) && identical(rlang::eval_tidy(group_quo), 1)
   }, error = function(e) FALSE)
   if (!group_ok) {
-    fail("Inside geom_bar(), include group = 1 so proportions are computed across all FHStatus categories.")
+    fail("Inside `geom_bar()`, include `group = 1` so proportions are computed across all **FHStatus** categories.")
   }
 
   fill_value <- bar_layers[[1]]$aes_params$fill
   if (is.null(fill_value) || !identical(tolower(fill_value), "steelblue")) {
-    fail('Set fill = "steelblue" inside geom_bar() to color the bars.')
+    fail('Set `fill = "steelblue"` inside `geom_bar()` to color the bars.')
   }
 
   if (!identical(.result$labels$title, "Political Freedom Around the World")) fail("Check the plot title.")
@@ -651,16 +656,14 @@ grade_this({
   x_scales <- Filter(function(s) "x" %in% s$aesthetics, .result$scales$scales)
   labels <- if (length(x_scales) > 0) x_scales[[1]]$labels else NULL
   if (!identical(unname(labels), c("Not Free", "Partly Free", "Free"))) {
-    fail("Use scale_x_discrete() to label the categories Not Free, Partly Free, and Free in that order.")
+    fail("Use `scale_x_discrete()` to label the categories Not Free, Partly Free, and Free in that order.")
   }
 
-  pass("Exactly! Your proportion bar chart shows the three FHStatus categories in their substantive order, from Not Free through Free.")
+  pass("Exactly! Your proportion bar chart shows the three **FHStatus** categories in their substantive order, from Not Free through Free.")
 })
 ```
 
 **Practice 11: Describe the distribution of FHStatus**
-
-Use the bar chart to describe the shape of the distribution of **FHStatus**.
 
 ```{r question-shape-fhstatus, echo=FALSE}
 question("Based on the proportion bar plot, how would you best describe the shape of the distribution of **FHStatus**?",
@@ -679,13 +682,122 @@ question("Based on the proportion bar plot, how would you best describe the shap
 )
 ```
 
+## What to Do When Categories Are Not in Substantive Order
+
+Both variables in this tutorial cooperated. **rural_urban** runs from 1 to 9 and **FHStatus** from 0 to 2, and in both cases the numeric order is the substantive order --- so `factor()` preserved it and the bars in each plot came out in rank order. That will not always be true, and when it is not, a plot is wrong in a way that is easy to miss.
+
+R never guesses what your categories mean. It orders them by how they are stored:
+
+| Stored as | Order R uses | How to check |
+|:---|:---|:---|
+| character | alphabetical | `sort(unique(x))` |
+| factor | its stored levels | `levels(x)` |
+| numeric | ascending | read the codebook |
+
+The check is the same question in three forms: what order will R use, and is that the order I mean?
+
+```{r ordinal-survey-setup, include=FALSE}
+survey <- data.frame(
+  education = c(rep("Less than high school", 12), rep("High school", 31),
+                rep("College degree", 24), rep("Beyond college", 8))
+)
+```
+
+**Run and observe 12: See what alphabetical order does to an ordinal variable**
+
+The code below builds a small survey data frame from scratch, with education recorded as text rather than as codes. Run it and look at the order of the bars.
+
+```{r ordinal-alphabetical-problem, exercise=TRUE, exercise.cap="Run and observe 12", fig.alt="Bar chart of educational attainment with four bars in alphabetical order: Beyond college, College degree, High school, Less than high school. The categories do not run from least to most education, so the shape of the distribution across the ordered scale is impossible to read."}
+survey <- data.frame(
+  education = c(rep("Less than high school", 12), rep("High school", 31),
+                rep("College degree", 24), rep("Beyond college", 8))
+)
+
+ggplot(data = survey, mapping = aes(x = education)) +
+  geom_bar() +
+  labs(title = "Educational Attainment",
+       x = NULL,
+       y = "Frequency")
+```
+
+The categories have an obvious substantive order, and the plot ignores it. Stored as text, they come out alphabetically --- Beyond college, College degree, High school, Less than high school --- which puts the most educated group first and the least educated group last. The shape of the distribution is unreadable, because the order of the bars means nothing.
+
+The fix is to tell R what the order is. Alongside the variable, `factor()` takes a `levels` argument that fixes the sequence:
+
+**Example code:**
+
+```{r factor-levels-template, exercise=FALSE, eval=FALSE}
+factor(variable, levels = c("first category", "second category", "third category"))
+```
+
+Every category must appear in `levels`, spelled exactly as it is stored --- anything left out becomes `NA` and disappears from the plot.
+
+**Practice 13: Put the categories in substantive order**
+
+Rebuild the same bar plot from the **survey** data frame, but wrap **education** in `factor()` inside `aes()` and give it a `levels` argument listing the four categories from least to most education. Two hints are available. Click "Submit Answer" to check your work.
+
+```{r ordinal-alphabetical-fix, exercise=TRUE, exercise.cap="Practice 13", exercise.setup="ordinal-survey-setup", fig.alt="The same bar chart with the categories in substantive order, from Less than high school through High school and College degree to Beyond college. The bars now rise to a peak at High school and fall away on either side."}
+ggplot(data = survey, mapping = aes(x = ___)) +
+  geom_bar() +
+  labs(title = "Educational Attainment",
+       x = NULL,
+       y = "Frequency")
+```
+
+```{r ordinal-alphabetical-fix-hint-1}
+# Hint 1 of 2
+# The order you want is the substantive one: from the least education to the
+# most. Write the four category labels in that order, exactly as they appear
+# in the data.
+```
+
+```{r ordinal-alphabetical-fix-hint-2}
+# Hint 2 of 2
+# Wrap education in factor() and give factor() a second argument, levels,
+# set to a character vector of the four labels in the order you want them.
+```
+
+```{r ordinal-alphabetical-fix-check}
+grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
+
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
+  if (!grepl("factor\\s*\\(", code_no_comments)) {
+    fail("Wrap **education** in `factor()` inside `aes()`.")
+  }
+  if (!grepl("levels\\s*=", code_no_comments)) {
+    fail("Add the `levels` argument inside `factor()` to set the order of the categories.")
+  }
+  if (!inherits(.result, "ggplot")) {
+    fail("Your code should return a ggplot object. Check for a missing + at the end of a line or an unmatched parenthesis.")
+  }
+
+  shown <- as.character(
+    ggplot2::ggplot_build(.result)$layout$panel_params[[1]]$x$get_labels()
+  )
+  expected <- c("Less than high school", "High school",
+                "College degree", "Beyond college")
+
+  if (!identical(shown, expected)) {
+    fail("Check the order inside `levels`. The bars should run from least **education** to most: Less than high school, High school, College degree, Beyond college.")
+  }
+
+  pass("Well done! Setting `levels` puts the bars in substantive order, so the shape of the distribution is readable.")
+})
+```
+
+::: {.caution}
+**Numeric codes can be out of order too.** Nothing guarantees that a variable's numeric codes run in substantive order. A survey might code "no opinion" as 5 on a 1-to-4 agreement scale, or assign 1 to high school and 2 to less than high school. R will sort them 1, 2, 3, 4, 5 regardless, and the plot will look orderly while being wrong. This is the case that needs a deliberate check against the codebook, because nothing on screen looks broken.
+:::
+
 ## Check Your Understanding
 
 The following questions focus on the main new ideas in this tutorial: what the median adds to your description of an ordered variable, and what it means when the mode and median agree or diverge.
 
-**Apply 12: Choose the right tool**
-
-Think about what ordinal measurement makes possible that nominal measurement does not.
+**Apply 14: Choose the right tool**
 
 ```{r question-tool-choice-ordinal, echo=FALSE}
 question("A researcher wants to describe the central tendency of a 5-point satisfaction scale (1 = very dissatisfied, 5 = very satisfied). Which statistics are appropriate?",
@@ -704,9 +816,7 @@ question("A researcher wants to describe the central tendency of a 5-point satis
 )
 ```
 
-**Apply 13: Interpret a gap between mode and median**
-
-Now apply those tools to a specific result and think about what the gap between the mode and median reveals.
+**Apply 15: Interpret a gap between mode and median**
 
 ```{r question-synthesis-ordinal, echo=FALSE}
 question("A researcher studying job satisfaction reports that for a 5-point scale (1 = very dissatisfied, 5 = very satisfied), the mode is 5 and the median is 3. Which of the following best interprets this result?",
@@ -725,9 +835,7 @@ question("A researcher studying job satisfaction reports that for a 5-point scal
 )
 ```
 
-**Apply 14: Interpret an unchanged median**
-
-Think about what the median can and cannot tell you when it stays the same despite a change in the distribution.
+**Apply 16: Interpret an unchanged median**
 
 ```{r question-interpret-ordinal, echo=FALSE}
 question("A 5-category ordinal variable has a median of 3. After several observations move from category 1 to category 2, the median remains 3. What can you conclude?",
@@ -747,9 +855,29 @@ question("A 5-category ordinal variable has a median of 3. After several observa
 )
 ```
 
+**Apply 17: Diagnose a misleading bar plot**
+
+```{r question-alphabetical-order, echo=FALSE}
+question("A student builds a bar plot of an education variable with five ordered categories, from less than high school through graduate degree. The code runs without error, and the height of every bar is correct. But the categories appear along the axis in alphabetical order. What is wrong with the graph?",
+  correct = "Right. The bars are right; the order they sit in is not.",
+  answer("The alphabetical order breaks the ranked scale, so the shape of the distribution cannot be read",
+         correct = TRUE,
+         message = "Every count is accurate, which is what makes this easy to miss. What alphabetical order destroys is the one thing ordinal measurement adds: with the categories out of rank order, you cannot see whether cases pile up at the low end, thin out toward the high end, or cluster in the middle. A reader looking for the direction across the scale sees a pattern that is an artifact of the alphabet."),
+  answer("The bar heights must be wrong, because a correctly built plot orders its categories automatically",
+         message = "R orders categories by how they are stored, not by what they mean --- alphabetically for a character variable --- and it does that whether or not the heights are right. The counts here are correct; only their arrangement is not."),
+  answer("Nothing is wrong, since the categories are all present and every count is accurate",
+         message = "All five categories are there and every count is right. But a bar plot of an ordinal variable is read left to right, and that reading is only meaningful when the categories run in their substantive order."),
+  answer("The plot needs a title and axis labels before the distribution can be interpreted",
+         message = "Labels matter for communication, but they would not fix this plot. Even fully labeled, the categories would still sit in an order that has nothing to do with education."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "The counts are all correct. Ask what a reader loses when ordered categories are arranged by something other than their order."
+)
+```
+
 ## The Takeaways
 
-The table below collects the tools for describing nominal and ordinal variables side by side. The nominal column is carried over from Tutorial 4; only one entry changes. Everything that follows explains why, and how to produce these in R. Tutorial 6 adds a third column.
+The table below collects the tools for describing nominal and ordinal variables side by side. The nominal column is carried over from Tutorial 4; central tendency gains the median, and the R functions gain `median()` and `factor()`. Everything that follows explains why, and how to produce these in R. Tutorial 6 adds a third column.
 
 ::: {.qpa-infographic}
 <table class="qpa-table">
@@ -775,12 +903,17 @@ The table below collects the tools for describing nominal and ordinal variables 
     <tr>
       <th scope="row">Distribution Shape</th>
       <td>Unimodal, Bimodal, Multimodal, Uniform</td>
-      <td>Unimodal, Bimodal, Multimodal, Uniform</td>
+      <td>Unimodal, Bimodal, Multimodal, Uniform; Direction Across the Scale</td>
     </tr>
     <tr>
       <th scope="row">Visualization</th>
       <td>Bar Plot of Frequencies or Proportions</td>
       <td>Bar Plot of Frequencies or Proportions</td>
+    </tr>
+    <tr>
+      <th scope="row">R Functions</th>
+      <td><code>group_by()</code>, <code>summarise()</code>, <code>mutate()</code>, <code>filter()</code>, <code>geom_bar()</code></td>
+      <td><code>group_by()</code>, <code>summarise()</code>, <code>mutate()</code>, <code>filter()</code>, <code>median()</code>, <code>factor()</code>, <code>geom_bar()</code></td>
     </tr>
   </tbody>
 </table>
@@ -790,13 +923,13 @@ This tutorial is the middle step in the three-tutorial sequence on univariate de
 
 For ordinal variables, the three dimensions are described as follows:
 
-- [**Central tendency**]{.important-text} is described with both the [**mode**]{.important-text} and the [**median**]{.important-text}. The mode identifies the most common category; the median identifies the midpoint of the ordered distribution. In R, `median(data$variable, na.rm = TRUE)` gives you the median directly. When the mode and median agree, the most common category and the midpoint of the distribution coincide. When they diverge, as they did for **FHStatus**, that difference is part of the story and should be explained.
+- [**Central tendency**]{.important-text} is described with both the [**mode**]{.important-text} and the [**median**]{.important-text}. The mode identifies the most common category; the median identifies the midpoint of the ordered distribution. In R, `median(data$variable)` gives you the median directly, with `na.rm = TRUE` added when the variable has missing values --- without it, a single `NA` makes the whole result `NA`. When the mode and median agree, the most common category and the midpoint of the distribution coincide. When they diverge, as they did for **FHStatus**, that difference is part of the story and should be explained.
 
 - [**Dispersion**]{.important-text} is described with frequency and proportion tables. As established in Tutorial 4, filter out missing values before computing proportions whenever a variable has any --- an NA group would otherwise be included in the denominator, making the substantive proportions sum to less than 1. After filtering, use `group_by()`, `summarise()`, and `mutate()` to count cases and calculate proportions. The more spread out the cases are across categories, the less you should rely on the mode or median alone.
 
-- [**Shape**]{.important-text} is easiest to see in a bar plot. For ordinal variables, the bars must appear in the substantive rank order of the categories. A distribution is [**unimodal**]{.important-text} when one category clearly leads, [**bimodal**]{.important-text} when two categories are similarly prominent, [**uniform**]{.important-text} when cases are spread approximately evenly, and [**multimodal**]{.important-text} when several categories stand out. If the numeric codes already run in the correct direction, `factor()` preserves that ordering. Use `scale_x_discrete()` to add readable labels while maintaining the rank order. Use `coord_flip()` when category labels are long.
+- [**Shape**]{.important-text} is easiest to see in a bar plot. For ordinal variables, the bars must appear in the substantive rank order of the categories, because ordered categories add a [**direction across the scale**]{.important-text} to the modal pattern: cases can pile up at one end, thin out toward the other, or cluster in the middle. A distribution is [**unimodal**]{.important-text} when one category clearly leads, [**bimodal**]{.important-text} when two categories are similarly prominent, [**uniform**]{.important-text} when cases are spread approximately evenly, and [**multimodal**]{.important-text} when several categories stand out. If the numeric codes already run in the correct direction, `factor()` preserves that ordering. Use `scale_x_discrete()` to add readable labels while maintaining the rank order. Use `coord_flip()` when category labels are long.
 
-In R, load [dplyr]{.package-name} and [ggplot2]{.package-name} once at the top of your script or Quarto document with `library(dplyr)` and `library(ggplot2)` before any code that uses functions from those packages. When building a proportion bar chart, filter out missing values before passing data to `ggplot()` --- for the same reason as proportion tables, an NA bar would otherwise be included in the proportion computation, making the substantive proportions sum to less than 1. Pipe the filtered data frame directly into `ggplot()` --- when data arrive via a pipe, the `data =` argument is supplied automatically and only `mapping =` is needed. As in Tutorial 4, `geom_bar()` draws the bars, and `aes(y = after_stat(prop), group = 1)` inside it turns counts into proportions.
+In R, load [dplyr]{.package-name} and [ggplot2]{.package-name} once at the top of your script or Quarto document with `library(dplyr)` and `library(ggplot2)` before any code that uses functions from those packages. When building a proportion bar chart, filter out missing values before passing data to `ggplot()` if the variable has any --- for the same reason as proportion tables, an NA bar would otherwise be included in the proportion computation, making the substantive proportions sum to less than 1. Pipe the filtered data frame directly into `ggplot()` --- when data arrive via a pipe, the `data =` argument is supplied automatically and only `mapping =` is needed. As in Tutorial 4, `geom_bar()` draws the bars, and `aes(y = after_stat(prop), group = 1)` inside it turns counts into proportions.
 
 In Tutorial 6, you will move to interval variables, where the distances between values are equal and meaningful. That additional property makes the **mean** available as a measure of central tendency --- the payoff for all the "not appropriate for ordinal" caveats in this tutorial. The median remains useful for interval variables too, but the mean becomes the primary tool.
 

@@ -7,7 +7,7 @@
 qpa_launch(tutorial)
 }
 \arguments{
-\item{tutorial}{A number (1-20) or a name matching part of the tutorial
+\item{tutorial}{A number (1-21) or a name matching part of the tutorial
 folder name (e.g., "bivariateCat", "regression", "logit").}
 }
 \description{
@@ -20,7 +20,9 @@ in a browser rather than RStudio's internal viewer.
 qpa_launch(1)               # R Basics Part 1
 qpa_launch(7)               # Bivariate Description: Categorical
 qpa_launch("bivariateCat")  # same as above, by name
-qpa_launch("regression")    # matches first tutorial with "regression" in name
+qpa_launch(17)              # From Coefficients to Predicted Values
+qpa_launch(18)              # Interactions in Multiple Regression
+qpa_launch(19)              # Prediction Plots for Interaction Models
 }
 
 }

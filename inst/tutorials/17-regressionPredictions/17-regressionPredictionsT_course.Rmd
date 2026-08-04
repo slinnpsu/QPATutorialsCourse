@@ -25,10 +25,8 @@ In this tutorial you will learn:
 
 ```{r setup, include=FALSE}
 library(learnr)
-library(learnrhash)
-library(tidyverse)
-library(knitr)
-library(poliscidata)
+library(dplyr)
+library(ggplot2)
 library(gradethis)
 library(stargazer)
 library(sjPlot)
@@ -39,7 +37,8 @@ data("states", package = "QPATutorialsCourse")
 legdata <- states
 legdata$p.liberal <- legdata$liberal / 100
 legdata$region_censusf <- factor(legdata$region_census,
-                                 labels = c("South", "Northeast", "Midwest", "West"))
+                                 levels = c(1, 2, 3, 4),
+                                 labels = c("South", "West", "Midwest", "Northeast"))
 data("qog", package = "QPATutorialsCourse")
 qog$rights[qog$fh_pr <= 2] <- 0
 qog$rights[qog$fh_pr >  2] <- 1
@@ -118,7 +117,7 @@ The data frame **legdata** contains 49 state observations with the following var
 - **p.liberal**: proportion of state residents identifying as liberal
 - **nonwhite**: proportion of state residents who are not white
 - **povrate**: state poverty rate (percent)
-- **region_censusf**: a four-category factor --- South (reference), Northeast, Midwest, West
+- **region_censusf**: a four-category factor --- South (reference), West, Midwest, Northeast
 
 ### Estimate the Model
 
@@ -212,7 +211,7 @@ The `stargazer()` function from the [stargazer]{.package-name} package was intro
 
 **Practice: Produce a stargazer table for fit1**
 
-Use the title "Predictors of Democratic State House Seat Share" and the outcome-variable label "Proportion of Democratic House Seats". The six covariate labels for this model are: **Proportion Non-White**, **Proportion Liberal**, **Poverty Rate**, **Northeast**, **Midwest**, and **West**. Determine the correct order from your model output above. Three hints are available. Click "Submit Answer" to check your work.
+Use the title "Predictors of Democratic State House Seat Share" and the outcome-variable label "Proportion of Democratic House Seats". The six covariate labels for this model are: **Proportion Non-White**, **Proportion Liberal**, **Poverty Rate**, **West**, **Midwest**, and **Northeast**. Determine the correct order from your model output above. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-stargazer-fit1, exercise=TRUE, exercise.cap="Practice: Produce a labeled stargazer table for fit1"}
 library(stargazer)
@@ -241,7 +240,7 @@ stargazer(fit1,
 # Hint 2 of 3
 # The two argument name blanks are: type and covariate.labels.
 # Covariate labels follow formula order; South is the reference
-# category and is omitted, so region labels are Northeast, Midwest, West.
+# category and is omitted, so region labels are West, Midwest, Northeast.
 ```
 
 ```{r exercise-stargazer-fit1-hint-3}
@@ -249,7 +248,7 @@ stargazer(fit1,
 # The six covariate labels follow formula order. The first three are
 # Proportion Non-White, Proportion Liberal, and Poverty Rate.
 # The last three are the non-reference region categories in the order
-# they appear in the model output: Northeast, Midwest, and West.
+# they appear in the model output: West, Midwest, and Northeast.
 # South is the reference category and is omitted from the labels.
 ```
 
@@ -269,13 +268,13 @@ grade_this({
     fail("Use the prescribed dep.var.labels.")
 
   labels <- c("Proportion Non-White","Proportion Liberal","Poverty Rate",
-              "Northeast","Midwest","West")
+              "West", "Midwest", "Northeast")
   for (lbl in labels)
     if (!grepl(lbl, code_nc, fixed = TRUE))
       fail(paste0("The label \"", lbl, "\" is missing."))
   pos <- sapply(labels, function(l) regexpr(l, code_nc, fixed=TRUE)[1])
   if (!all(diff(pos) > 0))
-    fail("The labels are out of order. Follow formula order: Proportion Non-White, Proportion Liberal, Poverty Rate, Northeast, Midwest, West.")
+    fail("The labels are out of order. Follow formula order: Proportion Non-White, Proportion Liberal, Poverty Rate, West, Midwest, Northeast.")
   pass("Well done. The table gives your reader the complete picture; the predictions and plots that follow translate the coefficients into model-implied comparisons.")
 })
 ```
@@ -363,7 +362,7 @@ plot_model(fit1,
 
 Since [sjPlot]{.package-name} was loaded in the exercise above, you can assume it is already loaded for all subsequent exercises in this tutorial. In your own scripts, call `library(sjPlot)` once at the top before using `plot_model()`. You may also see a note about overlapping data points --- with only 49 states this is not a concern, and the `jitter` argument is optional. Jitter adds a small random offset to each data point's position so that overlapping points spread apart and remain individually visible. With sparse data like these 49 states it is unnecessary, but in datasets where many observations share similar x-axis values, `show.data = TRUE` combined with `jitter = 0.1` (or a similar small value) prevents points from stacking on top of each other.
 
-Notice what this plot is doing: it is sweeping across the full range of **p.liberal**, computing a predicted value at every point --- exactly what `predict()` did for one specific value, but repeated across the entire range and displayed as a continuous line. The two specific values you computed earlier (about 0.58 and 0.71) are points on this line. The shaded band is the 95% confidence region around those predictions. Its width is not constant: it is narrower in the middle of the **p.liberal** range, where more states are concentrated and the model has more information, and wider at the tails, where fewer states have very high or very low liberalism levels. Predictions are often more precise where data are dense and less precise where data are sparse, though precision also depends on the model's overall fit and the covariance among predictors.
+Notice what this plot is doing: it is sweeping across the full range of **p.liberal**, computing a predicted value at every point --- exactly what `predict()` did for one specific value, but repeated across the entire range and displayed as a continuous line. The two specific values you computed earlier (about 0.58 and 0.67) are points on this line. The shaded band is the 95% confidence region around those predictions. Its width is not constant: it is narrower in the middle of the **p.liberal** range, where more states are concentrated and the model has more information, and wider at the tails, where fewer states have very high or very low liberalism levels. Predictions are often more precise where data are dense and less precise where data are sparse, though precision also depends on the model's overall fit and the covariance among predictors.
 
 ### Interpret the Liberalism Plot
 

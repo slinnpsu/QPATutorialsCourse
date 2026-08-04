@@ -27,7 +27,8 @@ In this tutorial, you will learn:
 
 ```{r setup, include=FALSE}
 library(learnr)
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
@@ -35,7 +36,7 @@ knitr::opts_chunk$set(error = TRUE)
 options(lifecycle_verbosity = "quiet")
 options(cli.num_colors = 1)
 data("counties", package = "QPATutorialsCourse")
-data("world", package = "poliscidata")
+data("world", package = "QPATutorialsCourse")
 ```
 
 ## Univariate Description
@@ -43,8 +44,6 @@ data("world", package = "poliscidata")
 The same three dimensions organize this tutorial as the previous two: central tendency, dispersion, and the shape of the distribution. What changes is the toolkit. Because the values of an [**interval variable**]{.important-text} are ordered *and* separated by meaningful distances, you can do arithmetic on them --- add them, average them, measure how far apart they are --- and every new statistic in this tutorial comes from that one property.
 
 **Practice 1: Identify interval-level variables**
-
-Think about which variables have values that are not only ordered but also have equal distances between them throughout the scale.
 
 ```{r concepts-quiz-interval-level, echo=FALSE}
 question("Which of the following variables are interval level measures? Select all that apply.",
@@ -83,7 +82,7 @@ The mean is the most commonly reported measure of central tendency, but it has o
 
 ### The Mode
 
-For nominal and ordinal variables, you identified the mode from a frequency table. Try the same approach with the interval variable **wage_growth** in the **counties** data frame, which records the percentage change in wages in each county over a twelve-month period. Run the code below to see what happens.
+For nominal and ordinal variables, you identified the mode from a frequency table. Try the same approach with the interval variable **wage_growth** in the **counties** data frame, which records the percentage change in wages in each county over a twelve-month period. It has 2 missing values, so any table or summary you compute from it describes the 3,110 counties with a recorded value.
 
 **Run and observe 2: Find the mode of wage_growth**
 
@@ -102,11 +101,11 @@ Once a package is loaded with `library()`, all of its functions are available fo
 
 ### The Median
 
-The frequency table showed why the mode is not helpful for wage growth. A better way to locate the center of the county distribution is the median, which finds the wage-growth value at the middle of the ordered distribution. Note that **wage_growth** has 2 missing values, so any summary you compute from it describes the 3,110 counties with a recorded value rather than all 3,112 in the data. The difference is small here, but the habit of knowing how many cases you set aside is worth keeping.
+The frequency table showed why the mode is not helpful for wage growth. A better way to locate the center of the county distribution is the median, which finds the wage-growth value at the middle of the ordered distribution. As noted, **wage_growth** has 2 missing values, so any summary you compute from it describes the 3,110 counties with a recorded value rather than all 3,112 in the data. The difference is small here, but the habit of knowing how many cases you set aside is worth keeping.
 
 **Practice 3: Compute the median of wage_growth**
 
-Find the value at the 50th percentile of the wage growth distribution. Two hints are available. Click "Submit Answer" to check your work.
+Find the value at the 50th percentile of **wage_growth** in the **counties** data frame. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r compute_median_wage_growth, exercise=TRUE, exercise.cap="Practice 3"}
 
@@ -135,23 +134,23 @@ grade_this({
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("median\\s*\\(", code_no_comments)) {
-    fail("Use the median() function.")
+    fail("Use the `median()` function.")
   }
   if (!grepl("wage_growth", code_no_comments)) {
-    fail("Apply median() to the wage_growth variable.")
+    fail("Apply `median()` to the **wage_growth** variable.")
   }
   if (is.null(.result)) {
     fail("Make sure your code produces a result the grader can check.")
   }
   if (!is.numeric(.result) || length(.result) != 1) {
-    fail("Your result should be a single number: the median of wage_growth.")
+    fail("Your result should be a single number: the median of **wage_growth**.")
   }
   if (is.na(.result)) {
     fail("Your result is NA. Make sure missing values are removed before computing the median.")
   }
   if (!isTRUE(all.equal(as.numeric(.result),
                         as.numeric(median(counties$wage_growth, na.rm = TRUE))))) {
-    fail("Check that you are computing the median of wage_growth in the counties data frame.")
+    fail("Check that you are computing the median of **wage_growth** in the **counties** data frame.")
   }
   pass(paste0("Right! The median of wage_growth is ",
               round(median(counties$wage_growth, na.rm = TRUE), 2),
@@ -161,7 +160,7 @@ grade_this({
 
 The median value of wage growth is 4.70%, which means that after ranking all counties' wage growth rates, the value at the 50th percentile was just under 5% growth. Half the counties experienced wage growth at or below 4.7%.
 
-Where does this variable come from? **wage_growth** is built from the Bureau of Labor Statistics Quarterly Census of Employment and Wages: it is the change in a county's average weekly wage from the third quarter of 2015 to the third quarter of 2016. Nationally that figure rose 5.4% over those twelve months, above the county median of 4.70%. The gap is not a contradiction. The national number pools all covered employment, so a worker in Los Angeles County counts the same as a worker in Loving County, Texas. The median gives every county one vote regardless of size. When the two disagree, the larger places are moving differently from the typical place.
+Where does this variable come from? **wage_growth** is built from the Bureau of Labor Statistics Quarterly Census of Employment and Wages: it is the change in a county's average weekly wage from the third quarter of 2015 to the third quarter of 2016. Nationally that figure rose 5.4% over those twelve months, above the county median of 4.70%. The gap is not a contradiction. The national number pools all covered employment, so a worker in Los Angeles County counts the same as a worker in Loving County, Texas. The median gives every county one vote regardless of size. When the two disagree, the larger places are moving differently from the typical place. Call this the **weighting effect**: a national figure weights by population, a county median weights every county the same, and the two answer different questions. It comes up twice more in this tutorial.
 
 ### The Mean
 
@@ -197,23 +196,23 @@ grade_this({
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("mean\\s*\\(", code_no_comments)) {
-    fail("Use the mean() function.")
+    fail("Use the `mean()` function.")
   }
   if (!grepl("wage_growth", code_no_comments)) {
-    fail("Apply mean() to the wage_growth variable.")
+    fail("Apply `mean()` to the **wage_growth** variable.")
   }
   if (is.null(.result)) {
     fail("Make sure your code produces a result the grader can check.")
   }
   if (!is.numeric(.result) || length(.result) != 1) {
-    fail("Your result should be a single number: the mean of wage_growth.")
+    fail("Your result should be a single number: the mean of **wage_growth**.")
   }
   if (is.na(.result)) {
     fail("Your result is NA. Make sure missing values are removed before computing the mean.")
   }
   if (!isTRUE(all.equal(as.numeric(.result),
                         as.numeric(mean(counties$wage_growth, na.rm = TRUE))))) {
-    fail("Check that you are computing the mean of wage_growth in the counties data frame.")
+    fail("Check that you are computing the mean of **wage_growth** in the **counties** data frame.")
   }
   pass(paste0("Good work! The mean of wage_growth is ",
               round(mean(counties$wage_growth, na.rm = TRUE), 2),
@@ -223,11 +222,11 @@ grade_this({
 
 When the mean and median are close, the distribution may be fairly balanced around the center --- though you should always check a histogram to confirm.
 
-Now try the same comparison with a more politically familiar variable. **dem2p_percent** is the percent of the two-party vote cast for the Democrat in a county in 2016, and unlike **wage_growth** it has no missing values. The gap between its median and mean will give you an early clue about the shape of the county-level distribution of Democratic vote percentages.
+Now try the same comparison with a more politically familiar variable. **dem2p_percent** is the percent of the two-party vote cast for the Democrat in a county in 2016, and unlike **wage_growth** it has 0 missing values, so both statistics describe all 3,112 counties. The gap between its median and mean will give you an early clue about the shape of the county-level distribution of Democratic vote percentages.
 
 **Practice 5: Compute the median and mean of dem2p_percent**
 
-Compute both statistics on separate lines, then compare them. Two hints are available. Click "Submit Answer" to check your work.
+Compute both statistics for **dem2p_percent** in the **counties** data frame on separate lines, then compare them. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r compute_mean_median_dem2p_percent, exercise=TRUE, exercise.lines=4, exercise.cap="Practice 5"}
 
@@ -254,16 +253,16 @@ grade_this({
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (!grepl("median\\s*\\(", code_no_comments)) {
-    fail("Include a call to median() for dem2p_percent.")
+    fail("Include a call to `median()` for **dem2p_percent**.")
   }
   if (!grepl("mean\\s*\\(", code_no_comments)) {
-    fail("Include a call to mean() for dem2p_percent.")
+    fail("Include a call to `mean()` for **dem2p_percent**.")
   }
   if (!grepl("median\\s*\\([^)]*dem2p_percent", code_no_comments)) {
-    fail("Apply median() to dem2p_percent.")
+    fail("Apply `median()` to **dem2p_percent**.")
   }
   if (!grepl("mean\\s*\\([^)]*dem2p_percent", code_no_comments)) {
-    fail("Apply mean() to dem2p_percent.")
+    fail("Apply `mean()` to **dem2p_percent**.")
   }
 
   expected_median <- median(counties$dem2p_percent, na.rm = TRUE)
@@ -274,14 +273,14 @@ grade_this({
   }
   result_val <- as.numeric(.result)
   if (!is.numeric(.result) || length(result_val) != 1 || is.na(result_val)) {
-    fail("Your final line should return either the median or the mean of dem2p_percent.")
+    fail("Your final line should return either the median or the mean of **dem2p_percent**.")
   }
   if (!isTRUE(all.equal(result_val, expected_mean)) &&
       !isTRUE(all.equal(result_val, expected_median))) {
-    fail("Put median() on one line and mean() on the other. Make sure both are computed for dem2p_percent.")
+    fail("Put `median()` on one line and `mean()` on the other. Make sure both are computed for **dem2p_percent**.")
   }
 
-  pass("Correct! You computed both the median and the mean of dem2p_percent.")})
+  pass("Correct! You computed both the median and the mean of **dem2p_percent**.")})
 ```
 
 The median percent of the two-party vote cast for Clinton was just under 30% --- half the counties cast 30% or fewer of their two-party votes for her. The mean of about 33% is higher than the median, suggesting that some counties with very high Democratic vote percentages are pulling the mean upward. The median is much less affected by those extreme values because it depends on the ordering of observations rather than how far an extreme value lies from the rest --- but the mean moves whenever a value changes. When the mean exceeds the median, it usually means a long tail of high values is pulling the mean up while the median stays closer to where most observations are.
@@ -297,11 +296,9 @@ Once you know where the center of a distribution is, the next question is how sp
 3. **Variance** and **standard deviation**
 
 
-## Range
+### Range
 
 The [**range**]{.important-text} of values a variable takes is given by the smallest (minimum) value and the largest (maximum) value. As such, it provides bookends on the spread of the values of the variable across cases. It is useful to report the range of the data in the sample because the sample range may be different from the theoretical range of the data. It can also help identify the presence of outliers.
-
-### The `range()`, `min()`, and `max()` Functions
 
 The R function `range()` directly calculates both the minimum and maximum values in the data. The function `min()` calculates the minimum value of a variable, and the `max()` function calculates the maximum value. Each function is passed the name of the variable being analyzed. If there are missing values, include the `na.rm` argument and set it equal to `TRUE` so that R ignores those values when computing the statistic.
 
@@ -309,7 +306,7 @@ Let's calculate the range of **wage_growth** to see just how much variation ther
 
 **Practice 6: Compute the range, min, and max of wage_growth**
 
-See how far the distribution stretches from its most extreme values. Put each function call on its own line. Two hints are available. Click "Submit Answer" to check your work.
+See how far the distribution of **wage_growth** in the **counties** data frame stretches from its most extreme values. Put each function call on its own line. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r compute_range_min_max_wage_growth, exercise=TRUE, exercise.cap="Practice 6"}
 
@@ -339,32 +336,32 @@ grade_this({
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (!grepl("range\\s*\\(", code_no_comments)) {
-    fail("Include a call to range() for wage_growth.")
+    fail("Include a call to `range()` for **wage_growth**.")
   }
   if (!grepl("min\\s*\\(", code_no_comments)) {
-    fail("Include a call to min() for wage_growth.")
+    fail("Include a call to `min()` for **wage_growth**.")
   }
   if (!grepl("max\\s*\\(", code_no_comments)) {
-    fail("Include a call to max() for wage_growth.")
+    fail("Include a call to `max()` for **wage_growth**.")
   }
   if (!grepl("range\\s*\\([^)]*wage_growth", code_no_comments)) {
-    fail("Your range() call should use wage_growth and handle its missing values.")
+    fail("Your `range()` call should use **wage_growth** and handle its missing values.")
   }
   if (!grepl("min\\s*\\([^)]*wage_growth", code_no_comments)) {
-    fail("Your min() call should use wage_growth and handle its missing values.")
+    fail("Your `min()` call should use **wage_growth** and handle its missing values.")
   }
   if (!grepl("max\\s*\\([^)]*wage_growth", code_no_comments)) {
-    fail("Your max() call should use wage_growth and handle its missing values.")
+    fail("Your `max()` call should use **wage_growth** and handle its missing values.")
   }
 
   if (!grepl("range\\s*\\([^)]*na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Your range() call returns NA. **wage_growth** has missing values, and they have to be excluded before the function can return a number.")
+    fail("Your `range()` call returns NA. **wage_growth** has missing values, and they have to be excluded before the function can return a number.")
   }
   if (!grepl("min\\s*\\([^)]*na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Your min() call returns NA. **wage_growth** has missing values, and they have to be excluded before the function can return a number.")
+    fail("Your `min()` call returns NA. **wage_growth** has missing values, and they have to be excluded before the function can return a number.")
   }
   if (!grepl("max\\s*\\([^)]*na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
-    fail("Your max() call returns NA. **wage_growth** has missing values, and they have to be excluded before the function can return a number.")
+    fail("Your `max()` call returns NA. **wage_growth** has missing values, and they have to be excluded before the function can return a number.")
   }
 
   expected_range <- range(counties$wage_growth, na.rm = TRUE)
@@ -380,10 +377,10 @@ grade_this({
       !(isTRUE(all.equal(result_val, expected_range)) ||
         isTRUE(all.equal(result_val, expected_min)) ||
         isTRUE(all.equal(result_val, expected_max)))) {
-    fail("Put range(), min(), and max() on separate lines, all applied to wage_growth with missing values removed.")
+    fail("Put `range()`, `min()`, and `max()` on separate lines, all applied to **wage_growth** with missing values removed.")
   }
 
-  pass("Exactly! All three calls are correct --- range() returned both endpoints together, and min() and max() returned each one separately.")
+  pass("Exactly! All three calls are correct --- `range()` returned both endpoints together, and `min()` and `max()` returned each one separately.")
 })
 ```
 
@@ -391,7 +388,7 @@ Before deciding those extremes are errors, think about what the measure counts. 
 
 Those extreme values are worth understanding. You might expect outlier counties to be visible in a histogram, but you probably will not see them. With over 3,000 counties in the data, a handful of outlier counties contribute bars so short --- perhaps one or two counties per bin --- that they are nearly invisible against the bars near the center, which each represent hundreds of counties. The x-axis stretches to include the extremes, but the bars themselves disappear into the baseline. This is one reason why computing the range is good practice even when you have a histogram: the two tools can tell different stories about the same data.
 
-## Percentiles
+### Percentiles
 
 A [**percentile**]{.important-text} is the value of a variable that has a certain percentage of observations below it. In other words, the nth percentile is the value that cuts off the first n percent of the data when all values are sorted from least to greatest. You have already worked with the 50th percentile: it is the median. The 90th percentile is the value that separates the bottom 90% of values from the top 10%.
 
@@ -404,16 +401,14 @@ Among counties in the bottom quarter of the life-expectancy distribution, what i
 To answer this question, we'd find the 25th percentile of life expectancy across counties. This is the life expectancy value that separates the bottom 25% of observations from the top 75%.
 
 ::: {.research-example}
-What are the percentages of working-age adults who are employed that cover the middle half of all counties?
+What range of jobs per 100 working-age residents covers the middle half of all counties?
 :::
 
-To answer this question, find the 75th percentile of the proportion of working-age adults who are employed and the 25th percentile. These are the two values that determine the upper and lower bounds for the middle 50% of the data.
+To answer this question, find the 75th percentile and the 25th percentile of the number of jobs located in the county per 100 residents aged 25 to 64. These are the two values that determine the upper and lower bounds for the middle 50% of the data.
 
 
 The distance between the 25th and 75th percentiles is known as the [**interquartile range**]{.important-text} or [**IQR**]{.important-text}. The quartiles divide the ordered observations into four groups, each containing approximately 25% of the cases. The IQR spans the middle 50% of the observations. Its advantage over the full range as a measure of spread is that extreme values do not affect it.
 
-
-### The `quantile()` Function
 
 You can calculate percentiles with the `quantile()` function. By default, passing the variable name to the function will return the 0th, 25th, 50th,  75th, and 100th percentiles.
 
@@ -435,11 +430,11 @@ quantile(counties$wage_growth, na.rm = TRUE,
 The result shows that 90% of the cases fall between -2.60% and 9.92%. In other words, the bottom 5% of counties had wage growth of -2.60% or lower, meaning wages declined by at least about 2.6% in those counties, and the top 5% of counties experienced wage increases approaching 10% or higher.
 
 
-Now use percentiles to describe a different kind of county economy measure: **employ_pop_ratio_25_64**, the percentage of working-age adults who are employed. It has 2 missing values. The default quantiles will show the minimum, the maximum, the median, and the middle half of counties, giving you a compact picture of both center and spread.
+Now use percentiles to describe a different kind of county economy measure: **employ_pop_ratio_25_64**, the number of jobs located in a county for every 100 residents aged 25 to 64. It has 2 missing values. The default quantiles will show the minimum, the maximum, the median, and the middle half of counties, giving you a compact picture of both center and spread.
 
 **Practice 9: Calculate the percentiles for employ_pop_ratio_25_64**
 
-One call to `quantile()` gives you all five values. Two hints are available. Click "Submit Answer" to check your work.
+One call to `quantile()` gives you all five values for **employ_pop_ratio_25_64** in the **counties** data frame. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r calculate_percentile_employ_pop_ratio_25_64, exercise=TRUE, exercise.cap="Practice 9"}
 
@@ -469,10 +464,10 @@ grade_this({
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("quantile\\s*\\(", code_no_comments)) {
-    fail("Use the quantile() function.")
+    fail("Use the `quantile()` function.")
   }
   if (!grepl("employ_pop_ratio_25_64", code_no_comments)) {
-    fail("Apply quantile() to employ_pop_ratio_25_64.")
+    fail("Apply `quantile()` to **employ_pop_ratio_25_64**.")
   }
 
   expected <- quantile(counties$employ_pop_ratio_25_64, na.rm = TRUE)
@@ -487,24 +482,24 @@ grade_this({
     fail("Your result includes NA. Make sure missing values are removed before computing quantiles.")
   }
   if (!isTRUE(all.equal(as.numeric(.result), as.numeric(expected), tolerance = 1e-8))) {
-    fail("Check that you are computing the default quantiles for employ_pop_ratio_25_64.")
+    fail("Check that you are computing the default quantiles for **employ_pop_ratio_25_64**.")
   }
 
-  pass("Good work! Compare that with the three separate calls it took to get the endpoints of wage_growth earlier --- quantile() returns the endpoints, the quartiles, and the median together.")
+  pass("Good work! Compare that with the three separate calls it took to get the endpoints of **wage_growth** earlier --- `quantile()` returns the endpoints, the quartiles, and the median together.")
 })
 ```
 
-What is the range of the variable? 9.21% to 668.07%. How can this be? Whenever you see percents that are greater than 100 it is possible that there is a data error. Here, however, values above 100% are possible because the numerator, employment, is calculated based on the number of people working in a county, and the denominator, population aged 25-64, is calculated based on the population in that county. Percentages greater than 100 will occur in employment centers that draw many workers from surrounding counties, because the two populations being compared are not the same people.
+What is the range of the variable? 9.21 to 668.07. A value above 100 is not an error here, and 331 counties --- better than one in nine --- have one. The numerator counts jobs located in the county, while the denominator counts residents of the county, and those are not the same people: a county can hold far more jobs than working-age residents when workers commute in. Butte County, Idaho tops the list at 668 jobs per 100 residents, because the Idaho National Laboratory sits in a county of about 2,500 people. New York County --- Manhattan --- reaches 239 for the same reason on a much larger scale. A second, smaller reason is that the numerator counts jobs rather than workers, so someone holding two covered jobs is counted twice.
 
-The IQR is 51.23% to 83.53%. This means that the middle half of counties have employment-to-population ratios between about 51% and 84% for adults ages 25--64.
+The IQR runs from 51.23 to 83.53. The middle half of counties therefore have somewhere between about 51 and 84 jobs located in them for every 100 residents aged 25 to 64.
 
-You can also extract the median from the output. The middle value in the data is 66.81%. Half of counties have an employment-to-population ratio of 66.81% or lower for adults ages 25--64.
+You can also extract the median from the output. The middle value in the data is 66.81. Half of counties have 66.81 jobs or fewer for every 100 residents aged 25 to 64.
 
-What does a median of 68.61% actually say? It says that the middle county had about 67 jobs located within it for every 100 residents aged 25 to 64. It does *not* say that a third of those residents were out of work. As the range discussion above showed, the people counted in the numerator need not live in the county: some residents commute out to jobs elsewhere, and some of the jobs counted here are filled by people commuting in.
+What does a median of 66.81 actually say? It says that the middle county had about 67 jobs located within it for every 100 residents aged 25 to 64. It does *not* say that a third of those residents were out of work. As the range discussion above showed, the people counted in the numerator need not live in the county: some residents commute out to jobs elsewhere, and some of the jobs counted here are filled by people commuting in.
 
-The weighting effect is at work here for the third time. The national employment-to-population ratio for this age group in 2016 was about 74%, computed across all people; the county median is 66.81%. The two answer different questions --- the national ratio weights people equally, the county median weights counties equally --- so the gap is a reminder that the unit of analysis shapes the answer. Explaining the size of that gap would mean examining how county ratios vary with county population, which is a bivariate question and beyond what a single median can tell you.
+The weighting effect is at work here for the third time. Nationally in 2016 there were about 84 covered jobs for every 100 residents aged 25 to 64, computed by dividing all covered employment by the whole population in that age range; the county median is 66.81. The two answer different questions --- the national ratio weights people equally, the county median weights counties equally --- so the gap is a reminder that the unit of analysis shapes the answer. Explaining the size of that gap would mean examining how county ratios vary with county population, which is a bivariate question and beyond what a single median can tell you.
 
-## Standard Deviation (and Variance)
+### Standard Deviation and Variance
 
 The [**standard deviation**]{.important-text} describes the typical distance of values from the mean of the variable. The [**variance**]{.important-text} is the squared standard deviation.
  
@@ -533,8 +528,6 @@ $$s=\sqrt{\frac{\Sigma_{i=1}^n({Y_i-\bar{Y}})^2}{n-1}}= \sqrt{\frac{148.9}{9}}=4
 Note that $s$ is always positive.
 
 A larger standard deviation means values are more spread out from the mean; a smaller one means they cluster more closely around it. One important caution: **Raw standard deviations generally should not be compared across variables measured in different units or on different scales. They are most directly comparable across samples or groups measured using the same variable.** A standard deviation of 4.68 for `wage_growth` (measured in percentage points) and a standard deviation of 15.3 for `dem2p_percent` (also percentage points but on a completely different scale with a different mean) do not tell you which variable is "more dispersed" in any general sense. Standard deviations are only comparable within a variable or across samples of the same variable.
-
-### The `sd()` Function
 
 To calculate the standard deviation, $s$, of a variable we use the `sd()` function.
 
@@ -578,7 +571,7 @@ ggplot(skew_demo, aes(x = value)) +
 
 The histogram and the box plot are the primary tools for assessing shape, and the histogram comes first. For the same reason a frequency table is not very helpful for interval variables, a bar plot is not the right visualization either. Instead, we use a [**histogram**]{.important-text}. A histogram groups observed values into **bins** that cover **ranges** of values, then uses the height of each bar to show how many observations fall in that range. Histograms can also be constructed to show proportions rather than counts. We can control the number of bins, control their width, or let R choose a default. A histogram shows the central tendency of the variable and its dispersion, as well as the shape of the distribution.
 
-Generating a histogram with the `ggplot()` function requires a simple change to the basic code for a bar plot. Because we want a visual display for interval data, we replace `geom_bar()` with `geom_histogram()`. The basic structure is familiar, but the interpretation changes because each bar now represents a range of values rather than one category. Note that we do not wrap **wage_growth** in `factor()`, `factor()` is only needed when a variable is stored as numbers but should be treated as categorical. Interval variables are genuinely numeric, so no wrapping is needed.
+Generating a histogram with the `ggplot()` function requires a simple change to the basic code for a bar plot. Because we want a visual display for interval data, we replace `geom_bar()` with `geom_histogram()`. The basic structure is familiar, but the interpretation changes because each bar now represents a range of values rather than one category. Note that we do not wrap **wage_growth** in `factor()`. That function is needed only when a variable stored as numbers should be treated as categorical. Interval variables are genuinely numeric, so no wrapping is needed.
 
 As with proportion bar charts, filter out missing values before passing data to `ggplot()`. Without the filter ggplot still draws the plot, but it reports how many rows it dropped, and that report follows the figure into any document you knit. Always note in your text how many cases were excluded.
 
@@ -615,7 +608,7 @@ There are two options for specifying a different number of bins. You can set the
 
 **Practice 12: Generate the histogram for wage_growth with a different number of bins**
 
-Change the number of bins in the plot to 50. One hint is available. Click "Submit Answer" to check your work.
+Change the number of bins in the plot to 50. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r generate_histogram_wage_growth_custom_bin, exercise=TRUE, exercise.cap="Practice 12", fig.alt="The same wage growth histogram drawn with 50 bins. The bars are narrower, so the single tall peak now splits into two adjacent bars of roughly 900 and 1,050 counties, and several shorter bars on either side become visible that the default binning had merged together."}
 counties %>%
@@ -630,12 +623,19 @@ counties %>%
 
 
 ```{r generate_histogram_wage_growth_custom_bin-hint-1}
-# Hint 1 of 1
-# The starter code has two blanks: ___ = ___.
-# The first blank is the argument name: bins.
-# The second blank is the value: 50.
-# Write it as bins = 50 inside geom_histogram(),
-# after color = "white" and separated by a comma.
+# Hint 1 of 2
+# A histogram divides the range of the variable into
+# intervals and counts how many cases fall in each. What
+# you need to change is the number of intervals. That
+# setting goes inside the same function that draws the
+# bars, alongside the fill and color you already have.
+```
+
+```{r generate_histogram_wage_growth_custom_bin-hint-2}
+# Hint 2 of 2
+# The argument is bins, and the prompt gives the value.
+# It goes inside geom_histogram() after color = "white",
+# separated by a comma.
 ```
 
 
@@ -649,32 +649,35 @@ grade_this({
     paste(deparse(rlang::get_expr(x)), collapse = "")
   }
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
   }
   if (!is.data.frame(.result$data) || !"wage_growth" %in% names(.result$data)) {
-    fail("Use counties as the data frame in ggplot().")
+    fail("Use **counties** as the data frame in `ggplot()`.")
   }
   x_expr <- expr_text(.result$mapping$x)
   if (!grepl("wage_growth", x_expr)) {
-    fail("Map wage_growth to the x-axis.")
+    fail("Map **wage_growth** to the x-axis.")
   }
   hist_layers <- Filter(function(layer) inherits(layer$stat, "StatBin"), .result$layers)
   if (length(hist_layers) == 0) {
-    fail("Use geom_histogram() to create the histogram.")
+    fail("Use `geom_histogram()` to create the histogram.")
   }
   has_50_bins <- any(vapply(hist_layers, function(layer) {
     identical(layer$stat_params$bins, 50)
   }, logical(1)))
   if (!has_50_bins && !grepl("bins\\s*=\\s*50", code_no_comments)) {
-    fail("Set bins = 50 inside geom_histogram().")
+    fail("Set `bins = 50` inside `geom_histogram()`.")
   }
   has_white_outline <- any(vapply(hist_layers, function(layer) {
     identical(layer$aes_params$colour, "white") ||
       identical(layer$aes_params$color, "white")
   }, logical(1)))
   if (!has_white_outline) {
-    fail('Set color = "white" inside geom_histogram() to outline the bars.')
+    fail('Set color = "white" inside `geom_histogram()` to outline the bars.')
   }
 
   pass("Good work! Your histogram uses 50 bins.")
@@ -682,9 +685,12 @@ grade_this({
 ```
 
 
-Alternatively, you can control the width of each bin directly. If a variable ranges from 0 to 100 and you set `binwidth = 10`, ggplot creates bins that each cover 10 units --- equivalent to setting `bins = 10` since 100/10 = 10. The two arguments give you two routes to the same result: `bins` sets how many bins to use, and `binwidth` sets how wide each bin is. The code below starts you at a binwidth of 3.
+Alternatively, you can control the width of each bin directly. If a variable spans about 100 units and you set `binwidth = 10`, the plot will use roughly ten bins. The two arguments are two routes to the same kind of control: `bins` sets the approximate number of bins, and `binwidth` sets their width directly. They are not exactly interchangeable, because where the bin boundaries fall depends on the range of the data. The code below starts you at a binwidth of 3.
 
 **Explore 13: Find the coarsest binwidth that still shows the shape**
+
+The starter code uses `binwidth = 3`. Change that value, run the code, and look at what happens to the shape --- then change it again. Go far in both directions before narrowing in --- try values below 1 as well as values substantially above 3. You are looking for the largest binwidth that still lets you see the shape of the distribution, since anything finer than that adds clutter without adding information.
+
 ```{r generate_histogram_wage_growth_custom_bin-width, exercise=TRUE,exercise.cap="Explore 13", fig.alt="The same wage growth histogram drawn with a binwidth of 3. The bars are narrower than the default and the central peak has begun to separate, but most counties still fall into a small number of bars near zero."}
 counties %>%
   filter(!is.na(wage_growth)) %>%
@@ -695,8 +701,6 @@ counties %>%
               y = "Frequency", 
               caption = "Source: Linn, Nagler, Zilinsky")
 ```
-
-The starter code uses `binwidth = 3`. Try wider and narrower values --- go far in both directions before narrowing in. You are looking for the largest binwidth that still lets you see the shape of the distribution, since anything finer than that adds clutter without adding information.
 
 **Practice 14: Choose a binwidth**
 
@@ -720,8 +724,6 @@ question("Based on what you saw, which of these binwidths is closest to the coar
 At the binwidth you settled on, the shape of the distribution is much clearer. Note something important, though: even at that width, **you cannot see the outlier counties** in this histogram. Their bars are so short compared to the central spike that they are invisible at this scale. You know they exist because of the range computed earlier --- this is one limitation of histograms. Rare extreme values can disappear visually even though they strongly affect statistics like the mean and range.
 
 **Practice 15: Describe the shape of the distribution**
-
-Describe the shape of the wage growth distribution based on the histogram you just produced.
 
 ```{r q-histogram-shape, echo=FALSE}
 question("Using the binwidth you settled on in the last question, which of the following best describes the shape of the distribution you can see in the plot?",
@@ -751,7 +753,7 @@ Two more arguments control how the line looks, and both are fixed settings rathe
 
 **Run and observe 16: Add the median line**
 
-```{r try_it_label_median_line, exercise=TRUE,exercise.cap="Run and observe 16", fig.alt="Histogram of wage growth with 60 bins, overlaid with a dark red dashed vertical line marking the median, which falls just left of the tallest bars near 5 percent."}
+```{r try_it_label_median_line, exercise=TRUE,exercise.cap="Run and observe 16", fig.alt="Histogram of wage growth with 60 bins, overlaid with a dashed vertical line marking the median at about 4.7 percent. The line passes through the tallest bar, near the center of the main cluster of counties."}
 counties %>%
   filter(!is.na(wage_growth)) %>%
   ggplot(mapping = aes(x = wage_growth)) +
@@ -784,7 +786,7 @@ The exercise below builds the same histogram again, this time marking the mean r
 
 Four blanks to fill. Two take the function that computes the arithmetic mean: one places the vertical line, the other supplies the value the label reports. One is the label's text, which should name what the line marks so a reader can interpret it without reading your prose. The last is `annotate()`'s first argument, naming what kind of annotation to draw. Use `x = 25, y = 900` for the coordinates. Two hints are available. Click "Submit Answer" to check your work.
 
-```{r plot_vertical_and_text, exercise=TRUE, exercise.cap="Practice 17", fig.alt="Histogram of wage growth with 60 bins, overlaid with a dark red dotted vertical line at the mean and a text label reading Mean followed by the value, placed to the right of the peak."}
+```{r plot_vertical_and_text, exercise=TRUE, exercise.cap="Practice 17", fig.alt="Histogram of wage growth with 60 bins, overlaid with a dotted vertical line at the mean. A text label naming the mean and reporting its value sits to the right of the peak."}
 counties %>%
   filter(!is.na(wage_growth)) %>%
   ggplot(mapping = aes(x = wage_growth)) +
@@ -830,12 +832,15 @@ grade_this({
     paste(deparse(rlang::get_expr(x)), collapse = "")
   }
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
   }
   vline_layers <- Filter(function(layer) inherits(layer$geom, "GeomVline"), .result$layers)
   if (length(vline_layers) == 0) {
-    fail("Add a geom_vline() layer to draw the mean line.")
+    fail("Add a `geom_vline()` layer to draw the mean line.")
   }
   expected_mean <- mean(counties$wage_growth, na.rm = TRUE)
   has_mean_line <- any(vapply(vline_layers, function(layer) {
@@ -845,7 +850,7 @@ grade_this({
       (!is.null(fixed_x) && isTRUE(all.equal(as.numeric(fixed_x), expected_mean)))
   }, logical(1)))
   if (!has_mean_line) {
-    fail("Set xintercept to mean(wage_growth, na.rm = TRUE) inside geom_vline().")
+    fail("Set xintercept to `mean(wage_growth, na.rm = TRUE)` inside `geom_vline()`.")
   }
   has_dotted_line <- any(vapply(vline_layers, function(layer) {
     identical(layer$aes_params$linetype, "dotted")
@@ -862,17 +867,17 @@ grade_this({
   }
   text_layers <- Filter(function(layer) inherits(layer$geom, "GeomText"), .result$layers)
   if (length(text_layers) == 0 && !grepl("annotate\\s*\\(", code_no_comments)) {
-    fail("Add an annotate() layer to label the mean line.")
+    fail("Add an `annotate()` layer to label the mean line.")
   }
   if (length(text_layers) == 0) {
-    fail('Fill annotate()\'s first blank with "text" --- that is the kind of annotation you want here.')
+    fail('Fill `annotate()`\'s first blank with "text" --- that is the kind of annotation you want here.')
   }
   if (!grepl("round\\s*\\(\\s*mean\\s*\\(", code_no_comments)) {
     fail("The label should display the mean as well. Fill the second blank with the same function you used for the line.")
   }
   has_coords <- grepl("x\\s*=\\s*25", code_no_comments) && grepl("y\\s*=\\s*900", code_no_comments)
   if (!has_coords) {
-    fail("Use x = 25 and y = 900 in annotate().")
+    fail("Use x = 25 and y = 900 in `annotate()`.")
   }
   shown_label <- if (length(text_layers) > 0) {
     lab_param <- text_layers[[1]]$aes_params$label
@@ -903,7 +908,7 @@ Build it in four passes, running the code after each one so you catch mistakes w
 3. add the median label
 4. copy those two layers, change `median` to `mean`, and adjust the linetype, the label text, and the `y` coordinate
 
-Build a histogram of **dem2p_percent** with median and mean reference lines, each labeled. Filter out missing values before plotting. Four hints are available. Click "Submit Answer" to check your work.
+Build a histogram of **dem2p_percent** with median and mean reference lines, each labeled. Four hints are available. Click "Submit Answer" to check your work.
 
 Your plot should have:
 
@@ -913,7 +918,7 @@ Your plot should have:
 - Labels built with `paste0()`, each naming its statistic and reporting the value rounded to two digits
 - Title \"Democratic Vote Share\", x-axis label \"Percent of Two-Party Vote\", y-axis label \"Frequency\", caption \"Source: Linn, Nagler, Zilinsky\", and no subtitle
 
-```{r histogram_dem2p_percent, exercise=TRUE, exercise.cap="Practice 18", fig.alt="Histogram of Democratic two-party vote percentages across US counties in pale blue bars, right-skewed with a peak near 25 percent and a long tail toward 100. Two dark red vertical lines stand a few points apart just right of the peak: a dashed line at the median of about 30 and a dotted line at the mean of about 33. Two text labels to their right report both values."}
+```{r histogram_dem2p_percent, exercise=TRUE, exercise.cap="Practice 18", fig.alt="Right-skewed histogram of Democratic two-party vote percentages across US counties, with a peak near 25 percent and a long tail toward 100. Two vertical reference lines stand a few points apart just right of the peak: a dashed line at the median of about 30 and a dotted line at the mean of about 33. Two text labels to their right identify each statistic and report its value."}
 
 ```
 
@@ -927,8 +932,7 @@ Your plot should have:
 
 ```{r histogram_dem2p_percent-hint-2}
 # Hint 2 of 4
-# Filter out the missing values before passing the data
-# to ggplot(). Map dem2p_percent to the x-axis and add
+# Map dem2p_percent to the x-axis and add
 # geom_histogram(), then geom_vline() and annotate() for
 # the median --- then the same pair again for the mean.
 ```
@@ -961,45 +965,45 @@ grade_this({
     paste(deparse(rlang::get_expr(x)), collapse = "")
   }
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
   }
   if (!is.data.frame(.result$data) || !"dem2p_percent" %in% names(.result$data)) {
-    fail("Use dem2p_percent from the counties data frame for this plot.")
+    fail("Use **dem2p_percent** from the **counties** data frame for this plot.")
   }
 
-  if (any(is.na(.result$data$dem2p_percent))) {
-    fail("Filter out missing values with filter(!is.na(dem2p_percent)) before plotting.")
-  }
   expected_values <- sort(as.numeric(counties$dem2p_percent[!is.na(counties$dem2p_percent)]))
   actual_values   <- sort(as.numeric(.result$data$dem2p_percent))
   if (!isTRUE(all.equal(actual_values, expected_values, tolerance = 1e-8))) {
-    fail("Use all nonmissing observations of dem2p_percent from the counties data frame. Do not remove any valid observations.")
+    fail("Use all nonmissing observations of **dem2p_percent** from the **counties** data frame. Do not remove any valid observations.")
   }
   x_expr <- expr_text(.result$mapping$x)
   if (!grepl("dem2p_percent", x_expr)) {
-    fail("Map dem2p_percent to the x-axis.")
+    fail("Map **dem2p_percent** to the x-axis.")
   }
   hist_layers <- Filter(function(layer) inherits(layer$stat, "StatBin"), .result$layers)
   if (length(hist_layers) == 0) {
-    fail("Use geom_histogram() to create the histogram.")
+    fail("Use `geom_histogram()` to create the histogram.")
   }
   has_fill <- any(vapply(hist_layers, function(layer) {
     identical(layer$aes_params$fill, "skyblue")
   }, logical(1)))
   if (!has_fill) {
-    fail('Set fill = "skyblue" inside geom_histogram().')
+    fail('Set fill = "skyblue" inside `geom_histogram()`.')
   }
   has_white_outline <- any(vapply(hist_layers, function(layer) {
     identical(layer$aes_params$colour, "white") ||
       identical(layer$aes_params$color, "white")
   }, logical(1)))
   if (!has_white_outline) {
-    fail('Set color = "white" inside geom_histogram() to outline the bars.')
+    fail('Set color = "white" inside `geom_histogram()` to outline the bars.')
   }
   vline_layers <- Filter(function(layer) inherits(layer$geom, "GeomVline"), .result$layers)
   if (length(vline_layers) == 0) {
-    fail("Add a geom_vline() layer for the median line.")
+    fail("Add a `geom_vline()` layer for the median line.")
   }
   expected_median <- median(counties$dem2p_percent, na.rm = TRUE)
   has_median_line <- any(vapply(vline_layers, function(layer) {
@@ -1011,7 +1015,27 @@ grade_this({
     in_aes || in_code || in_fixed
   }, logical(1)))
   if (!has_median_line) {
-    fail("Inside geom_vline(), set xintercept to the median of dem2p_percent, handling its missing values. You can compute it inside aes() or pass the value directly.")
+    fail("Inside `geom_vline()`, set xintercept to the median of **dem2p_percent**, handling its missing values. You can compute it inside `aes()` or pass the value directly.")
+  }
+  expected_mean <- mean(counties$dem2p_percent, na.rm = TRUE)
+  line_role <- function(layer) {
+    xint_expr <- expr_text(layer$mapping$xintercept)
+    fixed_x <- tryCatch(as.numeric(layer$geom_params$xintercept[1]), error = function(e) NA)
+    if (grepl("median\\s*\\(", xint_expr) ||
+        (!is.na(fixed_x) && isTRUE(all.equal(round(fixed_x, 2), round(expected_median, 2))))) {
+      return("median")
+    }
+    if (grepl("mean\\s*\\(", xint_expr) ||
+        (!is.na(fixed_x) && isTRUE(all.equal(round(fixed_x, 2), round(expected_mean, 2))))) {
+      return("mean")
+    }
+    NA_character_
+  }
+  roles <- vapply(vline_layers, line_role, character(1))
+  median_layers <- vline_layers[!is.na(roles) & roles == "median"]
+  if (length(median_layers) > 0 &&
+      !identical(median_layers[[1]]$aes_params$linetype, "dashed")) {
+    fail('The dashed line should be the median. Set linetype = "dashed" on the `geom_vline()` whose xintercept is the median.')
   }
   has_dashed_line <- any(vapply(vline_layers, function(layer) {
     identical(layer$aes_params$linetype, "dashed")
@@ -1032,37 +1056,36 @@ grade_this({
     !is.null(lw) && isTRUE(all.equal(as.numeric(lw), 0.8))
   }, logical(1)))
   if (!all_weighted) {
-    fail("Set linewidth = 0.8 on both reference lines so they are visible against the bars.")
+    fail("Set `linewidth = 0.8` on both reference lines so they are visible against the bars.")
   }
   text_layers <- Filter(function(layer) inherits(layer$geom, "GeomText"), .result$layers)
   if (length(text_layers) == 0 && !grepl("annotate\\s*\\(", code_no_comments)) {
-    fail("Add an annotate() layer to label the median line.")
+    fail("Add an `annotate()` layer to label the median line.")
   }
   has_coords <- grepl("x\\s*=\\s*55", code_no_comments) && grepl("y\\s*=\\s*280", code_no_comments)
   if (!has_coords) {
-    fail("Use x = 55 and y = 280 in annotate().")
+    fail("Use x = 55 and y = 280 in `annotate()`.")
   }
   if (!grepl("bins\\s*=\\s*30", code_no_comments)) {
-    fail("Set bins = 30 inside geom_histogram(), as the requirements ask.")
+    fail("Set `bins = 30` inside `geom_histogram()` so the plot uses the requested level of detail.")
   }
   if (!grepl("paste0\\s*\\(", code_no_comments)) {
-    fail("Build the annotation label with paste0(), as the requirements ask.")
+    fail("Build the annotation label with `paste0()` so the text combines the name of the statistic with its computed value.")
   }
   if (!grepl("round\\s*\\(", code_no_comments)) {
-    fail("Round the median before displaying it in the label, as the requirements ask.")
+    fail("Round the median before displaying it, so the label reports a readable number rather than every decimal place.")
   }
   if (!grepl("round\\s*\\(\\s*median\\s*\\(", code_no_comments)) {
     fail("The label should display the computed median, not the word alone --- round the median inside the label.")
   }
 
   if (!grepl("Median", code_no_comments)) {
-    fail('Use a label that identifies the line as the median, such as "Median = " followed by the rounded value using paste0().')
+    fail('Use a label that identifies the line as the median, such as "Median = " followed by the rounded value using `paste0()`.')
   }
 
   if (length(vline_layers) < 2) {
-    fail("Add a second geom_vline() for the mean, copied from the median line and edited.")
+    fail("Add a second `geom_vline()` for the mean, copied from the median line and edited.")
   }
-  expected_mean <- mean(counties$dem2p_percent, na.rm = TRUE)
   has_mean_line <- any(vapply(vline_layers, function(layer) {
     xint_expr <- expr_text(layer$mapping$xintercept)
     fixed_x <- tryCatch(as.numeric(layer$geom_params$xintercept[1]), error = function(e) NA)
@@ -1071,7 +1094,12 @@ grade_this({
       (!is.na(fixed_x) && isTRUE(all.equal(round(fixed_x, 2), round(expected_mean, 2))))
   }, logical(1)))
   if (!has_mean_line) {
-    fail("Inside the second geom_vline(), set xintercept to the mean of dem2p_percent.")
+    fail("Inside the second `geom_vline()`, set xintercept to the mean of **dem2p_percent**.")
+  }
+  mean_layers <- vline_layers[!is.na(roles) & roles == "mean"]
+  if (length(mean_layers) > 0 &&
+      !identical(mean_layers[[1]]$aes_params$linetype, "dotted")) {
+    fail('The dotted line should be the mean. Set linetype = "dotted" on the `geom_vline()` whose xintercept is the mean, so the two lines stay distinguishable.')
   }
   has_dotted_line <- any(vapply(vline_layers, function(layer) {
     identical(layer$aes_params$linetype, "dotted")
@@ -1084,6 +1112,9 @@ grade_this({
   }
   if (!grepl("y\\s*=\\s*250", code_no_comments)) {
     fail("Place the mean label at y = 250 so it sits below the median label.")
+  }
+  if (length(gregexpr("x\\s*=\\s*55", code_no_comments)[[1]]) < 2) {
+    fail("Both labels sit at x = 55 --- give the mean annotation the same x position as the median annotation.")
   }
   if (!grepl("Mean", code_no_comments)) {
     fail('Use a label that identifies the second line as the "Mean".')
@@ -1114,18 +1145,18 @@ A [**box plot**]{.important-text} is a second way to visualize an interval varia
 
 To generate a box plot, change the basic histogram plot in two ways. First, map the variable to the y-axis rather than the x-axis. This is because a box plot displays the distribution vertically --- the median line runs horizontally across the box, the whiskers extend up and down, and outliers appear as dots above or below. If the variable were mapped to x instead, the plot would be rotated 90 degrees and harder to read in the standard orientation. Use `x = ""` to give the box a single position to sit at; without it the box stretches across the whole plot area. That is a separate step from removing the axis label, which is done with `x = NULL` inside `labs()` --- the first controls where the box goes, the second controls what is written beneath it. Second, use `geom_boxplot()` rather than `geom_histogram()`.
 
-Let's plot the percent of working-age adults. Recall this variable is named **employ_pop_ratio_25_64**. 
+Let's plot the number of jobs per 100 working-age residents. Recall that this variable is named **employ_pop_ratio_25_64**. 
 
-**Run and observe 19: Plot the employment-to-population ratio with a box plot**
-```{r boxplot_employment_ratio, exercise=TRUE,exercise.cap="Run and observe 19", fig.alt="Box plot of the employment to population ratio for adults aged 25 to 64 across US counties, plotted vertically. The box is short and sits low on the scale, with the median line near 65 percent. The whiskers are short relative to the axis. Many individual points are plotted above the upper whisker, thinning out as they rise, with the highest near 660 percent."}
+**Run and observe 19: Plot the jobs-to-population ratio with a box plot**
+```{r boxplot_employment_ratio, exercise=TRUE,exercise.cap="Run and observe 19", fig.alt="Box plot of the number of jobs per 100 residents aged 25 to 64 across US counties, plotted vertically. The box is short and sits low on the scale, with the median line near 67. The whiskers are short relative to the axis. Many individual points are plotted above the upper whisker, thinning out as they rise, with the highest near 660."}
 counties %>%
   filter(!is.na(employ_pop_ratio_25_64)) %>%
   ggplot(aes(x = "", y = employ_pop_ratio_25_64)) +
   geom_boxplot() +
-  labs(title = "Distribution of the Employment to Population Ratio \n Adults Aged 25-64", 
+  labs(title = "Distribution of Jobs per 100 Working-Age Residents",
        subtitle = "US Counties, 2016",
-       x = NULL, 
-       y = "Percent",
+       x = NULL,
+       y = "Jobs per 100 residents aged 25-64",
        caption = "Source: Linn, Nagler, Zilinsky") 
 ```
 A box plot has four parts:
@@ -1135,15 +1166,15 @@ A box plot has four parts:
 - **The whiskers** --- they reach to the most extreme value within 1.5 × IQR of the box.
 - **The circles** --- observations beyond the whiskers, plotted individually.
 
-All four are worth checking against what you already computed. The median line sits at 66.81%, the value `quantile()` gave you. The box height is that same interquartile range, now shown as a distance rather than a pair of numbers. And the fence falls at 83.53 + 1.5 × 32.30, or about 132% --- so every circle is a county above that, the extreme cases of the commuting-in effect you met when you computed the percentiles.
+All four are worth checking against what you already computed. The median line sits at 66.81, the value `quantile()` gave you. The box height is that same interquartile range, now shown as a distance rather than a pair of numbers. And the fence falls at 83.53 + 1.5 × 32.30, or about 132 --- so every circle is a county above that, the extreme cases of the commuting-in effect you met when you computed the percentiles.
 
 Two things are worth saying before you build one yourself. The first is that 1.5 is a convention, not a result. Nothing about the data determines it --- it is a rule of thumb that has become standard because it flags a manageable number of cases in most distributions. A circle on a box plot means "this value is far enough from the middle half to be worth a look," not "this value is an error" and not "this value fails a test." You already know that some of the counties above the fence are recording something real.
 
-The second is what a box plot gives up. It reports five numbers and the points beyond them, and everything else about the distribution is gone. Two variables with identical quartiles can have completely different shapes --- one with a single peak in the middle, another with two peaks and a hollow between them --- and their box plots would be indistinguishable. The histogram you built for **dem2p_percent** showed a shape; a box plot of the same variable will not. That is the trade: you lose the shape and gain a summary compact enough to repeat across many groups.
+The second is what a box plot gives up. It shows the median, the two quartiles, the whisker endpoints, and the observations beyond them --- and everything else about the distribution is gone. Two variables with identical quartiles can have completely different shapes --- one with a single peak in the middle, another with two peaks and a hollow between them --- and their box plots would be indistinguishable. The histogram you built for **dem2p_percent** showed a shape; a box plot of the same variable will not. That is the trade: you lose the shape and gain a summary compact enough to repeat across many groups.
 
 **Practice 20: Create a box plot for dem2p_percent**
 
-Produce the box plot, filtering out missing values before plotting. Then look at where the median line sits within the box and whether the whiskers extend evenly before reading the interpretation below. Three hints are available. Click "Submit Answer" to check your work.
+Produce the box plot. Then look at where the median line sits within the box and whether the whiskers extend evenly before reading the interpretation below. Three hints are available. Click "Submit Answer" to check your work.
 
 Your plot should have:
 
@@ -1153,7 +1184,7 @@ Your plot should have:
 - y-axis label: \"Percent of Two-Party Vote\"
 - Caption: \"Source: Linn, Nagler, Zilinsky\"
 
-```{r boxplot_dem2p, exercise=TRUE, exercise.cap="Practice 20", fig.alt="Vertical box plot of Democratic two-party vote percentages across US counties, showing the median line, the box spanning the interquartile range, the whiskers, and individually plotted observations beyond them."}
+```{r boxplot_dem2p, exercise=TRUE, exercise.cap="Practice 20", fig.alt="Vertical box plot of Democratic two-party vote percentages across US counties. The median line sits near 30 percent and the box runs from roughly 21 to 42. The lower whisker reaches close to 0 with no points beyond it, while a dense column of individually plotted counties rises above the upper whisker toward 95 percent --- the long upper tail of a right-skewed distribution."}
 
 ```
 
@@ -1194,40 +1225,39 @@ grade_this({
     paste(deparse(rlang::get_expr(x)), collapse = "")
   }
 
+  if (is.null(.result)) {
+    fail("Make sure your code produces a plot the grader can check.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
   }
   if (!is.data.frame(.result$data) || !"dem2p_percent" %in% names(.result$data)) {
-    fail("Use dem2p_percent from the counties data frame for this plot.")
+    fail("Use **dem2p_percent** from the **counties** data frame for this plot.")
   }
-  if (any(is.na(.result$data$dem2p_percent))) {
-    fail("Filter out missing values with filter(!is.na(dem2p_percent)) before plotting.")
-  }
-
   expected_values <- sort(as.numeric(counties$dem2p_percent[!is.na(counties$dem2p_percent)]))
   actual_values   <- sort(as.numeric(.result$data$dem2p_percent))
   if (!isTRUE(all.equal(actual_values, expected_values, tolerance = 1e-8))) {
-    fail("Use all nonmissing observations of dem2p_percent from the counties data frame. Do not remove any valid observations.")
+    fail("Use all nonmissing observations of **dem2p_percent** from the **counties** data frame. Do not remove any valid observations.")
   }
   x_expr <- expr_text(.result$mapping$x)
   if (!identical(x_expr, "\"\"") && !identical(x_expr, "''")) {
-    fail('Use x = "" inside aes() for a cleaner one-variable box plot.')
+    fail('Use `x = ""` inside `aes()` for a cleaner one-variable box plot.')
   }
   y_expr <- expr_text(.result$mapping$y)
   if (!grepl("dem2p_percent", y_expr)) {
-    fail("Map dem2p_percent to the y-axis.")
+    fail("Map **dem2p_percent** to the y-axis.")
   }
   has_boxplot <- any(vapply(.result$layers, function(layer) {
     inherits(layer$geom, "GeomBoxplot")
   }, logical(1)))
   if (!has_boxplot) {
-    fail("Use geom_boxplot() to create the box plot.")
+    fail("Use `geom_boxplot()` to create the box plot.")
   }
   if (!identical(.result$labels$title, "Democratic Vote Share")) {
     fail('Use "Democratic Vote Share" as the title.')
   }
   if (!is.null(.result$labels$x)) {
-    fail("Set the x-axis label to NULL with labs(x = NULL), as the requirements ask.")
+    fail("Set the x-axis label to `NULL` with `labs(x = NULL)` so no unused label appears beneath the box plot.")
   }
   if (!identical(.result$labels$y, "Percent of Two-Party Vote")) {
     fail('Set the y-axis label to "Percent of Two-Party Vote".')
@@ -1240,15 +1270,13 @@ grade_this({
 })
 ```
 
-The box plot for Democratic vote percentage shows a median around 30%, consistent with what you computed earlier. The IQR box spans roughly 20% to 45%, meaning the middle half of counties gave Clinton between 20% and 45% of the two-party vote. The long upper whisker and outlier circles above it indicate that a small number of counties gave Clinton very high vote percentages --- consistent with the right-skewed distribution you identified from the mean exceeding the median.
+The box plot for Democratic vote percentage shows a median around 30%, consistent with what you computed earlier. The IQR box spans roughly 21% to 42%, meaning the middle half of counties gave Clinton between about 21% and 42% of the two-party vote. The long upper whisker and outlier circles above it indicate that a small number of counties gave Clinton very high vote percentages --- consistent with the right-skewed distribution you identified from the mean exceeding the median.
 
 ## Check Your Understanding
 
 Now let's step back and practice choosing among the tools from this tutorial. The questions below ask you to connect the level of measurement to the appropriate summary statistic or plot, and then to interpret what those summaries tell you about the center, spread, and shape of a distribution.
 
 **Apply 21: Identify core distribution concepts**
-
-Think carefully about each statement before selecting.
 
 ```{r identify_distribution_concepts, echo=FALSE}
 question("Which of the following statements are true? Select all that apply.",
@@ -1304,8 +1332,6 @@ ggplot(aes(x = spendeduc)) +
 
 **Apply 23: Interpret the education-spending histogram**
 
-Based on what you learned about reading histograms, interpret the plot above and reason about what the shape implies for which statistics are most appropriate.
-
 ```{r plot_interpretation, echo=FALSE}
 question("In this histogram, most countries fall between 2 and 7 percent of GDP, and two sit near 12 percent. Which of the following are true? Select all that apply.",
   correct = "Right. Both statements are true.",
@@ -1346,7 +1372,7 @@ question("A box plot of a variable shows a box extending from 20 to 45 with a li
 
 ## The Takeaways
 
-The table below brings together the tools for describing [**nominal**]{.important-text}, [**ordinal**]{.important-text}, and [**interval variables**]{.important-text} across all three tutorials. Everything that follows explains why the entries differ and how to produce them in R.
+The table below brings together the tools for describing **nominal**, **ordinal**, and [**interval variable**]{.important-text}s across all three tutorials. Everything that follows explains why the entries differ and how to produce them in R.
 
 ::: {.qpa-infographic}
 <table class="qpa-table">
@@ -1375,8 +1401,8 @@ The table below brings together the tools for describing [**nominal**]{.importan
     <tr>
       <th scope="row">Distribution Shape</th>
       <td>Unimodal, Bimodal, Multimodal, Uniform</td>
-      <td>Unimodal, Bimodal, Multimodal, Uniform</td>
-      <td>Unimodal, Bimodal, Multimodal, Uniform, Symmetric, Skewed, Normal</td>
+      <td>Unimodal, Bimodal, Multimodal, Uniform; Direction Across the Scale</td>
+      <td>Unimodal, Bimodal, Multimodal, Uniform, Symmetric, Skewed</td>
     </tr>
     <tr>
       <th scope="row">Visualization</th>
@@ -1384,21 +1410,27 @@ The table below brings together the tools for describing [**nominal**]{.importan
       <td>Bar Plot of Frequencies or Proportions</td>
       <td>Histogram, Box Plot</td>
     </tr>
+    <tr>
+      <th scope="row">R Functions</th>
+      <td><code>group_by()</code>, <code>summarise()</code>, <code>mutate()</code>, <code>filter()</code>, <code>geom_bar()</code></td>
+      <td><code>group_by()</code>, <code>summarise()</code>, <code>mutate()</code>, <code>filter()</code>, <code>median()</code>, <code>factor()</code>, <code>geom_bar()</code></td>
+      <td><code>mean()</code>, <code>median()</code>, <code>range()</code>, <code>quantile()</code>, <code>sd()</code>, <code>filter()</code>, <code>geom_histogram()</code>, <code>geom_boxplot()</code></td>
+    </tr>
   </tbody>
 </table>
 :::
 
 Interval variables give you a wider set of descriptive tools because their values are ordered and the distances between values are meaningful. With Tutorial 4 covering nominal variables, Tutorial 5 covering ordinal variables, and this tutorial completing the sequence, you now have a full toolkit for describing one variable at any level of measurement. The same three dimensions apply throughout --- central tendency, dispersion, and shape --- but the tools available depend on what the values actually mean. The median requires a meaningful rank order, so it is not appropriate for nominal variables. The mean assumes equal intervals between values, so it is not appropriate for ordinal variables. Interval variables permit the mean in addition to the median and mode, though the mode is rarely informative for precisely measured data.
 
-- [**Central tendency**]{.important-text} for interval variables is described by the [**median**]{.important-text} and [**mean**]{.important-text}, computed with `median()` and `mean()`, adding `na.rm = TRUE` when the variable has missing values. The mode is almost never useful for interval data because values are often measured so precisely that no single value repeats very often. The median is the value at the 50th percentile and is robust to outliers. The mean is the arithmetic average and can be pulled away from the center by extreme values. When the distribution is roughly symmetric, the two are similar. When they diverge, inspect the distribution for skew or outliers. In a strongly skewed distribution the median often better represents a typical case, because it is not pulled by extreme values.
+- [**Central tendency**]{.important-text} for interval variables is described by the **median** and [**mean**]{.important-text}, computed with `median()` and `mean()`, adding `na.rm = TRUE` when the variable has missing values. The mode is almost never useful for interval data because values are often measured so precisely that no single value repeats very often. The median is the value at the 50th percentile and is robust to [**outliers**]{.important-text}. The mean is the arithmetic average and can be pulled away from the center by extreme values. When the distribution is roughly [**symmetric**]{.important-text}, the two are similar. When they diverge, inspect the distribution for skew or outliers. In a strongly [**skewed**]{.important-text} distribution the median often better represents a typical case, because it is not pulled by extreme values.
 
-- [**Dispersion**]{.important-text} for interval variables is captured by the [**range**]{.important-text} (`range()`), [**percentiles**]{.important-text} (`quantile()`), and [**standard deviation**]{.important-text} (`sd()`). The interquartile range is the distance from the 25th to the 75th percentile; it describes the middle half of the data and is less affected by outliers than the full range. The standard deviation is the typical distance of observations from the mean, in the original units of the variable. One important caution: standard deviations are only comparable within a variable or across samples of the same variable.
+- [**Dispersion**]{.important-text} for interval variables is captured by the [**range**]{.important-text} (`range()`), [**percentile**]{.important-text}s (`quantile()`), and [**standard deviation**]{.important-text} (`sd()`). The [**interquartile range**]{.important-text}, or [**IQR**]{.important-text}, is the distance from the 25th to the 75th percentile; it describes the middle half of the data and is less affected by outliers than the full range. The standard deviation is the typical distance of observations from the mean, in the original units of the variable; the [**variance**]{.important-text} is its square, in squared units, which is why the standard deviation is the one you report. One important caution: standard deviations are only comparable within a variable or across samples of the same variable.
 
-- [**Shape**]{.important-text} for interval variables is best assessed visually. A [**histogram**]{.important-text} (`geom_histogram()`) groups values into bins and shows the overall pattern of the distribution --- its center, spread, symmetry or skew, and whether it is unimodal, bimodal, or uniform. The `bins` and `binwidth` arguments affect how much detail you see. A [**box plot**]{.important-text} (`geom_boxplot()`) summarizes the median, IQR, and outliers in a compact form that becomes especially useful when comparing distributions across groups. When reading either plot, ask: where is the center, how spread out are the values, is the distribution symmetric or skewed, and are there outliers?
+- The [**shape of the distribution**]{.important-text} of an interval variable is best assessed visually. A [**histogram**]{.important-text} (`geom_histogram()`) groups values into bins and shows the overall pattern of the distribution --- its center, spread, symmetry or skew, and whether it is [**unimodal**]{.important-text}, [**bimodal**]{.important-text}, or uniform. The `bins` and `binwidth` arguments affect how much detail you see. A [**box plot**]{.important-text} (`geom_boxplot()`) summarizes the median, IQR, and outliers in a compact form that becomes especially useful when comparing distributions across groups. When reading either plot, ask: where is the center, how spread out are the values, is the distribution symmetric or skewed, and are there outliers?
 
-In R, load [dplyr]{.package-name} and [ggplot2]{.package-name} once at the top of your script or Quarto document with `library(dplyr)` and `library(ggplot2)` before any code that uses functions from those packages. The analysis tools introduced in this tutorial are `median()`, `mean()`, `range()`, `min()`, `max()`, `quantile()`, and `sd()` --- all take the variable as their first argument and `na.rm = TRUE` as their second.
+In R, load [dplyr]{.package-name} and [ggplot2]{.package-name} once at the top of your script or Quarto document with `library(dplyr)` and `library(ggplot2)` before any code that uses functions from those packages. The analysis tools introduced in this tutorial are `median()`, `mean()`, `range()`, `min()`, `max()`, `quantile()`, and `sd()` --- all take the variable as their first argument, and `na.rm = TRUE` as a second when the variable has missing values.
 
-For visualization, histograms and box plots follow the same layered ggplot structure as bar charts. Always filter out missing values before passing data to `ggplot()` --- if you do not, ggplot will print a warning message that would appear in a knitted document.
+For visualization, histograms and box plots follow the same layered ggplot structure as bar charts. When a plotted interval variable has missing values, filter those cases before passing the data to `ggplot()` --- otherwise ggplot prints a warning that would appear in a knitted document.
 
 - **Histograms:** Use `geom_histogram()` in place of `geom_bar()`, with `fill` to set the bar color, `color = "white"` to add bar outlines, and `bins` or `binwidth` to control bin size.
 

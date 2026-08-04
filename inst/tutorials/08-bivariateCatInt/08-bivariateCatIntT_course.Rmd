@@ -26,7 +26,8 @@ In this tutorial, you will learn:
 
 ```{r setup, include=FALSE}
 library(learnr)
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
@@ -34,7 +35,7 @@ knitr::opts_chunk$set(error = TRUE)
 options(lifecycle_verbosity = "quiet")
 options(cli.num_colors = 1)
 data("counties", package = "QPATutorialsCourse")
-data("world", package = "poliscidata")
+data("world", package = "QPATutorialsCourse")
 ```
 
 
@@ -56,7 +57,7 @@ In a comparison of [counties], those that are [more rural] will have a [lower sh
 
 The theoretical explanation is that rural areas tend to have fewer local jobs requiring a college degree and less access to higher education, so college graduates may be more likely to live in or move to urban areas.
 
-The data frame **counties** contains the ordinal variable **rural**, which takes the value 0 for urban counties, 1 for counties that are neither distinctly urban nor rural, and 2 for rural counties. It also contains the interval variable **prop_college_grad**, the proportion of a county's adults over 25 who have completed a college degree. Every county has a recorded value of **rural**, while **prop_college_grad** is missing for 1 county, so any summary you compute from it describes the 3,111 counties with a recorded value rather than all 3,112 in the data. Our hypothesis leads us to expect that the mean proportion of college graduates should be lowest in rural counties and highest in urban counties.
+The data frame **counties** contains the ordinal variable **rural**, which takes the value 0 for urban counties, 1 for counties that are neither distinctly urban nor rural, and 2 for rural counties. It also contains the interval variable **prop_college_grad**, the proportion of a county's residents age 25 or older who have completed a bachelor's degree or higher. Every county has a recorded value of **rural**, while **prop_college_grad** is missing for 1 county, so any summary you compute from it describes the 3,111 counties with a recorded value rather than all 3,112 in the data. Our hypothesis leads us to expect that the mean proportion of college graduates should be lowest in rural counties and highest in urban counties.
 
 ### Calculate the Means
 
@@ -147,7 +148,7 @@ grade_this({
   code_no_comments <- paste(gsub("#[^\\r\\n]*", "", .user_code), collapse = "\n")
 
   if (!is.data.frame(.result)) {
-    fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
+    fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the `=`.")
   }
   if (!grepl("\\bcounties\\b", code_no_comments)) {
     fail("Use the **counties** data frame.")
@@ -162,10 +163,10 @@ grade_this({
     fail("Use `summarise()` to calculate the mean within each group.")
   }
   if (!grepl("freq\\s*=\\s*n\\s*\\(\\s*\\)", code_no_comments)) {
-    fail("Name the count variable freq using `freq = n()` inside `summarise()`.")
+    fail("Name the count variable **freq** using `freq = n()` inside `summarise()`.")
   }
   if (!grepl("mean\\s*=\\s*mean\\s*\\(\\s*dem2p_percent", code_no_comments)) {
-    fail("Name the mean variable mean and compute it from **dem2p_percent**: `mean = mean(dem2p_percent)`.")
+    fail("Name the mean variable **mean** and compute it from **dem2p_percent**: `mean = mean(dem2p_percent)`.")
   }
 
   expected <- counties %>%
@@ -279,12 +280,12 @@ grade_this({
   code_no_comments <- paste(gsub("#[^\\r\\n]*", "", .user_code), collapse = "\n")
 
   if (!is.data.frame(.result)) {
-    fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the =.")
+    fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the `=`.")
   }
   if (!grepl("\\bworld\\b", code_no_comments)) {
     fail("Use the **world** data frame.")
   }
-  if (!grepl("is\\.na\\s*\\(\\s*gdppcap08\\s*\\)", code_no_comments)) {
+  if (!grepl("!\\s*is\\.na\\s*\\(\\s*gdppcap08\\s*\\)", code_no_comments)) {
     fail("Filter out the missing **gdppcap08** values before grouping: `filter(!is.na(gdppcap08))`. This keeps `freq = n()` and `mean()` describing the same set of countries.")
   }
   if (!grepl("group_by\\s*\\(", code_no_comments)) {
@@ -297,10 +298,10 @@ grade_this({
     fail("Use `summarise()` to calculate the mean within each group.")
   }
   if (!grepl("freq\\s*=\\s*n\\s*\\(\\s*\\)", code_no_comments)) {
-    fail("Name the count variable freq using `freq = n()` inside `summarise()`.")
+    fail("Name the count variable **freq** using `freq = n()` inside `summarise()`.")
   }
   if (!grepl("mean\\s*=\\s*mean\\s*\\(\\s*gdppcap08", code_no_comments)) {
-    fail("Name the mean variable mean and compute it from **gdppcap08**.")
+    fail("Name the mean variable **mean** and compute it from **gdppcap08**.")
   }
   if (any(is.na(.result$mean))) {
     fail("Your mean column contains NA. **gdppcap08** has missing values, so they have to be dealt with --- filter them out before grouping, which also keeps `freq` honest.")
@@ -327,13 +328,13 @@ grade_this({
   }
 
   extra <- character(0)
-  if (grepl("is\\.na\\s*\\(\\s*dem_level4\\s*\\)", code_no_comments)) extra <- c(extra, "a filter")
+  if (grepl("!\\s*is\\.na\\s*\\(\\s*dem_level4\\s*\\)", code_no_comments)) extra <- c(extra, "a filter")
   if (grepl("na\\.rm", code_no_comments)) extra <- c(extra, "`na.rm = TRUE`")
   if (length(extra) > 0) {
     pass(paste0("Correct. You included ", paste(extra, collapse = " and "),
                 ", which does no harm --- but every country has a recorded **dem_level4**, and filtering **gdppcap08** already removed the missing values before `mean()` ran."))
   }
-  pass("Correct. You grouped by regime type and computed a count and a mean within each group, filtering **gdppcap08** first so the two columns describe the same countries.")
+  pass("Exactly. You grouped by regime type and computed a count and a mean within each group, filtering **gdppcap08** first so the two columns describe the same countries.")
 })
 ```
 
@@ -345,14 +346,14 @@ You have now seen two examples of evaluating a hypothesis using a table of means
 
 ```{r quiz-gdp-hypothesis, echo=FALSE}
 question("Based on the table you produced, which statement best describes what the pattern tells us about the hypothesis?",
-  correct = "Right. The pattern is partially consistent with the hypothesis.",
+  correct = "Right. The overall direction holds; one category is out of order.",
   answer("The pattern is fully consistent with the hypothesis --- mean GDP per capita increases consistently from authoritarian to full democracy",
          message = "Look at the table carefully. Full democracies do have the highest mean GDP per capita, but the ordering across the other three regime types does not follow the predicted pattern."),
   answer("The pattern is partially consistent with the hypothesis --- the ordering across regime types does not follow a clean democratic hierarchy",
          correct = TRUE,
          message = "Full democracies have the highest mean GDP per capita and hybrid regimes have the lowest, which is not the predicted order. Some authoritarian states --- particularly those with natural resource wealth --- push the authoritarian mean above hybrid democracies, complicating the picture. The pattern is partially consistent with the hypothesis but not cleanly."),
   answer("The pattern is not consistent with the hypothesis --- authoritarian regimes outperform at least one democratic regime type",
-         message = "Partially correct, but the full picture is more nuanced. Full and partial democracies do have higher mean GDP per capita than authoritarian regimes on average. The complication is only with hybrid regimes, which have the lowest mean GDP per capita."),
+         message = "The premise is right: authoritarian regimes do outperform hybrid ones. But that makes the pattern partially consistent, not inconsistent. Full and partial democracies both average higher than authoritarian regimes, which is what the hypothesis predicts; the ordering only breaks down at hybrid regimes. One misplaced category weakens a pattern rather than reversing it."),
   answer("GDP per capita cannot be compared across regime types because countries differ in size",
          message = "GDP per capita is specifically designed to account for country size by dividing total GDP by population. Comparing it across groups is entirely appropriate."),
   allow_retry = TRUE,
@@ -454,6 +455,9 @@ grade_this({
   code_lines <- gsub("#[^\\r\\n]*", "", .user_code)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
+  if (is.null(.result)) {
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a ggplot call and that nothing is assigned to an object instead of being displayed.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. Check for a missing + at the end of a line, unmatched parentheses, or a label string missing its quotation marks.")
   }
@@ -467,7 +471,7 @@ grade_this({
     fail("Use `geom_histogram()` to create the histogram.")
   }
   if (!grepl("fill\\s*=\\s*racial_majority", code_no_comments)) {
-    fail("Map **racial_majority** to fill inside `aes()`.")
+    fail("Map **racial_majority** to `fill` inside `aes()`.")
   }
   if (!grepl("facet_wrap\\s*\\(", code_no_comments)) {
     fail("Add a `facet_wrap()` layer to give each category its own panel.")
@@ -481,16 +485,16 @@ grade_this({
 
   plot_labels <- .result$labels
   if (!identical(plot_labels$title, "Distribution of Democratic Vote Percentage by Racial Majority")) {
-    fail('Set title = "Distribution of Democratic Vote Percentage by Racial Majority" inside `labs()`.')
+    fail('Set `title = "Distribution of Democratic Vote Percentage by Racial Majority"` inside `labs()`.')
   }
   if (!identical(plot_labels$x, "Percent of Two-Party Vote")) {
-    fail('Set x = "Percent of Two-Party Vote" inside `labs()`.')
+    fail('Set `x = "Percent of Two-Party Vote"` inside `labs()`.')
   }
   if (!identical(plot_labels$y, "Frequency")) {
-    fail('Set y = "Frequency" inside `labs()`.')
+    fail('Set `y = "Frequency"` inside `labs()`.')
   }
   if (!identical(plot_labels$caption, "Source: Linn, Nagler, Zilinsky")) {
-    fail('Set caption = "Source: Linn, Nagler, Zilinsky" inside `labs()`.')
+    fail('Set `caption = "Source: Linn, Nagler, Zilinsky"` inside `labs()`.')
   }
 
   extra <- character(0)
@@ -576,6 +580,9 @@ grade_this({
   code_lines <- gsub("#[^\\r\\n]*", "", .user_code)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
+  if (is.null(.result)) {
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a ggplot call and that nothing is assigned to an object instead of being displayed.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string missing its quotation marks.")
   }
@@ -619,13 +626,14 @@ grade_this({
   # Check fill requires factor(rural) --- not bare rural
   fill_code <- any(grepl("fill\\s*=\\s*factor\\s*\\(\\s*rural\\s*\\)", code_no_comments))
   if (!fill_code) {
-    fail("Because **rural** is stored as a number, wrap it in `factor()` when mapping it to fill: `fill = factor(rural)`. Without `factor()`, ggplot treats **rural** as continuous and applies a color gradient rather than discrete group colors.")
+    fail("Because **rural** is stored as a number, wrap it in `factor()` when mapping it to `fill`: `fill = factor(rural)`. Without `factor()`, ggplot treats **rural** as continuous and applies a color gradient rather than discrete group colors.")
   }
 
   # Check layer types
   layer_geoms <- sapply(.result$layers, function(l) class(l$geom)[1])
-  if (!"GeomBar" %in% layer_geoms) {
-    fail("Use `geom_histogram()` to create the histograms.")
+  layer_stats <- sapply(.result$layers, function(l) class(l$stat)[1])
+  if (!"GeomBar" %in% layer_geoms || !"StatBin" %in% layer_stats) {
+    fail("Use `geom_histogram()` to create the histograms. A bar layer built another way will not bin the interval variable.")
   }
 
   # Check faceting uses rural
@@ -642,16 +650,19 @@ grade_this({
   # Check plot labels from object
   plot_labels <- .result$labels
   if (!identical(plot_labels$title, "Distribution of College Graduation Rates by Rurality")) {
-    fail('Set title = "Distribution of College Graduation Rates by Rurality" inside `labs()`.')
+    fail('Set `title = "Distribution of College Graduation Rates by Rurality"` inside `labs()`.')
   }
   if (!identical(plot_labels$x, "Proportion of College Graduates")) {
-    fail('Set x = "Proportion of College Graduates" inside `labs()`.')
+    fail('Set `x = "Proportion of College Graduates"` inside `labs()`.')
   }
   if (!identical(plot_labels$y, "Frequency")) {
-    fail('Set y = "Frequency" inside `labs()`.')
+    fail('Set `y = "Frequency"` inside `labs()`.')
   }
   if (!identical(plot_labels$caption, "Source: Linn, Nagler, Zilinsky")) {
-    fail('Set caption = "Source: Linn, Nagler, Zilinsky" inside `labs()`.')
+    fail('Set `caption = "Source: Linn, Nagler, Zilinsky"` inside `labs()`.')
+  }
+  if (!is.null(plot_labels$subtitle)) {
+    fail("Omit the subtitle from `labs()` --- the prompt asks for the title, axis labels, and caption only.")
   }
 
   extra <- character(0)
@@ -661,7 +672,7 @@ grade_this({
     pass(paste0("Correct. You included ", paste(extra, collapse = " and "),
                 ", which does no harm --- but every county has a recorded **rural**, and filtering **prop_college_grad** already removed the missing value before the plot was drawn."))
   }
-  pass("Well done. Because **rural** is stored as numbers you wrapped it in `factor()` for the fill, and `facet_wrap()` gave each rurality category a panel of its own.")
+  pass("Nicely done. Because **rural** is stored as numbers you wrapped it in `factor()` for the fill, and `facet_wrap()` gave each rurality category a panel of its own.")
 })
 ```
 
@@ -701,7 +712,7 @@ question("The table of means told us urban counties have higher average college 
   correct = "Right. The histogram shows the urban advantage is about spread as well as center.",
   answer("Urban counties have a much wider spread as well as a higher average, while neither-urban-nor-rural counties have the most tightly concentrated distribution",
          correct = TRUE,
-         message = "The means told you urban counties are higher on average. The histogram adds that urban counties are also far more variable --- the long right tail means some urban counties have extremely high graduation rates that pull the mean up, while the neither-urban-nor-rural panel is remarkably narrow, suggesting those counties are very consistent with each other. The rural panel sits between them, with the shortest tail to the right of the three."),
+         message = "The means told you urban counties are higher on average. The histogram adds that urban counties are also far more variable --- the long right tail means some urban counties have extremely high graduation rates that pull the mean up, while the neither-urban-nor-rural panel is remarkably narrow, suggesting that their college-graduation rates are relatively similar. The rural panel sits between them, with the shortest tail to the right of the three."),
   answer("The histogram confirms the means exactly --- urban is highest, rural is lowest, and neither-urban-nor-rural falls in between with no additional information",
          message = "The histogram does confirm the ordering from the means, but it also shows something the means could not: how spread out each distribution is. The shape and width of each panel reveal whether the difference is about a uniformly higher center or about a wider range of outcomes."),
   answer("Neither-urban-nor-rural and rural have nearly identical shapes, suggesting the means overstated the difference between them",
@@ -811,6 +822,9 @@ grade_this({
   code_lines <- gsub("#[^\\r\\n]*", "", .user_code)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
+  if (is.null(.result)) {
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a ggplot call and that nothing is assigned to an object instead of being displayed.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing + at the end of a line, unmatched parentheses, or a label string missing its quotation marks.")
   }
@@ -850,13 +864,13 @@ grade_this({
   fill_vars <- get_aes_name(.result, "fill")
 
   if (!"dem_level4" %in% x_vars) {
-    fail("Map **dem_level4** to x inside `aes()` to place regime types on the x-axis.")
+    fail("Map **dem_level4** to `x` inside `aes()` to place regime types on the x-axis.")
   }
   if (!"lifeex_total" %in% y_vars) {
-    fail("Map **lifeex_total** to y inside `aes()` to show life expectancy on the y-axis.")
+    fail("Map **lifeex_total** to `y` inside `aes()` to show life expectancy on the y-axis.")
   }
   if (!"dem_level4" %in% fill_vars) {
-    fail("Map **dem_level4** to fill inside `aes()` to color each box differently.")
+    fail("Map **dem_level4** to `fill` inside `aes()` so each regime category defines a separate box.")
   }
 
   # Check layer types
@@ -869,9 +883,13 @@ grade_this({
   if (!any(grepl("scale_x_discrete", .user_code))) {
     fail("Add `scale_x_discrete()` to replace the abbreviated stored values with readable labels.")
   }
-  label_order_ok <- grepl(
+  scale_call <- regmatches(
+    gsub("\\s+", " ", code_no_comments),
+    regexpr("scale_x_discrete\\s*\\([^)]*\\)[^)]*\\)", gsub("\\s+", " ", code_no_comments))
+  )
+  label_order_ok <- length(scale_call) > 0 && grepl(
     "Full Democracy.*Partial Democracy.*Hybrid.*Authoritarian",
-    gsub("\\s+", " ", code_no_comments)
+    scale_call
   )
   if (!label_order_ok) {
     fail('The four labels must appear in this order: "Full Democracy", "Partial Democracy", "Hybrid", "Authoritarian" --- matching the stored factor level order.')
@@ -950,14 +968,17 @@ Build a box plot comparing the two. Title it \"Democratic Vote Percentage by Rac
 
 ```{r boxplot-dem2p-by-racialmajority-hint-3}
 # Hint 3 of 3
-# The categorical variable that defines the groups goes on
-# x and fill. The interval variable whose distribution you
-# are examining goes on y. Add guides(fill = "none") to
-# remove the redundant legend.
+# The x-axis already names each group, so the fill legend repeats
+# what the plot has already shown --- guides(fill = "none") removes it.
+# In labs(), set x to NULL and use the exact title, y-axis label, and
+# caption given in the prompt, with no subtitle.
 ```
 
 ```{r boxplot-dem2p-by-racialmajority-check}
 grade_this({
+  if (is.null(.result)) {
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a ggplot call and that nothing is assigned to an object instead of being displayed.")
+  }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. Check for a missing + at the end of a line or unmatched parentheses.")
   }
@@ -973,13 +994,13 @@ grade_this({
   fill_mapping <- rlang::as_label(plot_mapping$fill)
 
   if (!identical(x_mapping, "racial_majority")) {
-    fail("Map **racial_majority** to x inside `aes()`.")
+    fail("Map **racial_majority** to `x` inside `aes()`.")
   }
   if (!identical(y_mapping, "dem2p_percent")) {
-    fail("Map **dem2p_percent** to y inside `aes()`.")
+    fail("Map **dem2p_percent** to `y` inside `aes()`.")
   }
   if (!identical(fill_mapping, "racial_majority")) {
-    fail("Map **racial_majority** to fill inside `aes()`.")
+    fail("Map **racial_majority** to `fill` inside `aes()`.")
   }
 
   has_boxplot <- any(vapply(.result$layers, function(l) inherits(l$geom, "GeomBoxplot"), logical(1)))
@@ -989,16 +1010,19 @@ grade_this({
 
   plot_labels <- .result$labels
   if (!identical(plot_labels$title, "Democratic Vote Percentage by Racial Majority")) {
-    fail('Set title = "Democratic Vote Percentage by Racial Majority" inside `labs()`.')
+    fail('Set `title = "Democratic Vote Percentage by Racial Majority"` inside `labs()`.')
   }
   if (!is.null(plot_labels$x)) {
-    fail('Set x = NULL inside `labs()` --- the tick labels already name each group, so an axis title repeats them.')
+    fail('Set `x = NULL` inside `labs()` --- the tick labels already name each group, so an axis title repeats them.')
   }
   if (!identical(plot_labels$y, "Percent of Two-Party Vote")) {
-    fail('Set y = "Percent of Two-Party Vote" inside `labs()`.')
+    fail('Set `y = "Percent of Two-Party Vote"` inside `labs()`.')
   }
   if (!identical(plot_labels$caption, "Source: Linn, Nagler, Zilinsky")) {
-    fail('Set caption = "Source: Linn, Nagler, Zilinsky" inside `labs()`.')
+    fail('Set `caption = "Source: Linn, Nagler, Zilinsky"` inside `labs()`.')
+  }
+  if (!is.null(plot_labels$subtitle)) {
+    fail("Omit the subtitle from `labs()` --- the prompt asks for the title, axis labels, and caption only.")
   }
 
   if (!grepl('guides\\s*\\(\\s*fill\\s*=\\s*["\']none["\']', code_no_comments)) {
@@ -1020,20 +1044,20 @@ grade_this({
 **Apply 15: Interpret the racial majority box plot**
 
 ```{r quiz-boxplot-dem2p-racialmajority, echo=FALSE}
-question("The table of means suggested that both Black Majority and Hispanic Majority counties vote heavily Democratic. What does the box plot reveal about how reliably that characterization holds within each group?",
-  correct = "Right. The two groups look similar in the means but differ dramatically in spread.",
-  answer("Black Majority counties have a much smaller interquartile range than Hispanic Majority counties, whose middle half spans a far wider range of Democratic vote percentages",
+question("The table of means shows Black Majority counties at 65.2% and Hispanic Majority counties at 46.3%. What does the box plot add that those two numbers do not?",
+  correct = "Right. One mean summarizes its group well; the other barely summarizes anything.",
+  answer("Black Majority counties cluster tightly around their mean, while Hispanic Majority counties span nearly the full range",
          correct = TRUE,
-         message = "The means told you both groups lean heavily Democratic. The box plot adds that this characterization is much more reliable for Black Majority counties, whose IQR spans roughly 55-70%. Hispanic Majority counties have a far wider IQR --- roughly 25-65% --- meaning the middle half of those counties spans nearly 40 percentage points. A mean of around 50% masks that enormous spread within the group."),
-  answer("Black Majority and Hispanic Majority counties have similar interquartile ranges --- their means are close and their boxes are roughly the same width",
-         message = "Look carefully at the widths of the two boxes. The Black Majority box is narrow while the Hispanic Majority box is much wider --- the IQRs are very different even though the means are similar."),
+         message = "The Black Majority box runs from about 57 to 70, so the middle half of those counties sits inside roughly 13 points and 65.2 describes them well. The Hispanic Majority box runs from about 28 to 65 --- an interquartile range near 37 points. Their mean of 46.3 falls in the middle of that range without describing many counties in it: the middle half alone runs from clearly Republican-leaning to clearly Democratic-leaning. A mean summarizes a group well when the group is concentrated and poorly when it is not, and the box plot is what tells you which case you are looking at."),
+  answer("Black Majority and Hispanic Majority counties have similar interquartile ranges --- their boxes are roughly the same width",
+         message = "Look carefully at the widths of the two boxes. The Black Majority box spans roughly 13 percentage points while the Hispanic Majority box spans roughly 37 --- the interquartile ranges are very different."),
   answer("The many high outliers in White Majority counties suggest those counties are a genuine swing group that could vote either way",
          message = "The outliers in White Majority counties are a small number of heavily urban counties, not evidence that White Majority counties as a whole are competitive. The box itself is narrow and concentrated at low Democratic vote percentages, which better characterizes the spread of the group."),
   answer("Hispanic Majority counties have the lowest median, which explains why their interquartile range is wider than Black Majority counties",
          message = "Spread and center are separate features of a distribution. A group can have a high or low median and still have a wide or narrow IQR --- they are independent. The Hispanic Majority median is around 45%, well above White Majority, but the IQR is wide regardless of where the median falls."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Black Majority and Hispanic Majority counties have similar means, so the answer is not about where each distribution is centered. Compare the widths of those two boxes --- the box spans the middle 50% of each group."
+  try_again = "The two means differ by nearly 19 points, so this is not about which group is more Democratic. Compare the widths of those two boxes --- each spans the middle 50% of its group."
 )
 ```
 
@@ -1221,14 +1245,14 @@ The table below adds the second combination of variable types to the one you met
 
 This tutorial covered **bivariate description** of a categorical and an interval variable --- asking whether the distribution of an interval outcome differs across the categories of a categorical explanatory variable. Tutorial 7 covered two categorical variables; Tutorial 9 will cover two interval variables. The core question is the same throughout --- does the pattern in the data point in the direction the hypothesis predicts? --- but the tools change depending on the variable types.
 
-- [**Comparing group means**]{.important-text} is the first move when one variable is categorical and one is interval. Always set the analysis up in the right direction: the interval variable is the outcome, the categorical variable defines the groups. Reversing this answers a different question.
+- Comparing [**group means**]{.important-text} is the first move when one variable is categorical and one is interval. Always set the analysis up in the right direction: the interval variable is the outcome, the categorical variable defines the groups. Reversing this answers a different question.
 - A [**faceted histogram**]{.important-text} gives each category its own panel, showing the full shape of every group's distribution --- skew, modality, spread --- at the cost of becoming cumbersome as the number of groups grows.
 - A [**grouped box plot**]{.important-text} says much the same thing in far less space. It sacrifices distributional detail for efficiency: a compact summary that scales to many groups and makes medians, spreads, and outliers easy to compare at a glance.
 - Neither is a hypothesis test. Finding that group means differ in the predicted direction tells you the data are consistent with the hypothesis, not that the difference is larger than chance. That requires a formal test, covered in Tutorial 13.
 
-A table of means hides what these plots show. Two groups can have similar means and very different spreads, and a group's mean can sit well away from where most of its cases actually are --- comparing it against the median is the quickest check. Filter the variables that have missing values before `group_by()` or `ggplot()`. Where the outcome has gaps, filtering keeps `freq = n()` and `mean()` operating on exactly the same observations. Throughout this tutorial the gaps are on the interval variables, and ggplot handles those differently from a missing category: it drops those rows and prints a warning rather than drawing a group for them, so the cases vanish from the plot and the warning is the only sign.
+A table of means hides what these plots show. Two groups can have similar means and very different spreads, and a group's mean can sit well away from where most of its cases actually are --- comparing it against the median is the quickest check. Before building a table of means, filter missing values from the interval outcome so that `freq = n()` and `mean()` describe exactly the same cases. Before plotting, filter any mapped variable that has gaps. Throughout this tutorial the gaps are on the interval variables, and ggplot handles those differently from a missing category: it drops those rows and prints a warning rather than drawing a group for them, so the cases vanish from the plot and the warning is the only sign.
 
-- **Faceting:** Map the categorical variable to `fill` inside `aes()` and add `facet_wrap(~variable)`. By default all panels share a y-axis, making group size easy to compare; `scales = "free_y"` gives each panel its own scale so every shape is visible, at the cost of comparing bar heights across panels.
+- [**Faceting**]{.important-text}**:** Map the categorical variable to `fill` inside `aes()` and add `facet_wrap(~variable)`, which gives each category its own [**facet**]{.important-text}. By default all facets share a y-axis, making group size easy to compare; `scales = "free_y"` gives each facet its own scale so every shape is visible, at the cost of comparing bar heights across facets.
 - **Box plots:** Map the categorical variable to both `x` and `fill`, and the interval variable to `y`.
 - **`factor()`:** Wrap the categorical variable when it is stored as a **number**; leave it alone when it is stored as a **character** or a **factor**. Inside `facet_wrap()` it is never needed.
 - **Readable labels:** `scale_x_discrete()` for the tick labels along a box plot's x-axis, `labeller = as_labeller(c(...))` inside `facet_wrap()` for a faceted histogram's panel titles. Both match replacements to the stored order of the variable, so a wrong order relabels the plot silently.

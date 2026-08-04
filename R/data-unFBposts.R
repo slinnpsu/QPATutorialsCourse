@@ -1,0 +1,74 @@
+#' United Nations Facebook Posts from 2015
+#'
+#' A dataset containing posts published on the United Nations Facebook page
+#' during 2015. Each row represents one Facebook post.
+#'
+#' @format A data frame with 1,643 rows and 8 variables:
+#' \describe{
+#'
+#'   \item{type}{
+#'     Type of post, such as a link, photo, video, note, or event.
+#'     Stored as a character variable.
+#'     Missing values: 0.
+#'   }
+#'
+#'   \item{date}{
+#'     Date when the post was published.
+#'     Stored as a character variable rather than as an R `Date` object.
+#'     Missing values: 0.
+#'   }
+#'
+#'   \item{likes_count}{
+#'     Total number of likes received by the post.
+#'     Stored as an integer.
+#'     Missing values: 0.
+#'   }
+#'
+#'   \item{comments_count}{
+#'     Total number of comments received by the post.
+#'     Stored as an integer.
+#'     Missing values: 0.
+#'   }
+#'
+#'   \item{shares_count}{
+#'     Total number of times the post was shared.
+#'     Stored as an integer.
+#'     Missing values: 0.
+#'   }
+#'
+#'   \item{month}{
+#'     Numeric month in which the post was published, coded 1 through 12.
+#'     Stored as an integer.
+#'     Missing values: 0.
+#'   }
+#'
+#'   \item{url}{
+#'     Direct URL for the post.
+#'     Stored as a character variable.
+#'     Missing values: 0.
+#'   }
+#'
+#'   \item{message}{
+#'     Text content of the post. `NA` indicates that the post contained no
+#'     accompanying message text.
+#'     Stored as a character variable.
+#'     Missing values: 173.
+#'   }
+#' }
+#'
+#' @details
+#' The dataset is used in Tutorial 2 to introduce data frames, variable types,
+#' missing values, indexing, comparisons, summary statistics, and the creation
+#' of new variables.
+#'
+#' In that tutorial, one value of `comments_count` is deliberately replaced
+#' with `NA` to demonstrate missing-value handling, and a new variable named
+#' `like.or.share` is created as the sum of `likes_count` and `shares_count`.
+#' Neither modification is part of the stored package dataset.
+#'
+#' @source
+#' Posts published on the United Nations Facebook page during 2015.
+#'
+#' @keywords datasets
+#'
+"unFBposts"

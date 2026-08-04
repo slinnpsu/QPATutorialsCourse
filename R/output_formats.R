@@ -2,6 +2,8 @@
 #'
 #' Injects shared CSS, JS, and accessibility block into each tutorial
 #' at render time via post-processor.
+#'
+#' @param ... Arguments passed to \code{learnr::tutorial()}.
 #' @export
 qpa_tutorial <- function(...) {
 
