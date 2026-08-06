@@ -6,13 +6,14 @@
 #' version of the Quality of Government Basic Dataset
 #' (`QoGBasCSJan20`).
 #'
-#' The complete dataset contains 373 variables compiled from numerous original
-#' sources. The variables described below are the country identifiers and the
-#' substantive variables used in the QPATutorialsCourse tutorials. Consult the
+#' The complete dataset contains 194 observations and 373 variables compiled
+#' from numerous original sources. The variables described below are the
+#' country identifiers and a selected subset of the substantive variables.
+#' Consult the
 #' official Quality of Government Basic Dataset January 2020 codebook for
 #' definitions of the remaining variables.
 #'
-#' @format A data frame containing country-level observations and 373 variables.
+#' @format A data frame with 194 rows and 373 variables.
 #'
 #' @details
 #' The principal identifiers and the variables used in the QPATutorialsCourse
@@ -22,14 +23,17 @@
 #'
 #'   \item{ccode}{
 #'     Quality of Government numeric country code.
+#'     Missing values: 0.
 #'   }
 #'
 #'   \item{cname}{
 #'     Country or territory name.
+#'     Missing values: 0.
 #'   }
 #'
 #'   \item{ccodealp}{
 #'     Three-letter country code.
+#'     Missing values: 0.
 #'   }
 #'
 #'   \item{bti_eo}{
@@ -84,22 +88,21 @@
 #'     Missing values: 17.
 #'   }
 #'
-#'   \item{iiag_gov}{
-#'     Overall governance score from the Ibrahim Index of African Governance.
-#'     The index combines dimensions of safety and rule of law, participation
-#'     and human rights, sustainable economic opportunity, and human
-#'     development. Higher values indicate better governance. This measure is
-#'     available only for African countries. Observed values range from 11.1
-#'     to 80.1.
-#'     Missing values: 140.
-#'   }
-#'
 #'   \item{ipi_tradeopen}{
 #'     Trade-openness component of the Index of Public Integrity. The measure
 #'     combines standardized information about the documents and time required
 #'     to export and import. Values range from 1 to 10, with higher values
 #'     indicating greater trade openness.
 #'     Missing values: 78.
+#'   }
+#'
+#'   \item{ipu_l_sw}{
+#'     Share of women in the lower or single house of the national legislature,
+#'     from the Inter-Parliamentary Union. Records the percentage of seats held
+#'     by women in a country's lower house, or in its single chamber where the
+#'     parliament is unicameral.
+#'     Theoretical range: 0--100. Observed range: 0.0--63.8.
+#'     Missing values: 1.
 #'   }
 #'
 #'   \item{vdem_polyarchy}{
@@ -110,6 +113,17 @@
 #'     Higher values indicate greater electoral democracy. Observed values
 #'     range from 0.022 to 0.933.
 #'     Missing values: 21.
+#'   }
+#'
+#'   \item{wbgi_cce}{
+#'     Control of corruption estimate from the World Bank's Worldwide
+#'     Governance Indicators. Captures perceptions of the extent to which
+#'     public power is exercised for private gain, including both petty and
+#'     grand forms of corruption and the capture of the state by elites and
+#'     private interests. Higher values indicate better control of corruption.
+#'     Theoretical range: approximately -2.5--2.5. Observed range:
+#'     -2.35--2.21.
+#'     Missing values: 2.
 #'   }
 #'
 #'   \item{wdi_fertility}{

@@ -8,12 +8,14 @@ output:
     allow_skip: true
 runtime: shiny_prerendered
 description: >
-  Learn how to conduct a hypothesis test of the relationship between a categorical and an interval variable.
+  One-way ANOVA and the two-sample, one-sample, and paired t-tests.
 ---
 
 ## Overview {#main-content}
 
-Tutorial 8 described the relationship between a categorical and an interval variable by comparing group means --- but every example ended with the same caution: a difference in sample means cannot tell us whether that difference would be unlikely if there were truly no relationship in the population. In Tutorials 10 and 11, you built the tools a formal test requires: the sampling distribution, the p-value, and the decision rule. This tutorial takes the group-mean relationships from Tutorial 8 and subjects them to formal **hypothesis tests** --- using sample data to assess whether observed differences in means would be unlikely if the population means were truly equal. Tutorial 14 does the same for the correlations from Tutorial 9.
+Two groups almost never have exactly the same mean in a sample, even when they have the same mean in the population. Draw a different sample and the gap between them changes. So a difference in group means, however suggestive it looks, leaves open the question that matters: whether a gap that size is larger than chance would ordinarily produce.
+
+This tutorial covers the tests that settle it when the outcome is interval and the groups are categorical: a one-way ANOVA, which asks whether any of the group means differ; a two-sample t-test, which sharpens that into a directional claim about two specific groups; a one-sample t-test against a fixed value; and a paired t-test for two measurements taken on the same cases. All four are worked through the same five explicit steps. If you need to review that procedure or the decision rule, go back to Tutorial 11.
 
 In this tutorial, you will learn how to test whether a categorical and an interval variable are related in the population. Specifically, we will cover:
 
@@ -144,7 +146,7 @@ Putting those together, every one-way ANOVA in this tutorial has the same shape:
 oneway.test(outcome_variable ~ grouping_variable, data = yourdata)
 ```
 
-One thing about this test is worth noting before we formalize the procedure. Its null states that all population group means are equal --- $H_0: \mu_1 = \mu_2 = \ldots = \mu_k$ --- and its alternative that at least one differs from the others. Notice what the alternative does not say: not which mean, and not in which direction. That vagueness is not sloppiness; it is what an omnibus test claims, and it is the reason a directional hypothesis needs a second test.
+Before the five steps, one feature of the ANOVA is worth pausing on. Its null states that all population group means are equal --- $H_0: \mu_1 = \mu_2 = \ldots = \mu_k$ --- and its alternative that at least one differs from the others. Notice what the alternative does not say: not which mean, and not in which direction. That vagueness is not sloppiness; it is what an omnibus test claims, and it is the reason a directional hypothesis needs a second test.
 
 ## Is College Attainment Lower in Rural Counties?
 
@@ -181,11 +183,10 @@ oneway.test(prop_college_grad ~ rural, data = counties)
 
 The output reports, in order: the F-statistic (labeled `F`), the numerator and denominator degrees of freedom (`num df` and `denom df`), and the p-value. As noted earlier, the denominator degrees of freedom will likely not be a whole number --- that is expected.
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 2: Interpret the ANOVA result**
 
-Find the p-value in your output and compare it to .05 before answering.
 
 ```{r quiz-collegegrad-general-result, echo=FALSE}
 question("Find the p-value in your output. Which statement best summarizes what this test tells us?",
@@ -205,11 +206,11 @@ question("Find the p-value in your output. Which statement best summarizes what 
 )
 ```
 
-The general claim is settled. Testing the directional claim requires a second tool, which the next section introduces.
+That answers whether the means differ at all. Which two groups differ, and in which direction, needs a second tool --- the next section introduces it.
 
 ## The Two-Sample t-Test
 
-The ANOVA has answered the general question. The directional claim needs a different tool --- one that compares exactly two groups and can test which way the difference runs. That is a [**two-sample t-test**]{.important-text}, run with the `t.test()` function you will also use for the one-sample and paired tests later in this tutorial.
+An ANOVA that reaches significance tells us the means are not all equal, and stops there. To ask which group sits higher we need a test built for exactly two groups, one that can distinguish a difference in one direction from a difference in the other. That is a [**two-sample t-test**]{.important-text}, run with the `t.test()` function you will also use for the one-sample and paired tests later in this tutorial.
 
 ### The Logic of the Test
 
@@ -291,14 +292,12 @@ question("In the t.test() output above, the alternative hypothesis line refers t
 )
 ```
 
-### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 5: Evaluate the rural/college-attainment hypothesis**
 
-Find the p-value and the sample estimates in your output before answering.
-
 ```{r quiz-collegegrad-directional-result, echo=FALSE}
-question("Find the p-value in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
+question("Find the p-value and the sample estimates in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
   correct = "Right. Significant, and in the direction the hypothesis predicted.",
   answer("Yes --- the p-value is far below .05 and urban counties have the higher mean, as predicted",
          correct = TRUE,
@@ -327,7 +326,7 @@ The hypothesis, unchanged from Tutorial 8:
 In a comparison of [counties], those with a [Black racial majority] will have a [higher mean Democratic vote percentage] than will those with a [White racial majority].
 :::
 
-The data frame **counties** contains the nominal variable **racial_majority**, stored as a character variable, which takes the values "White Majority," "Black Majority," "Hispanic Majority," and "Other/No Majority." It also contains the interval variable **dem2p_percent**, the Democratic candidate's share of the two-party vote in the county (as a percent), stored as a numeric variable. Neither variable has any missing values, so summaries computed from them describe all 3,112 counties.
+The data frame **counties** contains the nominal variable **racial_majority**, stored as a character variable, which takes the values "White Majority," "Black Majority," "Hispanic Majority," and "Other/No Majority." It also contains the interval variable **dem2p_percent**, the Democratic candidate's share of the two-party presidential vote in the county in 2016 (as a percent), stored as a numeric variable. Neither variable has any missing values, so summaries computed from them describe all 3,112 counties.
 
 As in the previous example, we start with the general claim that the population means differ across all four categories, then sharpen to the specific comparison the hypothesis actually makes: Black Majority counties against White Majority counties.
 
@@ -376,7 +375,7 @@ grade_this({
     fail("Use `oneway.test()` to run the one-way ANOVA.")
   }
   if (!grepl("dem2p_percent\\s*~\\s*racial_majority", code_no_comments)) {
-    fail("The formula should be `dem2p_percent ~ racial_majority` --- the outcome on the left of the tilde, the explanatory variable on the right.")
+    fail("The outcome goes on the left of the tilde and the explanatory variable on the right. Which variable defines the groups this test compares?")
   }
   if (!grepl("data\\s*=\\s*counties", code_no_comments)) {
     fail("Set `data = counties`.")
@@ -393,14 +392,14 @@ grade_this({
   if (!isTRUE(all.equal(as.numeric(.result$p.value),
                         as.numeric(expected$p.value),
                         tolerance = 1e-6))) {
-    fail("Check that you are running `oneway.test(dem2p_percent ~ racial_majority, data = counties)`.")
+    fail("Check the variable you put on the right of the tilde --- it should be the one whose categories define the groups.")
   }
 
   pass("Exactly! **dem2p_percent** is the outcome and **racial_majority** is the explanatory variable, so it tests whether the mean Democratic vote percentage differs across all four racial-majority categories at once.")
 })
 ```
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 7: Diagnose what a four-group ANOVA leaves open**
 
@@ -493,25 +492,25 @@ grade_this({
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("filter\\s*\\(", code_no_comments)) {
-    fail("Use `filter()` to keep only Black Majority and White Majority counties.")
+    fail("Use `filter()` to keep only the two categories the hypothesis compares.")
   }
   if (!grepl("racial_majority\\s*%in%\\s*c\\(", code_no_comments)) {
-    fail('Filter using `racial_majority %in% c("Black Majority", "White Majority")`.')
+    fail('Filter with `%in%` and a `c()` holding the two category labels, quoted exactly as they appear in the data.')
   }
   if (!grepl('["\']Black Majority["\']', code_no_comments)) {
-    fail('Your filter should include "Black Majority".')
+    fail('One of the two categories the hypothesis names is missing from your filter.')
   }
   if (!grepl('["\']White Majority["\']', code_no_comments)) {
-    fail('Your filter should include "White Majority".')
+    fail('The other category the hypothesis names is missing from your filter.')
   }
   if (!grepl("t\\.test\\s*\\(", code_no_comments)) {
     fail("Use `t.test()` to run the two-sample t-test.")
   }
   if (!grepl("dem2p_percent\\s*~\\s*racial_majority", code_no_comments)) {
-    fail("The formula should be `dem2p_percent ~ racial_majority`.")
+    fail("The formula puts the outcome on the left of the tilde and the grouping variable on the right.")
   }
   if (!grepl("alternative\\s*=\\s*['\"]greater['\"]", code_no_comments)) {
-    fail('The hypothesis predicts the Black Majority mean is higher than the White Majority mean. Set `alternative = "greater"` to test that specific direction.')
+    fail('The hypothesis predicts which of the two groups has the higher mean. Set `alternative =` to test that direction rather than a two-sided difference.')
   }
 
   expected_data <- counties %>%
@@ -530,18 +529,16 @@ grade_this({
   if (!isTRUE(all.equal(as.numeric(.result$p.value),
                         as.numeric(expected$p.value),
                         tolerance = 1e-6))) {
-    fail('Check that you filtered to Black Majority and White Majority counties, then ran `t.test(dem2p_percent ~ racial_majority, data = ..., alternative = "greater")`.')
+    fail('Check three things: that you filtered to the two categories the hypothesis compares, that the outcome is on the left of the tilde, and that `alternative =` matches the direction predicted.')
   }
 
   pass("Well done! Filtering to Black Majority and White Majority counties, then comparing their means with `alternative = \"greater\"`, directly tests the hypothesis's specific comparison.")
 })
 ```
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 10: Read the confidence interval**
-
-Find the p-value and the sample estimates in your output before answering.
 
 ```{r quiz-dem2p-directional-result, echo=FALSE}
 question("The t-test output reports a 95% confidence interval of (32.09, Inf) for the difference in means (Black Majority minus White Majority). What does this interval tell us?",
@@ -625,7 +622,7 @@ grade_this({
     fail("Use `oneway.test()` to run the one-way ANOVA.")
   }
   if (!grepl("gdppcap08\\s*~\\s*dem_level4", code_no_comments)) {
-    fail("The formula should be `gdppcap08 ~ dem_level4` --- the outcome on the left of the tilde, the explanatory variable on the right.")
+    fail("The outcome goes on the left of the tilde and the explanatory variable on the right. Which of the two is the quantity whose mean might differ?")
   }
   if (!grepl("data\\s*=\\s*world", code_no_comments)) {
     fail("Set `data = world`.")
@@ -642,14 +639,14 @@ grade_this({
   if (!isTRUE(all.equal(as.numeric(.result$p.value),
                         as.numeric(expected$p.value),
                         tolerance = 1e-6))) {
-    fail("Check that you are running `oneway.test(gdppcap08 ~ dem_level4, data = world)`.")
+    fail("Check the formula and the data argument --- the outcome on the left of the tilde, the grouping variable on the right, and the data frame these two variables live in.")
   }
 
   pass("Good work! **gdppcap08** is the outcome and **dem_level4** is the explanatory variable, so it tests whether the mean GDP per capita differs across all four regime types at once.")
 })
 ```
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 12: Interpret an ordering hypothesis**
 
@@ -741,25 +738,25 @@ grade_this({
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
   if (!grepl("filter\\s*\\(", code_no_comments)) {
-    fail("Use `filter()` to keep only Full Democ and Authoritarian countries.")
+    fail("Use `filter()` to keep only the two categories the hypothesis compares.")
   }
   if (!grepl("dem_level4\\s*%in%\\s*c\\(", code_no_comments)) {
-    fail('Filter using `dem_level4 %in% c("Full Democ", "Authoritarian")`.')
+    fail('Filter with `%in%` and a `c()` holding the two category labels, quoted exactly as they appear in the data.')
   }
   if (!grepl('["\']Full Democ["\']', code_no_comments)) {
-    fail('Your filter should include "Full Democ".')
+    fail('One of the two categories at the ends of the democracy scale is missing from your filter.')
   }
   if (!grepl('["\']Authoritarian["\']', code_no_comments)) {
-    fail('Your filter should include "Authoritarian".')
+    fail('The other category at the ends of the democracy scale is missing from your filter.')
   }
   if (!grepl("t\\.test\\s*\\(", code_no_comments)) {
     fail("Use `t.test()` to run the two-sample t-test.")
   }
   if (!grepl("gdppcap08\\s*~\\s*dem_level4", code_no_comments)) {
-    fail("The formula should be `gdppcap08 ~ dem_level4`.")
+    fail("The formula puts the outcome on the left of the tilde and the grouping variable on the right.")
   }
   if (!grepl("alternative\\s*=\\s*['\"]greater['\"]", code_no_comments)) {
-    fail('The hypothesis predicts the Full Democ mean is higher than the Authoritarian mean. Set `alternative = "greater"` to test that specific direction.')
+    fail('The hypothesis predicts which of the two groups has the higher mean. Set `alternative =` to test that direction rather than a two-sided difference.')
   }
 
   expected_data <- world %>%
@@ -778,18 +775,16 @@ grade_this({
   if (!isTRUE(all.equal(as.numeric(.result$p.value),
                         as.numeric(expected$p.value),
                         tolerance = 1e-6))) {
-    fail('Check that you filtered to Full Democ and Authoritarian countries, then ran `t.test(gdppcap08 ~ dem_level4, data = ..., alternative = "greater")`.')
+    fail('Check three things: that you filtered to the two categories at the ends of the scale, that the outcome is on the left of the tilde, and that `alternative =` matches the direction predicted.')
   }
 
   pass("Correct! Filtering to Full Democ and Authoritarian countries, then comparing their means with `alternative = \"greater\"`, directly tests the hypothesis's specific comparison.")
 })
 ```
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 15: Weigh the evidence for the democracy hypothesis**
-
-Find the p-value and the sample estimates in your output before answering.
 
 ```{r quiz-gdp-directional-result, echo=FALSE}
 question("The t-test result is statistically significant (t = 7.0635, p < .001), with Full Democracies averaging $35,891 in GDP per capita compared to $9,412 for Authoritarian regimes. Which conclusion is best supported by this result combined with the ANOVA?",
@@ -837,7 +832,7 @@ $H_A: \mu \ne 50$, the population mean differing from an even split in either di
 t.test(counties$dem2p_percent, mu = 50)
 ```
 
-### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 The sample mean is 33.34%, well below the hypothesized value of 50% (t = -57.508, df = 3111, p < .001), so we reject the null hypothesis: the average county-level Democratic vote percentage differs significantly from an even two-party split. The average county in 2016 leaned Republican, not Democratic. That conclusion makes sense given the geography of American politics: Democratic support is concentrated in a relatively small number of densely populated urban counties, while the majority of the nation's 3,112 counties are smaller and more Republican-leaning.
 
@@ -847,11 +842,11 @@ The output's 95% confidence interval, (32.77, 33.91), gives the same answer a di
 
 The two-sample t-tests in this tutorial compared different groups of cases --- urban counties against rural counties, Full Democracies against Authoritarian regimes, and so on. A [**paired t-test**]{.important-text} asks a different kind of question: when the *same* cases are measured twice, does the value change, on average, between the two measurements?
 
-The data frame **world** contains **gini08** and **gini10**, a country's Gini coefficient --- a standard measure of income inequality, where 0 represents perfect equality and 100 represents perfect inequality --- in 2008 and 2010. Both are stored as numeric variables, and both have substantial gaps: **gini08** is missing for 45 of the 167 countries and **gini10** for 14. A paired test needs both values for the same country, and 121 countries have both, so that is the number the test describes. We might ask whether income inequality changed, on average, across those two years.
+The data frame **world** contains **gini04** and **gini08**, a country's Gini coefficient --- a standard measure of income inequality, where 0 represents perfect equality and 100 represents perfect inequality --- in 2004 and 2008. Both are stored as numeric variables, and both have substantial gaps: **gini04** is missing for 46 of the 167 countries and **gini08** for 45. A paired test needs both values for the same country, and 120 countries have both, so that is the number the test describes. We might ask whether income inequality changed, on average, across those four years.
 
-The logic is more straightforward than it might look: for each country, subtract its 2008 Gini coefficient from its 2010 Gini coefficient, giving one difference score per country. Then take the mean of those difference scores across all countries. That mean difference --- not the mean of **gini10** alone, and not the mean of **gini08** alone --- is what the test evaluates. A small illustration with three hypothetical countries makes this concrete:
+The logic is more straightforward than it might look: for each country, subtract its 2004 Gini coefficient from its 2008 Gini coefficient, giving one difference score per country. Then take the mean of those difference scores across all countries. That mean difference --- not the mean of **gini08** alone, and not the mean of **gini04** alone --- is what the test evaluates. A small illustration with three hypothetical countries makes this concrete:
 
-| Country | gini08 | gini10 | Difference (gini10 $-$ gini08) |
+| Country | gini04 | gini08 | Difference (gini08 $-$ gini04) |
 |:--|:--:|:--:|:--:|
 | Country A | 35.2 | 36.0 | 0.8 |
 | Country B | 28.4 | 27.1 | -1.3 |
@@ -861,11 +856,11 @@ For these three countries, the mean difference is $(0.8 + (-1.3) + 0.9)/3 = 0.13
 
 ### Steps 1 and 2: State the Hypotheses
 
-$$H_0: \mu_{gini10}-\mu_{gini08}=0$$
-where $\mu_{gini10}$ and $\mu_{gini08}$ are the mean Gini coefficients in the population in 2010 and 2008, respectively.
-$$H_A: \mu_{gini10}-\mu_{gini08} \ne 0$$
+$$H_0: \mu_{gini08}-\mu_{gini04}=0$$
+where $\mu_{gini08}$ and $\mu_{gini04}$ are the mean Gini coefficients in the population in 2008 and 2004, respectively.
+$$H_A: \mu_{gini08}-\mu_{gini04} \ne 0$$
 
-We use the same `t.test()` function again, but like the one-sample test above, the paired t-test uses a different call structure than the formula notation used in the two-sample tests. Instead of `outcome ~ group`, we supply both variables directly --- `t.test(x, y, paired = TRUE)` --- and set `paired = TRUE` to tell R to compute the difference for each country first, exactly as in the table above, and then run a test on the mean of those differences, rather than treating **gini10** and **gini08** as two separate, unrelated groups of countries.
+We use the same `t.test()` function again, but like the one-sample test above, the paired t-test uses a different call structure than the formula notation used in the two-sample tests. Instead of `outcome ~ group`, we supply both variables directly --- `t.test(x, y, paired = TRUE)` --- and set `paired = TRUE` to tell R to compute the difference for each country first, exactly as in the table above, and then run a test on the mean of those differences, rather than treating **gini08** and **gini04** as two separate, unrelated groups of countries.
 
 **Example code:**
 
@@ -878,14 +873,14 @@ t.test(yourdata$second_measure, yourdata$first_measure, paired = TRUE)
 **Run and observe 17: A paired t-test**
 
 ```{r ttest-paired-gini, exercise=TRUE, exercise.cap="Run and observe 17"}
-t.test(world$gini10, world$gini08, paired = TRUE)
+t.test(world$gini08, world$gini04, paired = TRUE)
 ```
 
-### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
-Notice that the output reports a single mean difference, not two separate group means the way an unpaired t-test would --- a direct reflection of the logic above. Here, the mean difference is $-0.54$ (t = -1.495, df = 120, p = .1375). Because the p-value is well above .05, we fail to reject the null hypothesis: we do not have evidence that the mean Gini coefficient changed between 2008 and 2010.
+Notice that the output reports a single mean difference, not two separate group means the way an unpaired t-test would --- a direct reflection of the logic above. Here, the mean difference is $0.41$ (t = 0.952, df = 119, p = .3431). Because the p-value is well above .05, we fail to reject the null hypothesis: we do not have evidence that the mean Gini coefficient changed between 2004 and 2008.
 
-The 95% confidence interval, (-1.254, 0.175), tells the same story. In the earlier tests that rejected the null, the confidence interval excluded the relevant null value --- usually 0 for a difference in means, and 50 for the one-sample test above. Here, 0 falls comfortably inside the interval, right alongside a wide range of other plausible values. That is exactly what a confidence interval looks like when a test fails to reject: not evidence that there is no difference, but evidence that we cannot rule out 0, along with a great many other values, as the true mean difference.
+The 95% confidence interval, (-0.440, 1.255), tells the same story. In the earlier tests that rejected the null, the confidence interval excluded the relevant null value --- usually 0 for a difference in means, and 50 for the one-sample test above. Here, 0 falls comfortably inside the interval, right alongside a wide range of other plausible values. That is exactly what a confidence interval looks like when a test fails to reject: not evidence that there is no difference, but evidence that we cannot rule out 0, along with a great many other values, as the true mean difference.
 
 ## Check Your Understanding
 
@@ -934,20 +929,20 @@ question("A researcher measures political trust in the same 500 survey responden
 **Apply 20: Predict the right direction for a new hypothesis**
 
 ```{r cyu-direction-prediction, echo=FALSE}
-question('A hypothesis predicts that countries with high judicial independence have lower rates of corruption than countries with low judicial independence. The grouping variable judicial_independence is stored as a plain character variable and takes the values "High" and "Low". If you ran t.test(corruption ~ judicial_independence, data = ..., alternative = ...), which value of alternative would test this hypothesis directly?',
+question('A hypothesis predicts that countries with high judicial independence have lower rates of corruption than countries with low judicial independence. The grouping variable **judicial_independence** is stored as a plain character variable and takes the values "High" and "Low". If you ran `t.test(corruption ~ judicial_independence, data = ..., alternative = ...)`, which value of `alternative` would test this hypothesis directly?',
   correct = "Right. \"High\" sorts first, and the hypothesis puts it lower.",
-  answer('alternative = "less"',
+  answer('`alternative = "less"`',
          correct = TRUE,
          message = "Two facts have to be combined, and neither alone gives the answer. R sorts a plain character variable alphabetically, so \"High\" is the first group --- a fact about your data, not about your hypothesis. The hypothesis then says that group has the *lower* mean corruption, and `less` is how you ask R whether the first mean falls below the second. Had the categories been labelled so that \"Low\" sorted first, the same hypothesis would need `greater`. This is the last of three places in this tutorial where group order decided the setting, and the rule has been the same each time: find out which group R puts first, then translate the hypothesis into a claim about that group."),
-  answer('alternative = "greater"',
-         message = 'With "High" sorted first, alternative = "greater" would test whether the High group\'s mean is higher than the Low group\'s --- the opposite of what this hypothesis predicts.'),
-  answer('alternative = "two.sided", since we cannot know the direction in advance',
+  answer('`alternative = "greater"`',
+         message = 'With "High" sorted first, `alternative = "greater"` would test whether the High group\'s mean is higher than the Low group\'s --- the opposite of what this hypothesis predicts.'),
+  answer('`alternative = "two.sided"`, since we cannot know the direction in advance',
          message = "We can know the direction in advance --- it is what the hypothesis predicts. A two-sided test would be appropriate if we had no directional prediction, but this hypothesis makes one explicitly."),
-  answer('The value of alternative does not depend on which group R lists first --- it only depends on the direction of the hypothesis',
-         message = 'The value of alternative depends on both: the direction the hypothesis predicts AND which group R lists first. alternative = "less" tests whether the first group\'s mean is lower than the second\'s. If R listed Low before High, you would need alternative = "greater" to test the same hypothesis. Always check the group order before choosing alternative.'),
+  answer('The value of `alternative` does not depend on which group R lists first --- it only depends on the direction of the hypothesis',
+         message = 'The value of `alternative` depends on both: the direction the hypothesis predicts AND which group R lists first. `alternative = "less"` tests whether the first group\'s mean is lower than the second\'s. If R listed Low before High, you would need `alternative = "greater"` to test the same hypothesis. Always check the group order before choosing `alternative`.'),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: How does R order groups for a plain character variable? Which value comes first alphabetically --- High or Low? The hypothesis predicts that first group has a lower mean. Which alternative matches?"
+  try_again = "Hint: How does R order groups for a plain character variable? Which value comes first alphabetically --- High or Low? The hypothesis predicts that first group has a lower mean. Which `alternative` matches?"
 )
 ```
 
@@ -1028,7 +1023,7 @@ learnrhash::encoder_ui(
 cat('
 <p class="tutorial-complete"
    role="status"
-   aria-label="Excellent work! You have completed this tutorial and can now test relationships between categorical and interval variables using ANOVA and t-tests, and you know exactly what those tests can, and cannot, tell you.">
+   aria-label="Excellent work! You can now test relationships between categorical and interval variables using ANOVA and t-tests --- and you know exactly what those tests can, and cannot, tell you.">
   <span aria-hidden="true">🎉</span>
   Excellent work! You can now test relationships between categorical and interval variables using ANOVA and t-tests --- and you know exactly what those tests can, and cannot, tell you.
 </p>

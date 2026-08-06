@@ -4,25 +4,28 @@
 \alias{qpa_launch}
 \title{Launch a QPATutorialsCourse Tutorial in the Browser}
 \usage{
-qpa_launch(tutorial)
+qpa_launch(tutorial = NULL)
 }
 \arguments{
 \item{tutorial}{A number (1-21) or a name matching part of the tutorial
-folder name (e.g., "bivariateCat", "regression", "logit").}
+folder name (e.g., "bivariateCat", "regression", "logit"). Omit it to
+print the list of tutorials.}
 }
 \description{
 Opens a tutorial in your default web browser. This is the recommended
 way to run tutorials if you are using assistive technology or prefer working
 in a browser rather than RStudio's internal viewer.
 }
+\details{
+Called with no argument, prints the list of all tutorials grouped by topic,
+with the title and description of each taken from the tutorial itself.
+}
 \examples{
 \dontrun{
+qpa_launch()                # list all tutorials
 qpa_launch(1)               # R Basics Part 1
 qpa_launch(7)               # Bivariate Description: Categorical
 qpa_launch("bivariateCat")  # same as above, by name
-qpa_launch(17)              # From Coefficients to Predicted Values
-qpa_launch(18)              # Interactions in Multiple Regression
-qpa_launch(19)              # Prediction Plots for Interaction Models
 }
 
 }

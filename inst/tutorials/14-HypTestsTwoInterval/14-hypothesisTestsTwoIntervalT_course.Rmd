@@ -8,12 +8,14 @@ output:
     allow_skip: true
 runtime: shiny_prerendered
 description: >
-  Learn how to conduct a hypothesis test of the relationship between two interval variables.
+  Testing a correlation, and statistical significance against effect size.
 ---
 
 ## Overview {#main-content}
 
-Tutorial 9 described the relationship between two interval variables with scatter plots and Pearson's r --- but every example ended with the same caution: a descriptive pattern consistent with a hypothesis is not the same as evidence that the relationship exists in the population. In Tutorials 10 and 11, you built the tools a formal test requires. This tutorial takes the two-interval relationships from Tutorial 9 and subjects them to formal **hypothesis tests** --- using sample data to assess whether observed correlations would be unlikely if there were truly no relationship in the population.
+A correlation computed from a sample is never exactly zero, even when the two variables are unrelated in the population. Draw a different sample and the coefficient moves. The number on its own therefore settles nothing about whether a relationship exists --- only a comparison against what chance would produce can do that.
+
+This tutorial covers the correlation test, which asks whether the population correlation differs from zero, or, when a hypothesis names a direction, whether it is specifically greater or less than zero. It follows the same five explicit steps as the last two tutorials, set out in Tutorial 11 if you need them again. What is new here is the separation of two things that are easy to run together: whether a relationship is statistically significant, and whether it is large enough to matter. That distinction becomes sharp in large samples, where a weak correlation can clear the significance bar comfortably.
 
 In this tutorial, you will learn how to test whether two interval variables are related in the population. Specifically, we will cover:
 
@@ -65,6 +67,14 @@ The `alternative` argument works exactly as it did in Tutorials 12 and 13: the d
 `cor.test()` is part of base R --- no `library()` call is needed for any exercise in this tutorial.
 
 Alongside the p-value, `cor.test()`'s output also reports a 95% confidence interval for $\rho$, the [**population correlation**]{.important-text} --- the same cross-check you have now used in Tutorials 12 and 13. An interval that excludes the hypothesized value, 0, leads to the same conclusion as a significant p-value. For a one-tailed test, one side of that interval will show as the theoretical extreme --- here, -1 or 1. As with proportions in Tutorial 12, a correlation has fixed bounds that it cannot exceed. The bound that matters is the other one: does it exclude 0?
+
+**Example code:**
+
+```{r cortest-template, exercise=FALSE, eval=FALSE}
+cor.test(yourdata$first_variable, yourdata$second_variable,
+         method = "pearson",
+         alternative = "greater")
+```
 
 ### Applying the Five-Step Hypothesis Testing Procedure
 
@@ -129,14 +139,12 @@ cor.test(world$effectiveness, world$lifeex_total,
          alternative = "greater")
 ```
 
-### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 2: Evaluate the effectiveness and life-expectancy hypothesis**
 
-Find the p-value in your output and check whether the sign of r matches the direction the hypothesis predicted before answering.
-
 ```{r quiz-effectiveness-lifeexpectancy-result, echo=FALSE}
-question("Find the p-value in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
+question("Find the p-value in your output and check whether the sign of r matches the direction the hypothesis predicted. Does this result provide statistically significant evidence in support of the hypothesis?",
   correct = "Right. Significant, and in the predicted direction.",
   answer("Yes --- the p-value is far below .05 and the correlation is positive, as predicted",
          correct = TRUE,
@@ -272,14 +280,12 @@ grade_this({
 })
 ```
 
-### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 5: Weigh a result that misses significance**
 
-Find the p-value in your output and check the sign of r before answering.
-
 ```{r quiz-gini-polyarchy-result, echo=FALSE}
-question("Find the p-value in your output. Does this result provide statistically significant evidence in support of the hypothesis?",
+question("Find the p-value in your output and check the sign of r. Does this result provide statistically significant evidence in support of the hypothesis?",
   correct = "Right. Above .05, despite the sign pointing the right way.",
   answer("No --- at p = .103 we fail to reject the null, even though r is negative as predicted",
          correct = TRUE,
@@ -306,7 +312,7 @@ The hypothesis, unchanged from Tutorial 9:
 In a comparison of [counties], those with [higher wage growth] will have [a higher Democratic vote percentage] than will those with [lower wage growth].
 :::
 
-The data frame **counties** contains the interval variable **wage_growth**, the percent change in a county's average weekly wage from the third quarter of 2015 to the third quarter of 2016, stored as a numeric variable, and the interval variable **dem2p_percent**, the Democratic candidate's percent of the two-party vote in 2016, also stored as a numeric variable. **wage_growth** is missing for 2 counties and **dem2p_percent** for none, so the test runs on 3,110 of the 3,112 counties.
+The data frame **counties** contains the interval variable **wage_growth**, the percent change in a county's average weekly wage from the third quarter of 2015 to the third quarter of 2016, stored as a numeric variable, and the interval variable **dem2p_percent**, the Democratic candidate's percent of the two-party presidential vote in 2016, also stored as a numeric variable. **wage_growth** is missing for 2 counties and **dem2p_percent** for none, so the test runs on 3,110 of the 3,112 counties.
 
 ```{r scatterplot-wagegrowth-demvoteshare-14, echo=FALSE, message=FALSE, warning=FALSE, out.width='80%', fig.alt="Scatter plot showing wage growth on the x-axis and Democratic vote percentage on the y-axis across U.S. counties in 2016. Most points form a dense vertical cluster near zero wage growth, spanning nearly the entire range of Democratic vote percentage from close to 0 to close to 100 percent. A smaller number of counties with higher or lower wage growth are more sparsely scattered to the left and right. A fitted line runs from the lower left to the upper right of the plot."}
 counties %>%
@@ -414,11 +420,10 @@ grade_this({
 })
 ```
 
-### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 8: Separate significance from effect size**
 
-Find the p-value in your output and check the size of r against Tutorial 9's rough guide before answering.
 
 ```{r quiz-wagegrowth-demvoteshare-result, echo=FALSE}
 question("Find the p-value in your output, then look back at Tutorial 9's rough guide for interpreting the size of r. Which statement best describes this result?",
@@ -578,7 +583,7 @@ The **confidence interval** reported alongside the p-value works the same way it
 
 And a significant result is still not proof of causation. Rejecting the null --- even with a very small p-value --- is **statistically significant evidence in support of a hypothesis**, not certainty that it is right, and not evidence that one variable causes the other. Two variables can move together because one influences the other, because both are shaped by a third factor, or by chance in a particular sample. A correlation test cannot distinguish among these on its own.
 
-You have now completed the bivariate description sequence (Tutorials 7–9) and the hypothesis testing sequence (Tutorials 12–14). The tools from these six tutorials --- cross-tabs, group means, scatter plots, chi-square tests, t-tests, ANOVA, and correlation tests --- are the foundation for everything that follows.
+With the bivariate description sequence (Tutorials 7--9) and the hypothesis testing sequence (Tutorials 12--14) behind you, Tutorial 15 opens the regression sequence, and the question changes shape. A correlation test asks whether two variables are related and how strongly; regression asks how much the outcome differs as the predictor changes --- a slope reported in the units of the data, an intercept, and a predicted value for any value of the predictor you choose. The hypothesis testing does not go away: each coefficient comes with its own t-statistic and p-value, read exactly as you have read them here.
 
 ## Submit Your Work
 
@@ -601,7 +606,7 @@ learnrhash::encoder_ui(
 cat('
 <p class="tutorial-complete"
    role="status"
-   aria-label="Wonderful work! You have completed this tutorial and can now test whether two interval variables are related, and you know that even a statistically significant relationship is never proof of causation, and never automatically a strong one.">
+   aria-label="Scatter plots and Pearson\'s r helped you see whether a pattern was consistent with a hypothesis. Now you can test whether that pattern is statistically significant --- and you know that even a statistically significant relationship is never proof of causation, and never automatically a strong one.">
   <span aria-hidden="true">🎉</span>
   Scatter plots and Pearson\'s r helped you see whether a pattern was consistent with a hypothesis. Now you can test whether that pattern is statistically significant --- and you know that even a statistically significant relationship is never proof of causation, and never automatically a strong one.
 </p>

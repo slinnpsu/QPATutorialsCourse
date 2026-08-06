@@ -1,14 +1,19 @@
-#' U.S. County Characteristics in 2016
+#' U.S. County Election Returns, Economic Conditions, and Mortality Risk, 2016
 #'
 #' A cross-sectional data frame containing political, economic, demographic,
 #' health, and rural-urban characteristics for U.S. counties in 2016.
+#'
+#' Compiled by Suzanna Linn, Jonathan Nagler, and Jan Zilinsky as the 2016
+#' cross-section of a county-level panel beginning in 1972. The panel was
+#' assembled to model incumbent-party vote share from the standard predictors
+#' of an election model together with county mortality risk. It is unpublished.
 #'
 #' Several measures are included in both proportion and percentage-point form.
 #' Variables ending in `_percent`, along with `wage_growth`,
 #' `employ_pop_ratio_25_64`, and `employ_pop_ratio_25_64_change`,
 #' are scaled for easier interpretation in the tutorials.
 #'
-#' @format A data frame with 3,112 rows and 36 variables:
+#' @format A data frame with 3,112 rows and 37 variables:
 #' \describe{
 #'
 #'   \item{fips_code}{
@@ -39,12 +44,14 @@
 #'   \item{dem2p_vote_share}{
 #'     Democratic share of the two-party presidential vote in 2016,
 #'     expressed as a proportion from 0 to 1.
+#'     Theoretical range: 0--1.
 #'     Missing values: 0.
 #'   }
 #'
 #'   \item{rep2p_vote_share}{
 #'     Republican share of the two-party presidential vote in 2016,
 #'     expressed as a proportion from 0 to 1.
+#'     Theoretical range: 0--1.
 #'     Missing values: 0.
 #'   }
 #'
@@ -63,6 +70,7 @@
 #'
 #'   \item{prop_over_65}{
 #'     Proportion of the county population age 65 or older, from 0 to 1.
+#'     Theoretical range: 0--1.
 #'     Missing values: 1.
 #'   }
 #'
@@ -91,28 +99,33 @@
 #'   \item{prop_college_grad}{
 #'     Proportion of residents age 25 or older who have completed a bachelor's
 #'     degree or higher, from 0 to 1.
+#'     Theoretical range: 0--1.
 #'     Missing values: 1.
 #'   }
 #'
 #'   \item{prop_foreignborn}{
 #'     Proportion of county residents who were born outside the United States,
 #'     from 0 to 1.
+#'     Theoretical range: 0--1.
 #'     Missing values: 1.
 #'   }
 #'
 #'   \item{prop_hispanic}{
 #'     Proportion of county residents who are Hispanic or Latino, from 0 to 1.
 #'     Hispanic origin may include people of any race.
+#'     Theoretical range: 0--1.
 #'     Missing values: 1.
 #'   }
 #'
 #'   \item{prop_white}{
 #'     Proportion of county residents classified as White, from 0 to 1.
+#'     Theoretical range: 0--1.
 #'     Missing values: 1.
 #'   }
 #'
 #'   \item{prop_black}{
 #'     Proportion of county residents classified as Black, from 0 to 1.
+#'     Theoretical range: 0--1.
 #'     Missing values: 2.
 #'   }
 #'
@@ -137,6 +150,7 @@
 #'   \item{dem2p_vote_share_2012}{
 #'     Democratic share of the county's two-party presidential vote in 2012,
 #'     expressed as a proportion from 0 to 1.
+#'     Theoretical range: 0--1.
 #'     Missing values: 41.
 #'   }
 #'
@@ -152,6 +166,7 @@
 #'     Estimated percentage risk that a person who has reached age 25 will die
 #'     before reaching age 45. The underlying county mortality series ends in
 #'     2014 and was extrapolated to 2016.
+#'     Theoretical range: 0--100.
 #'     Missing values: 1.
 #'   }
 #'
@@ -183,6 +198,18 @@
 #'     Missing values: 0.
 #'   }
 #'
+#'   \item{majority_white}{
+#'     Indicator for whether a county has a white majority: 1 for the counties
+#'     `racial_majority` records as `"White Majority"`, 0 for the other three
+#'     categories.
+#'     This is not the same as `prop_white` exceeding 0.5. The Census counts
+#'     White as a race and Hispanic as an ethnicity, so a county can be more
+#'     than half White and more than half Hispanic at once; `racial_majority`
+#'     assigns those 95 counties to `"Hispanic Majority"`, and they are coded 0
+#'     here.
+#'     Missing values: 0.
+#'   }
+#'
 #'   \item{rural}{
 #'     Three-category rural-urban measure derived from `rural_urban`:
 #'     0 for codes 1--3, 1 for codes 4--7, and 2 for codes 8--9.
@@ -199,42 +226,49 @@
 #'     Democratic share of the two-party presidential vote in 2016, expressed
 #'     as a percentage from 0 to 100. Equal to
 #'     `dem2p_vote_share * 100`.
+#'     Theoretical range: 0--100.
 #'     Missing values: 0.
 #'   }
 #'
 #'   \item{Black_percent}{
 #'     Percentage of county residents classified as Black. Equal to
 #'     `prop_black * 100`.
+#'     Theoretical range: 0--100.
 #'     Missing values: 2.
 #'   }
 #'
 #'   \item{white_percent}{
 #'     Percentage of county residents classified as White. Equal to
 #'     `prop_white * 100`.
+#'     Theoretical range: 0--100.
 #'     Missing values: 1.
 #'   }
 #'
 #'   \item{hispanic_percent}{
 #'     Percentage of county residents who are Hispanic or Latino. Equal to
 #'     `prop_hispanic * 100`.
+#'     Theoretical range: 0--100.
 #'     Missing values: 1.
 #'   }
 #'
 #'   \item{college_grad_percent}{
 #'     Percentage of residents age 25 or older who have completed a bachelor's
 #'     degree or higher. Equal to `prop_college_grad * 100`.
+#'     Theoretical range: 0--100.
 #'     Missing values: 1.
 #'   }
 #'
 #'   \item{over_65_percent}{
 #'     Percentage of the county population age 65 or older. Equal to
 #'     `prop_over_65 * 100`.
+#'     Theoretical range: 0--100.
 #'     Missing values: 1.
 #'   }
 #'
 #'   \item{foreignborn_percent}{
 #'     Percentage of county residents who were born outside the United States.
 #'     Equal to `prop_foreignborn * 100`.
+#'     Theoretical range: 0--100.
 #'     Missing values: 1.
 #'   }
 #'
@@ -276,10 +310,11 @@
 #' student, and nonprofit workers.
 #'
 #' @source
-#' County presidential election returns; U.S. Bureau of Labor Statistics
-#' Quarterly Census of Employment and Wages; U.S. Census Bureau; American
-#' Community Survey; USDA Economic Research Service; and Institute for Health
-#' Metrics and Evaluation.
+#' Compiled by Suzanna Linn, Jonathan Nagler, and Jan Zilinsky from the
+#' following sources: county presidential election returns; U.S. Bureau of
+#' Labor Statistics Quarterly Census of Employment and Wages; U.S. Census
+#' Bureau; American Community Survey; USDA Economic Research Service; and
+#' Institute for Health Metrics and Evaluation.
 #'
 #' @keywords datasets
 #'

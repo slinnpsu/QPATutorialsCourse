@@ -8,12 +8,14 @@ output:
     allow_skip: true
 runtime: shiny_prerendered
 description: >
-  Learn how to conduct a hypothesis test of the relationship between two categorical variables.
+  Chi-square, difference of proportions, and testing a single proportion.
 ---
 
 ## Overview {#main-content}
 
-Tutorials 7, 8, and 9 described bivariate relationships --- cross-tabs, group means, scatter plots --- but every example ended with the same caution: a descriptive pattern consistent with a hypothesis is not the same as evidence that the pattern is real. In Tutorials 10 and 11, you built the tools a formal test requires: the sampling distribution, the p-value, and the decision rule for rejecting or failing to reject a null hypothesis. Tutorials 12, 13, and 14 put those tools to work. This tutorial takes the cross-tab relationships from Tutorial 7 and subjects them to formal **hypothesis tests** --- using sample data to assess whether an observed relationship would be unlikely if there were truly no relationship in the population. Tutorial 13 does the same for the group-mean relationships from Tutorial 8, and Tutorial 14 for the correlations from Tutorial 9.
+A cross-tab can show a difference in proportions pointing exactly where a hypothesis predicted and still be the product of chance. Any sample would have produced somewhat different numbers, so the question is whether a difference of the size observed is larger than sampling alone would routinely deliver. Looking harder at the table cannot answer it.
+
+This tutorial covers the tests that can, for two categorical variables: a chi-square test of independence, which asks whether the two variables are related at all; a difference-of-proportions test, which sharpens a general result into a directional claim about two specific groups; and a test of a single proportion against a fixed value. Each is worked through the same five explicit steps, from stating the null hypothesis to saying what the result means substantively. Tutorials 10 and 11 supply the reasoning underneath --- the sampling distribution, the p-value, and the decision rule.
 
 In this tutorial, you will learn how to test whether two categorical variables are related in the population. Specifically, we will cover:
 
@@ -144,7 +146,7 @@ The hypothesis, unchanged from Tutorial 7:
 In a comparison of [counties], those that are [more rural] will be more likely to [give a majority of their support to Trump] than will those that are [less rural (more urban)].
 :::
 
-The data frame **counties** contains **TrumpMajority**, stored as a numeric variable taking the value 0 if Clinton won a majority of the vote and 1 if Trump won a majority, and **rural**, a 3-category ordinal variable also stored as a number, where 0 is more urban, 1 is neither urban nor rural, and 2 is more rural. Neither variable has any missing values, so all 3,112 counties appear in the table.
+The data frame **counties** contains **TrumpMajority**, stored as a numeric variable taking the value 0 if Clinton received a majority of the county's two-party presidential vote in 2016 and 1 if Trump did, and **rural**, a 3-category ordinal variable also stored as a number, where 0 is more urban, 1 is neither urban nor rural, and 2 is more rural. Neither variable has any missing values, so all 3,112 counties appear in the table.
 
 The cross-tab you built in Tutorial 7 already contains everything needed for the chi-square test --- we just need to add two arguments to the call. We start with the general claim here, then pause to introduce the second tool before returning to test the directional one.
 
@@ -202,7 +204,7 @@ question("A student looks at the Clinton-majority/urban cell in your output, see
 
 Now that you can see how far the observed counts stray from what independence would predict, let's look at what the test statistic and p-value tell us about whether that gap would be surprising if the two variables were truly unrelated.
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 3: Interpret the chi-square result**
 
@@ -288,7 +290,7 @@ The output labels the test statistic `X-squared`, which is the same label you sa
 
 The output also reports a 95% confidence interval --- here (-1.0000000, -0.1640333), for the difference in proportions, urban minus rural. One bound looks strange because this is a one-tailed test: R fixes it at the theoretical extreme rather than calculating it from the data, and for a difference in proportions that extreme is -1, since a difference cannot go below that. That is expected, not an error. The bound that matters is the calculated one, -0.164, and what to ask of it is whether the interval excludes 0. The fixed bound does not settle that by itself --- had the calculated bound come out at 0.05, the interval would read (-1, 0.05), would include 0, and the test would fail to reject the null. When a confidence interval and a hypothesis test are matched, meaning the same significance level and the same one- or two-tailed specification, they agree; the decision in this tutorial rests on the p-value, with the interval worth a glance as a cross-check.
 
-### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 5: Evaluate the rural/Trump-support hypothesis**
 
@@ -322,7 +324,7 @@ In a comparison of [counties], those that are [majority-white] will be more like
 
 The data frame **counties** contains **TrumpMajority**, again stored as a numeric variable coded 0 and 1, and **racial_majority**, a nominal variable stored as a character variable that takes the values "Black Majority," "Hispanic Majority," "Other/No Majority," and "White Majority." Neither variable has any missing values, so all 3,112 counties appear in the table.
 
-As in the previous example, we start with the general claim that the cross-tab can answer for free, then sharpen to the directional claim the hypothesis actually makes.
+Racial majority, like rurality, gives the cross-tab a general question for free --- so we take that first, then narrow to the two-group comparison the hypothesis is actually about.
 
 ### Testing the General Claim
 
@@ -412,7 +414,7 @@ grade_this({
 
 You will notice the output now has four columns instead of three, and each cell shows three numbers. The structure is the same as in the first example: observed count, expected count, column proportion. With four racial majority categories and two outcome categories, the table is larger, but the reading logic is identical.
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 The p-value appears at the bottom of the `CrossTable()` output, in the Pearson's Chi-squared section. Find it, compare it to .05, and then decide what this test --- which treats all four racial majority categories at once --- can and cannot tell you.
 
@@ -442,7 +444,7 @@ Our hypothesis is specifically about majority-white counties compared to *all ot
 
 `prop.test()` needs four numbers: the Trump-majority count and the total for each of the two groups. Both come from your cross-tab, but from different rows:
 
-- **x** takes the Trump-majority counts --- these come from the row where **TrumpMajority** = 1. For White Majority counties, read that cell directly: 2549. For the combined non-white-majority group, find the **TrumpMajority** = 1 cell for each of the three non-white columns and add them: 4 + 55 + 14.
+- **x** takes the Trump-majority counts --- these come from the row where `TrumpMajority = 1`. For White Majority counties, read that cell directly: 2549. For the combined non-white-majority group, find the `TrumpMajority = 1` cell for each of the three non-white columns and add them: 4 + 55 + 14.
 - **n** takes the column totals --- these come from the Total row at the bottom. For White Majority counties, read the column total directly: 2866. For the combined group, find the Total cell for each of the three non-white columns and add them: 102 + 96 + 48.
 
 Rather than computing the sums in your head, write the addition directly inside the `prop.test()` call --- R evaluates arithmetic expressions anywhere you can pass a number, so `4 + 55 + 14` inside `c()` works exactly like typing `73`. The calculation stays visible and checkable in your code. Pass both pairs of numbers as vectors using `c()`: `x = c(White_count, combined_count)` and `n = c(White_total, combined_total)`, with the White Majority group listed first in both.
@@ -536,7 +538,7 @@ grade_this({
 })
 ```
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 10: Evaluate the racial-majority/Trump-support hypothesis**
 
@@ -568,11 +570,11 @@ The hypothesis, unchanged from Tutorial 7:
 In a comparison of [countries], those that are [dictatorships] will be less likely to [have high gender equality] than will those that are [democracies].
 :::
 
-The data frame **world** contains **gender_equal3**, a 3-category factor whose levels are recorded as "Low," "Medium," and "High," and **regime_type3**, a 3-category factor whose levels are recorded as "Dictatorship," "Parliamentary democ," and "Presidential democ." Those abbreviated labels are what will appear in your cross-tab output. Both variables have substantial missing values: **regime_type3** is missing for 34 of the 167 countries and **gender_equal3** for 95. Only 61 countries have a recorded value for both, so that is the number your cross-tab will describe --- as in Tutorial 7, the 106 countries missing a value on either variable simply do not appear, with nothing in the output to mark their absence but the total.
+The data frame **world** contains **gender_equal3**, a measure of gender empowerment grouped into three categories, stored as a factor whose levels are recorded as "Low," "Medium," and "High," and **regime_type3**, a 3-category factor whose levels are recorded as "Dictatorship," "Parliamentary democ," and "Presidential democ." Those abbreviated labels are what will appear in your cross-tab output. Both variables have substantial missing values: **regime_type3** is missing for 34 of the 167 countries and **gender_equal3** for 95. Only 61 countries have a recorded value for both, so that is the number your cross-tab will describe --- as in Tutorial 7, the 106 countries missing a value on either variable simply do not appear, with nothing in the output to mark their absence but the total.
 
 That small number introduces a practical complication which comes up often in political science: with few cases spread across many cells, some expected counts fall below 5 and the standard chi-square approximation becomes unreliable. This example shows what to do when that happens.
 
-As in the previous two examples, we start with the general claim the cross-tab can answer for free, then sharpen to the directional claim the hypothesis actually makes.
+Gender equality and regime type follow the same two-step path: the chi-square test on all the categories at once, then the comparison the hypothesis names.
 
 ### Testing the General Claim
 
@@ -672,7 +674,7 @@ CrossTable(x = world$gender_equal3,
 
 Notice that this version of the output does not report degrees of freedom at all --- simulation does not rely on the chi-square distribution the way the standard approximation does, so there is no df to report.
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 The p-value is small enough to reject the null hypothesis, providing evidence that **regime_type3** and **gender_equal3** are related in the underlying process. As with the previous two examples, this chi-square result provides evidence of a relationship across all three categories of each variable --- it does not yet tell us whether dictatorships specifically lag behind democracies on high gender equality. We test that directional claim next.
 
@@ -767,7 +769,7 @@ grade_this({
 })
 ```
 
-#### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+#### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 **Apply 15: Evaluate the dictatorship/gender-equality hypothesis**
 
@@ -824,7 +826,7 @@ $H_A: \pi > 0.50$
 prop.test(x = 2622, n = 3112, p = 0.50, alternative = "greater")
 ```
 
-### Steps 4 and 5: Find the P-value, Decide, and Report the Result
+### Steps 4 and 5: Find the p-value, Decide, and Report the Result
 
 The sample proportion is $p = 0.843$ --- Trump won a majority in 84.3% of counties. The test compares that proportion to the null value of 0.50. The p-value is below .001, so we reject the null hypothesis. The one-sided 95% confidence interval reported by R has a lower bound well above 0.50, pointing to the same conclusion: the population proportion of Trump-majority counties is significantly greater than half. Trump's county-level support clears the majority threshold by a wide and statistically significant margin.
 
@@ -968,7 +970,7 @@ learnrhash::encoder_ui(
 cat('
 <p class="tutorial-complete"
    role="status"
-   aria-label="Excellent work! You have completed this tutorial and can now test relationships between categorical variables using chi-square tests and difference-of-proportions tests.">
+   aria-label="Excellent work! You can now test relationships between categorical variables using chi-square tests and difference-of-proportions tests.">
   <span aria-hidden="true">🎉</span>
   Excellent work! You can now test relationships between categorical variables using chi-square tests and difference-of-proportions tests.
 </p>

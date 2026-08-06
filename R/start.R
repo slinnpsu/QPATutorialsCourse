@@ -1,11 +1,11 @@
 .onAttach <- function(libname, pkgname) {
   packageStartupMessage(
-    "Welcome to QPATutorialsCourse!\n",
-    "These graded tutorials support PLSC 309H: Quantitative Political Analysis\n",
-    "at Penn State University, covering R basics, univariate and bivariate\n",
-    "description, hypothesis testing, regression, and logistic regression.\n\n",
-    "To see all available tutorials, run: learnr::available_tutorials('QPATutorialsCourse')\n",
-    "To open a tutorial, run: qpa_launch(1) through qpa_launch(21)\n",
-    "Example: qpa_launch(1) opens R Basics Part 1"
+    "Welcome to QPATutorialsCourse.\n\n",
+    "Twenty-one tutorials on quantitative political analysis: R basics,\n",
+    "describing variables one and two at a time, statistical inference,\n",
+    "regression, and logistic regression.\n\n",
+    "  qpa_launch()   lists all tutorials, grouped, with what each one needs\n",
+    "  qpa_launch(1)  opens a tutorial\n\n",
+    "Tutorials can also be opened by name: qpa_launch(\"univariateNom\")."
   )
 }

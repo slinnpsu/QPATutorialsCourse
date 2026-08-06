@@ -8,14 +8,14 @@ output:
     allow_skip: true
 runtime: shiny_prerendered
 description: >
-  Use the logic of inference to make decisions: null and alternative
-  hypotheses, p-values, the decision rule, confidence intervals, and
-  their connection to hypothesis tests.
+  Null and alternative hypotheses, p-values, the decision rule, and confidence intervals.
 ---
 
 ## Overview {#main-content}
 
-Tutorial 10 built the foundation for statistical inference: sampling variation, the sampling distribution, the Central Limit Theorem, and the standard error. Those ideas answer a descriptive question --- how precise is my estimate? This tutorial uses that foundation to answer a different question: is the pattern I observe in my data systematic, or could it have arisen by chance? By the end you will have two tools for addressing it --- hypothesis tests, which give a yes/no decision about whether an observed result is surprising under a null hypothesis, and confidence intervals, which give the range of plausible values for the population parameter consistent with what the sample shows.
+Every empirical claim eventually meets the same challenge: could the pattern have arisen by chance? A difference between two groups, a correlation, a shift between two elections --- any of these can turn up in a sample drawn from a population where nothing of the kind is going on. The question is not settled by how large the pattern looks. It is settled by asking how often chance alone would produce something at least that large, and deciding what answer would be surprising enough to act on.
+
+This tutorial covers the two standard ways of answering that. A hypothesis test states a null claim of no relationship, works out how likely the observed result would be if that claim were true, and applies a decision rule. A confidence interval runs the same machinery in the other direction, reporting the range of population values the sample is consistent with. The two are more closely connected than they first appear, and seeing why is much of the point. Tutorial 10 supplies what both depend on --- sampling variation, the sampling distribution, and the standard error.
 
 In this tutorial you will learn to:
 
@@ -132,11 +132,11 @@ question(
 
 ### Simulating the Null Distribution
 
-To determine how surprising Sarah's result is, we simulate what would happen if the null hypothesis were true --- if Sarah were guessing on every trial. We use `rbinom()` to do this. `rbinom(n = 1000, size = 8, prob = 0.5)` generates 1,000 random draws from a binomial distribution. Think of each draw as one simulated set of 8 trials for a guessing chimp: `size = 8` sets the number of trials, and `prob = 0.5` sets the probability of a correct answer under the null. Running this 1,000 times gives us a picture of the full range of outcomes we would expect from a chimp that is purely guessing. We divide by 8 to express each result as a proportion and mark Sarah's actual result of 7/8 with a red vertical line.
+To determine how surprising Sarah's result is, we simulate what would happen if the null hypothesis were true --- if Sarah were guessing on every trial. We use `rbinom()` to do this. `rbinom(n = 1000, size = 8, prob = 0.5)` generates 1,000 random draws from a binomial distribution. Think of each draw as one simulated set of 8 trials for a guessing chimp: `size = 8` sets the number of trials, and `prob = 0.5` sets the probability of a correct answer under the null. Running this 1,000 times gives us a picture of the full range of outcomes we would expect from a chimp that is purely guessing. We divide by 8 to express each result as a proportion and mark Sarah's actual result of 7/8 with a vertical reference line.
 
 **Run and observe 2: Simulate the null distribution**
 
-```{r ex-sarah-sim, exercise=TRUE, exercise.cap="Run and observe 2", fig.alt="Histogram of the proportion correct across 1,000 simulated sets of 8 coin-flip guesses, with proportion correct on the x-axis and frequency on the y-axis. The bars rise to a peak of about 280 just below 0.5 and fall away on both sides, running from about 35 at the lowest proportions to about 30 in the 0.75 to 0.875 bin and almost nothing beyond. A red vertical line marks Sarah's result at 0.875, out at the right-hand edge with very little of the distribution past it."}
+```{r ex-sarah-sim, exercise=TRUE, exercise.cap="Run and observe 2", fig.alt="Histogram of the proportion correct across 1,000 simulated sets of 8 coin-flip guesses, with proportion correct on the x-axis and frequency on the y-axis. The bars rise to a peak of about 280 just below 0.5 and fall away on both sides, running from about 35 at the lowest proportions to about 30 in the 0.75 to 0.875 bin and almost nothing beyond. A vertical reference line marks Sarah's result at 0.875, out at the right-hand edge with very little of the distribution past it."}
 set.seed(42)
 sarah_null <- tibble(
   replicate    = 1:1000,
@@ -150,12 +150,12 @@ ggplot(sarah_null, aes(x = prop_correct)) +
   geom_vline(xintercept = 7/8, color = "red",
              linewidth = 1.2) +
   labs(title = "Null Distribution: Outcomes for a Guessing Chimp",
-       subtitle = "1,000 simulated sets of 8 trials; red line = Sarah's result",
+       subtitle = "1,000 simulated sets of 8 trials; the reference line marks Sarah's result",
        x = "Proportion Correct",
        y = "Frequency")
 ```
 
-The histogram shows the full range of outcomes a guessing chimp would produce across 1,000 experiments. The center of the distribution reflects the expected result under the null. Use this picture to decide where Sarah's result, marked by the red line, falls relative to what we would expect from a guesser.
+The histogram shows the full range of outcomes a guessing chimp would produce across 1,000 experiments. The center of the distribution reflects the expected result under the null. Use this picture to decide where Sarah's result, marked by the reference line, falls relative to what we would expect from a guesser.
 
 **Practice 3: Where does Sarah's result fall?**
 
@@ -212,12 +212,12 @@ The figure below shows how the p-value fits into the bigger picture of the sampl
 - The peak, labeled *"True value under the null hypothesis,"* is the most likely result under that assumption --- for Sarah, this is guessing correctly on half the problems.
 - The two tails, labeled *"very unlikely observations,"* contain results that would be rare in either direction if the null were true --- doing much better, or much worse, than chance would predict.
 - The dashed line marks the critical value for a test at the 5% significance level ($\alpha = 0.05$): results beyond this cutoff are rare enough under the null --- occurring less than 5% of the time --- to count as evidence against it.
-- The green dot, labeled *"Observed result,"* is where your actual data falls on this distribution --- for Sarah, the proportion of problems she actually solved correctly.
+- The dot, labeled *"Observed result,"* is where your actual data falls on this distribution --- for Sarah, the proportion of problems she actually solved correctly.
 - The shaded region labeled "Area representing the p-value" shows the probability of getting a result as extreme as the one observed, or more extreme, if the null hypothesis were true. For a one-sided test, that area is in one tail. For a two-sided test, it includes results equally extreme in either direction.
 
 Because the shaded region falls beyond the critical value, this observed result would lead to rejecting the null hypothesis: a result this far out is rare enough under the assumption of pure guessing that we reject the null hypothesis.
 
-```{r inference-graph, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.alt="Bell curve showing the sampling distribution under the null hypothesis. The peak is labeled 'True value under the null hypothesis and most likely observation.' A green dot to the right of center is labeled 'Observed result (value).' A vertical dashed line to the right of the dot is labeled 'Critical value, alpha equals 0.05.' The shaded tail area beyond the observed result is labeled 'Observed p-value.' Both tails are labeled 'very unlikely observations.'"}
+```{r inference-graph, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.alt="Bell curve showing the sampling distribution under the null hypothesis. The peak is labeled 'True value under the null hypothesis and most likely observation.' A dot to the right of center is labeled 'Observed result (value).' A vertical dashed line to the right of the dot is labeled 'Critical value, alpha equals 0.05.' The shaded tail area beyond the observed result is labeled 'Area representing the p-value.' Both tails are labeled 'very unlikely observations.'"}
 navy <- "#1a3a6b"
 green <- "#2d6a2d"
 
@@ -326,7 +326,7 @@ NOT mean there is a 3% chance the null hypothesis is true. It means that IF the 
 
 ### The Decision Rule
 
-To turn a p-value into a conclusion, we compare it to a pre-chosen threshold called the [**significance level**]{.important-text}, denoted $\alpha$. The standard in social science is $\alpha = 0.05$.
+To turn a p-value into a conclusion, we compare it to a pre-chosen threshold called the [significance level]{.important-text}, written $\alpha$. Throughout this course we use $\alpha = .05$, and it is the most common choice in political science --- but it is a convention, not a rule. Nothing about .05 makes it the boundary between a real relationship and a spurious one; a p-value of .049 and one of .051 are telling you nearly the same thing. Researchers sometimes use $\alpha = .10$ when a test has little power to detect an effect --- a small sample, or an effect expected to be modest --- and sometimes use $\alpha = .01$ when a false positive would be costly. What matters is that the threshold is chosen before the test is run, not after the p-value is known.
 
 - If the p-value is **less than** $\alpha$: **reject the null hypothesis**. The result is [**statistically significant**]{.important-text} --- the data are sufficiently surprising under the null to conclude something else is going on.
 - If the p-value is **greater than or equal to** $\alpha$: **fail to reject the null hypothesis**. The data are not surprising enough under the null to rule it out.
@@ -394,7 +394,7 @@ question(
 question(
   "Study 1 finds a mean difference of 5.2 points with
   p = 0.03. Study 2 finds a mean difference of 12.7 points
-  with p = 0.21. Both use alpha = 0.05. A student says
+  with p = 0.21. Both use $\\alpha = 0.05$. A student says
   Study 2 is more convincing because it found a larger
   effect. What is wrong with this reasoning?",
   correct = "Right. A small p-value and a large effect are separate questions, and sample size drives the first.",
@@ -500,14 +500,6 @@ $$\text{Upper bound} = 30.0 + 2.59 = 32.59\%$$
 
 The 95% confidence interval is [27.41%, 32.59%]. We estimate that between 27% and 33% of all American adults approve of the president, with 95% confidence.
 
-<!-- ============================================================
-     FIGURE: Gallup confidence interval, first visual introduction
-     of a CI as a horizontal interval with a point estimate.
-     Deliberately simple -- no null value yet -- so students build
-     basic fluency reading an interval plot before the later figure
-     adds the null-value comparison.
-     ============================================================ -->
-
 ```{r gallup-ci-plot, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="The 95% confidence interval for presidential approval: a point estimate of 30.0% with a margin of error of 2.59 points, giving an interval of [27.41%, 32.59%].", fig.alt="Horizontal dot-and-whisker plot showing a single confidence interval. A point marks the estimate of 30 percent approval. A horizontal line through the point extends from 27.41 percent to 32.59 percent, representing the 95 percent confidence interval."}
 gallup_data <- tibble(
   label    = "Approval estimate",
@@ -550,13 +542,7 @@ The phrase "95% confidence" has a precise meaning that is easy to misstate.
 In repeated sampling, 95% of confidence intervals constructed this way will contain the true population parameter. The 95% refers to the long-run performance of the procedure across many samples --- not to the probability that this particular interval contains the truth.
 :::
 
-<!-- ============================================================
-     FIGURE 2: Repeated confidence intervals diagram
-     Place after the "correct interpretation" callout box,
-     before the caution box on misinterpretation
-     ============================================================ -->
-
-```{r ci-repeated-intervals, echo=FALSE, warning=FALSE, message=FALSE, fig.height=6, fig.width=7, fig.cap="Twenty-five confidence intervals, each constructed from a different random sample of size 100 from the bowl. The dashed red line marks the true population proportion of 0.375. Most intervals cross that line and contain the true value; the few drawn as dashed lines fall entirely to one side and miss it. In the long run, 95% of intervals constructed this way will contain the true proportion.", fig.alt="Horizontal dot-and-whisker plot showing twenty-five 95 percent confidence intervals stacked vertically, each from a different random sample of size 100. A dashed red vertical line marks the true population proportion of 0.375. Most intervals are drawn as solid lines that cross the dashed line, meaning they contain the true proportion. A small number are drawn as dashed lines that fall entirely to one side of it, meaning they miss the true proportion."}
+```{r ci-repeated-intervals, echo=FALSE, warning=FALSE, message=FALSE, fig.height=6, fig.width=7, fig.cap="Twenty-five confidence intervals, each constructed from a different random sample of size 100 from the bowl. The dashed reference line marks the true population proportion of 0.375. Most intervals cross that line and contain the true value; the few drawn as dashed lines fall entirely to one side and miss it. In the long run, 95% of intervals constructed this way will contain the true proportion.", fig.alt="Horizontal dot-and-whisker plot showing twenty-five 95 percent confidence intervals stacked vertically, each from a different random sample of size 100. A dashed vertical reference line marks the true population proportion of 0.375. Most intervals are drawn as solid lines that cross the dashed line, meaning they contain the true proportion. A small number are drawn as dashed lines that fall entirely to one side of it, meaning they miss the true proportion."}
 set.seed(42)
 n_intervals <- 25
 sample_size <- 100
@@ -716,15 +702,7 @@ This equivalence is useful in practice: once you have a confidence interval, you
 
 The figure below uses the same kind of plot you saw earlier for the Gallup approval estimate --- a point and a horizontal interval --- but adds one new feature: the null hypothesis value, marked separately, so you can see directly whether it falls inside or outside the interval.
 
-<!-- ============================================================
-     FIGURE 3: CI vs. null value diagram
-     Shows the worked example's 95% CI as a horizontal bar with
-     the null hypothesis value marked as a point, making visible
-     whether the null falls inside (fail to reject) or outside
-     (reject) the interval.
-     ============================================================ -->
-
-```{r ci-ht-connection, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="A 95% confidence interval of [50.1, 57.9] for the mean democracy score across 100 countries, with the null hypothesis value of 50 marked. Because the null value falls outside the interval, the corresponding two-sided hypothesis test at alpha = 0.05 rejects the null.", fig.alt="Horizontal dot-and-whisker plot showing a 95 percent confidence interval from 50.1 to 57.9 for the mean democracy score, drawn as a horizontal bar with a point at the center estimate of 54. A red X to the left of the interval, at 50, marks the null hypothesis value. The X falls outside the bar, illustrating that the null value is excluded by the data."}
+```{r ci-ht-connection, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="A 95% confidence interval of [50.1, 57.9] for the mean democracy score across 100 countries, with the null hypothesis value of 50 marked. Because the null value falls outside the interval, the corresponding two-sided hypothesis test at $\\alpha = 0.05$ rejects the null.", fig.alt="Horizontal dot-and-whisker plot showing a 95 percent confidence interval from 50.1 to 57.9 for the mean democracy score, drawn as a horizontal bar with a point at the center estimate of 54. An X to the left of the interval, at 50, marks the null hypothesis value. The X falls outside the bar, illustrating that the null value is excluded by the data."}
 ci_lower    <- 50.1
 ci_upper    <- 57.9
 ci_estimate <- 54.0
@@ -761,7 +739,7 @@ ggplot(connection_data, aes(x = estimate, y = label)) +
         axis.ticks.y = element_blank())
 ```
 
-The null value (50, marked with the red X) sits to the left of the entire interval --- it is not among the values consistent with the data at the 0.05 level. That is exactly the connection: when the null value falls outside the corresponding 95% confidence interval, the two-sided p-value is below 0.05. If the null value had fallen between the two ends of the bar instead, the test would fail to reject, because the null would be one of the plausible values given the data.
+The null value (50, marked with the X) sits to the left of the entire interval --- it is not among the values consistent with the data at the 0.05 level. That is exactly the connection: when the null value falls outside the corresponding 95% confidence interval, the two-sided p-value is below 0.05. If the null value had fallen between the two ends of the bar instead, the test would fail to reject, because the null would be one of the plausible values given the data.
 
 **Apply 8: Using a CI to evaluate a hypothesis test**
 
@@ -770,7 +748,7 @@ question(
   "A researcher surveys 100 countries and tests whether the mean
   democracy score differs from 50 --- the midpoint of the 0-to-100
   scale, representing neither autocracy nor democracy. Her sample
-  yields a 95% confidence interval of [50.1, 57.9]. At alpha = 0.05,
+  yields a 95% confidence interval of [50.1, 57.9]. At $\\alpha = 0.05$,
   what should she conclude, and what does the confidence interval
   tell her beyond the hypothesis test?",
   correct = "Right. A null value outside the interval and a rejected null are the same finding twice.",
@@ -789,7 +767,7 @@ question(
     interval alone --- she would need to compute the
     p-value separately.",
     message = "A 95% confidence interval and the corresponding
-    two-tailed hypothesis test at alpha = 0.05 reach the same
+    two-tailed hypothesis test at $\\alpha = 0.05$ reach the same
     conclusion when they are based on the same model and
     assumptions. If the null value falls outside the interval,
     reject. No separate p-value calculation is needed here."
@@ -925,7 +903,7 @@ intervals are built on the same machinery from Tutorial 10: the sampling distrib
 **Organizing what you've learned into five steps.** Every hypothesis test you have just learned about --- and every one you will see in the tutorials that follow --- uses the same five pieces: a [**null hypothesis**]{.important-text}, an [**alternative hypothesis**]{.important-text}, a test statistic, a p-value, and a decision based on comparing that p-value to a threshold. Starting in the next tutorial, we will put those pieces into five explicit steps: state $H_0$, state $H_A$, run the test, find the p-value, and decide. The ideas are not new --- you already have them --- but the five-step structure will make the same logic easier to apply consistently, test after test.
 
 
-**What comes next.** The logic you learned across Tutorials 10 and 11
+The logic you learned across Tutorials 10 and 11
 --- construct a sampling distribution under the null, locate your
 observed result, compute the probability --- underlies every hypothesis test in the remaining tutorials. What changes is the specific distribution used. For means with large samples, the normal distribution applies. For means with small samples, the [**t-distribution**]{.important-text} is used instead, with slightly wider critical values to account for additional uncertainty. Tutorial 12 introduces the **chi-square distribution** for relationships between two categorical variables, Tutorial 13 brings in both the t-distribution and F for comparing group means, and Tutorial 14 extends the same logic to correlation. In every case R handles the distribution automatically. Your job is to interpret the result correctly --- and you now have the tools to do that.
 

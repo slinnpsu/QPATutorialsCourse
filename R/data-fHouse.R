@@ -1,88 +1,225 @@
 #' Freedom House Scores and World Values Survey Attitudes
 #'
-#' A country-level dataset combining Freedom House measures of political
-#' rights and civil liberties with public-opinion measures from Wave 5 of
-#' the World Values Survey.
+#' A country-level dataset combining Freedom House measures of political rights
+#' and civil liberties with public-opinion measures from Wave 7 of the World
+#' Values Survey.
 #'
-#' @format A data frame with 203 rows and 10 variables:
+#' The country universe is the 194 countries appearing in the 2024 Quality of
+#' Government Standard Time-Series dataset. World Values Survey Wave 7 was
+#' fielded between 2017 and 2023, and survey outcomes are available for 62 of
+#' those countries.
+#'
+#' \strong{Freedom House measures are carried at two vintages.} Every Freedom
+#' House variable appears twice, suffixed by year: once for 2016 and once for
+#' 2022. The 2016 measures precede every Wave 7 survey in the file, so they can
+#' stand as a predictor of survey outcomes without the predictor being measured
+#' after the outcome it explains. The 2022 measures are the more recent of the
+#' two and describe the distribution of political freedom closer to the
+#' present. Which vintage to use depends on the question: 2016 for anything
+#' relating freedom to the survey responses, 2022 for describing countries as
+#' they stand.
+#'
+#' Sudan appears in the 2024 country universe but has no matching Freedom House
+#' observation in either year. Its `Country.Code` and `Country` are
+#' retained and every Freedom House variable is missing, which is why each of
+#' those variables records one missing value. The row is kept so the file
+#' describes a country universe rather than only the countries with complete
+#' data.
+#'
+#' @format A data frame with 194 rows and 38 variables:
 #' \describe{
-#'   \item{X}{
-#'     Sequential row identifier.
+#'   \item{ccode}{
+#'     Numeric Quality of Government country code.
+#'     Observed range: 4--894.
+#'     Missing values: 1.
 #'   }
-#'   \item{Pro.Dem}{
-#'     Percentage of World Values Survey Wave 5 respondents in the country
-#'     who rated having a democratic political system as a very good or
-#'     fairly good way of governing the country. Values are available for
-#'     81 countries.
+#'
+#'   \item{Country.Code}{
+#'     Three-letter country code, used to merge the Quality of Government and
+#'     World Values Survey data.
+#'     Missing values: 0.
 #'   }
-#'   \item{Pro.Strong.Leader}{
-#'     Percentage of World Values Survey Wave 5 respondents in the country
-#'     who rated having a strong leader who does not have to bother with
-#'     parliament and elections as a very good or fairly good way of
-#'     governing the country. Values are available for 81 countries.
+#'
+#'   \item{Country}{
+#'     Country name, from the Quality of Government data.
+#'     Missing values: 0.
 #'   }
-#'   \item{FHStatus}{
-#'     Freedom House status as an ordinal code: 0 for Not Free, 1 for Partly
-#'     Free, and 2 for Free. Higher values indicate greater political freedom,
-#'     so the numeric order is the substantive order and the median can be
-#'     read directly. Derived from \code{FHStatus_raw}.
-#'     Missing values: 8.
-#'   }
-#'   \item{FHStatus_f}{
-#'     Factor version of \code{FHStatus}, with levels \code{"Not Free"},
-#'     \code{"Partly Free"}, and \code{"Free"} stored in that order rather
-#'     than alphabetically, so plots and tables display the categories in
-#'     their substantive rank order. Unordered, not an ordered factor.
-#'     Missing values: 8.
-#'   }
-#'   \item{FHStatus_raw}{
-#'     The Freedom House status codes as originally distributed:
-#'     \code{"F"} for Free, \code{"PF"} for Partly Free, and \code{"NF"}
-#'     for Not Free. Eight rows contain a blank string because no status is
-#'     recorded; those eight are the missing values in \code{FHStatus} and
-#'     \code{FHStatus_f}, since a blank matches none of the three codes.
-#'     Missing values: 0 (the eight unrecorded rows hold a blank string
-#'     rather than \code{NA}).
-#'   }
-#'   \item{FHCLAggr}{
-#'     Freedom House aggregate Civil Liberties score. Scores ordinarily range
-#'     from 0 to 60, with higher values indicating greater civil liberties.
-#'   }
-#'   \item{PFHR.Aggr}{
-#'     Freedom House aggregate Political Rights score. Scores ordinarily
-#'     range from 0 to 40, with higher values indicating greater political
-#'     rights. A score can fall below zero when the discretionary Political
-#'     Rights question receives a negative score.
-#'   }
-#'   \item{FHTotalAggr}{
-#'     Total Freedom House score, calculated as the sum of
-#'     \code{FHCLAggr} and \code{PFHR.Aggr}. Higher values indicate greater
-#'     political rights and civil liberties. Because the Political Rights
-#'     score can be negative, the total can also fall below zero.
-#'   }
-#'   \item{W5Country}{
-#'     Country or territory name used to identify the World Values Survey
-#'     Wave 5 unit.
+#'
+#'   \item{WVS_year}{
+#'     Year in which the country's World Values Survey Wave 7 interviews were
+#'     conducted. Fielding was staggered across countries.
+#'     Observed range: 2017--2023.
+#'     Missing values: 132.
 #'   }
 #' }
 #'
-#' @details
-#' The World Values Survey variables report the percentage selecting either
-#' "very good" or "fairly good" when evaluating each type of political
-#' system. The Freedom House variables retain the values and missing-data
-#' conventions in the packaged dataset.
+#' @section Freedom House variables:
+#'
+#' Each of the variables below exists twice, once ending `_2016` and once
+#' ending `_2022`. Missing values and observed ranges are identical across
+#' the two vintages except where noted, and every one records one missing value
+#' for the reason given above.
+#'
+#' \describe{
+#'   \item{fh_status_2016, fh_status_2022}{
+#'     Freedom House status as distributed in the Quality of Government data:
+#'     1 for Free, 2 for Partly Free, 3 for Not Free. Kept unmodified as the
+#'     source for the two recoded versions below.
+#'     Theoretical range: 1--3. Observed range: 1--3.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{FHStatus_2016, FHStatus_2022}{
+#'     Freedom House status recoded so that higher values mean more freedom:
+#'     0 for Not Free, 1 for Partly Free, 2 for Free. This reverses the
+#'     direction of `fh_status`, so that the codes run in the same order
+#'     as the underlying concept.
+#'     Theoretical range: 0--2. Observed range: 0--2.
+#'     Missing values: 1.
+#'
+#'     In 2016: 48 Not Free, 58 Partly Free, 87 Free.
+#'     In 2022: 56 Not Free, 53 Partly Free, 84 Free.
+#'   }
+#'
+#'   \item{FHStatus_f_2016, FHStatus_f_2022}{
+#'     Factor version of `FHStatus`, with levels `"Not Free"`,
+#'     `"Partly Free"` and `"Free"` stored in that order rather than
+#'     alphabetically. Unordered, not an ordered factor.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{fh_pr_2016, fh_pr_2022}{
+#'     Freedom House Political Rights rating. Lower values indicate greater
+#'     political rights, so this runs in the opposite direction to the
+#'     aggregate scores below.
+#'     Theoretical range: 1--7. Observed range: 1--7.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{fh_cl_2016, fh_cl_2022}{
+#'     Freedom House Civil Liberties rating. Lower values indicate greater
+#'     civil liberties.
+#'     Theoretical range: 1--7. Observed range: 1--7.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{fh_ep_2016, fh_ep_2022}{
+#'     Electoral process subcategory score, one of the three components of the
+#'     aggregate Political Rights score. Higher values indicate a freer
+#'     electoral process.
+#'     Theoretical range: 0--12. Observed range: 0--12.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{fh_ppp_2016, fh_ppp_2022}{
+#'     Political pluralism and participation subcategory score.
+#'     Theoretical range: 0--16. Observed range: 0--16.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{fh_fog_2016, fh_fog_2022}{
+#'     Functioning of government subcategory score.
+#'     Theoretical range: 0--12. Observed range: 0--12.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{fh_feb_2016, fh_feb_2022}{
+#'     Freedom of expression and belief subcategory score, one of the four
+#'     components of the aggregate Civil Liberties score.
+#'     Theoretical range: 0--16. Observed range: 0--16.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{fh_aor_2016, fh_aor_2022}{
+#'     Associational and organizational rights subcategory score.
+#'     Theoretical range: 0--12. Observed range: 0--12.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{fh_rol_2016, fh_rol_2022}{
+#'     Rule of law subcategory score.
+#'     Theoretical range: 0--16. Observed range: 0--16.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{fh_pair_2016, fh_pair_2022}{
+#'     Personal autonomy and individual rights subcategory score.
+#'     Theoretical range: 0--16. Observed range: 0--16.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{PFHR.Aggr_2016, PFHR.Aggr_2022}{
+#'     Aggregate Political Rights score, the sum of `fh_ep`,
+#'     `fh_ppp` and `fh_fog`. Higher values indicate greater
+#'     political rights.
+#'     Theoretical range: 0--40. Observed range: 0--40.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{FHCLAggr_2016, FHCLAggr_2022}{
+#'     Aggregate Civil Liberties score, the sum of `fh_feb`,
+#'     `fh_aor`, `fh_rol` and `fh_pair`. Higher values indicate
+#'     greater civil liberties.
+#'     Theoretical range: 0--60. Observed range: 2--60.
+#'     Missing values: 1.
+#'   }
+#'
+#'   \item{FHTotalAggr_2016, FHTotalAggr_2022}{
+#'     Total Freedom House score, the sum of `PFHR.Aggr` and
+#'     `FHCLAggr`. Higher values indicate greater political rights and
+#'     civil liberties together.
+#'     Theoretical range: 0--100. Observed range: 2--100.
+#'     Missing values: 1.
+#'   }
+#' }
+#'
+#' @section World Values Survey variables:
+#'
+#' These come from two Wave 7 questions asking respondents to evaluate ways of
+#' governing a country. Both are answered on a four-point scale: 1 very good,
+#' 2 fairly good, 3 fairly bad, 4 very bad. Country values are weighted using
+#' the survey's own weight, and all four variables are missing for the 132
+#' countries not surveyed in Wave 7.
+#'
+#' \describe{
+#'   \item{Pro.Strong.Leader}{
+#'     Percentage of respondents rating "having a strong leader who does not
+#'     have to bother with parliament and elections" as a very good or fairly
+#'     good way of governing the country.
+#'     Theoretical range: 0--100. Observed range: 9.21--92.87.
+#'     Missing values: 132.
+#'   }
+#'
+#'   \item{Pro.Dem}{
+#'     Percentage of respondents rating "having a democratic political system"
+#'     as a very good or fairly good way of governing the country.
+#'     Theoretical range: 0--100. Observed range: 59.30--98.53.
+#'     Missing values: 132.
+#'   }
+#'
+#'   \item{Mean.Strong.Leader}{
+#'     Mean response on the four-point scale to the strong-leader question.
+#'     Because 1 is the most favourable answer, LOWER values indicate greater
+#'     support for a strong leader --- the opposite direction to
+#'     `Pro.Strong.Leader`.
+#'     Theoretical range: 1--4. Observed range: 1.61--3.59.
+#'     Missing values: 132.
+#'   }
+#'
+#'   \item{Mean.Dem}{
+#'     Mean response on the four-point scale to the democratic-system question.
+#'     LOWER values indicate greater support for democracy.
+#'     Theoretical range: 1--4. Observed range: 1.20--2.27.
+#'     Missing values: 132.
+#'   }
+#' }
 #'
 #' @source
-#' Freedom House, \emph{Freedom in the World}; and World Values Survey,
-#' Wave 5.
+#' Freedom House, \emph{Freedom in the World}, 2016 and 2022 editions, as
+#' distributed in the Quality of Government Standard Time-Series dataset
+#' (January 2026 release); and the World Values Survey Cross-National Wave 7,
+#' version 6.0.
 #'
-#' Freedom House methodology:
-#' \url{https://freedomhouse.org/reports/freedom-world/freedom-world-research-methodology}
-#'
-#' World Values Survey:
-#' \url{https://www.worldvaluessurvey.org/}
-#'
-#' @name fHouse
-#' @docType data
 #' @keywords datasets
-NULL
+#'
+"fHouse"

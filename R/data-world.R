@@ -6,13 +6,13 @@
 #' \emph{R Companion to Essentials of Political Analysis, Second Edition}.
 #'
 #' The complete dataset contains 167 observations and 103 variables. The
-#' variables described below are those used in the QPATutorialsCourse
-#' tutorials.
+#' variables described below are a selected subset. Consult the poliscidata
+#' package documentation for definitions of the remaining variables.
 #'
 #' @format A data frame with 167 rows and 103 variables.
 #'
 #' @details
-#' The variables used in the QPATutorialsCourse tutorials are:
+#' The variables described here are:
 #'
 #' \describe{
 #'
@@ -20,13 +20,6 @@
 #'     Country or territory name.
 #'     Stored as a factor.
 #'     Missing values: 0.
-#'   }
-#'
-#'   \item{gini10}{
-#'     Income Gini coefficient measured during 2000--2010. Higher values
-#'     indicate greater income inequality.
-#'     Observed range: 24.7--74.3.
-#'     Missing values: 14.
 #'   }
 #'
 #'   \item{dem_level4}{
@@ -60,15 +53,8 @@
 #'   \item{confidence}{
 #'     Confidence in institutions scale from the World Values Survey.
 #'     Higher values indicate greater confidence.
-#'     Observed range: approximately 6.49--99.86.
+#'     Theoretical range: 0--100. Observed range: approximately 6.49--99.86.
 #'     Missing values: 99.
-#'   }
-#'
-#'   \item{democ}{
-#'     Indicator of whether the government is classified as a democracy,
-#'     derived from `regime_type3`.
-#'     Stored as a factor.
-#'     Missing values: 3.
 #'   }
 #'
 #'   \item{durable}{
@@ -81,7 +67,7 @@
 #'   \item{effectiveness}{
 #'     Government effectiveness scale based on Kaufmann (2002). Higher values
 #'     indicate greater government effectiveness.
-#'     Observed range: approximately 7.80--100.
+#'     Theoretical range: 0--100. Observed range: approximately 7.80--100.
 #'     Missing values: 14.
 #'   }
 #'
@@ -98,10 +84,17 @@
 #'     Missing values: 95.
 #'   }
 #'
-#'   \item{gini08}{
-#'     Gini coefficient from the United Nations for 2008. Higher values
+#'   \item{gini04}{
+#'     Income Gini coefficient from the United Nations for 2004. Higher values
 #'     indicate greater income inequality.
-#'     Observed range: 24.7--74.3.
+#'     Theoretical range: 0--100. Observed range: 24.4--70.7.
+#'     Missing values: 46.
+#'   }
+#'
+#'   \item{gini08}{
+#'     Income Gini coefficient from the United Nations for 2008. Higher values
+#'     indicate greater income inequality.
+#'     Theoretical range: 0--100. Observed range: 24.7--74.3.
 #'     Missing values: 45.
 #'   }
 #'
@@ -116,7 +109,7 @@
 #'   \item{unions}{
 #'     Union density, measured as the percentage of workers who belong to a
 #'     labor union.
-#'     Observed range: 2.0--96.1.
+#'     Theoretical range: 0--100. Observed range: 2.0--96.1.
 #'     Missing values: 78.
 #'   }
 #' }
@@ -138,7 +131,7 @@
 #'   \item `confidence`: World Values Survey.
 #'   \item `dem_level4`: Economist Intelligence Unit, 2014.
 #'   \item `fertility` and `lifeex_total`: CIA.
-#'   \item `spendeduc`, `gini08`, and `gini10`: United Nations.
+#'   \item `spendeduc`, `gini04`, and `gini08`: United Nations.
 #'   \item `durable`: Polity.
 #'   \item `effectiveness`: Kaufmann (2002).
 #'   \item `gdppcap08`: World Bank.
@@ -147,7 +140,6 @@
 #'   \item `unions`: International Labour Organization.
 #' }
 #'
-#' @name world
-#' @docType data
 #' @keywords datasets
-NULL
+#'
+"world"

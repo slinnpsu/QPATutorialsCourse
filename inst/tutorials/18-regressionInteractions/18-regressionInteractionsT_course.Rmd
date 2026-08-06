@@ -13,18 +13,16 @@ description: >
 
 ## Overview {#main-content}
 
-Tutorial 15 introduced regression slopes, and Tutorial 16 extended them to additive multiple-regression models. In those additive models, each predictor has a single, stable estimated association with the outcome across values of the other predictors. Tutorial 17 made that assumption visible: when an interval predictor is plotted for different values or categories of another predictor, the fitted lines are parallel.
+Political relationships often depend on context. Economic growth may influence voting differently in prosperous and struggling communities. Trade openness may be associated with environmental performance differently in countries with strong and weak political rights. Education may shape political participation differently across social groups. When the relationship between one predictor and an outcome changes depending on another predictor, an additive model is no longer enough.
 
-This tutorial relaxes it. Many political and social relationships are conditional --- the estimated association between one variable and the outcome depends on the level of another variable. When that is the case, a model that ignores the dependence may seriously misrepresent what is happening.
+This tutorial introduces **interaction models**, which allow the slope of one predictor to vary across values or categories of another predictor. It extends the multiple regression framework from Tutorial 16 by replacing the assumption of a common slope with a model of conditional relationships.
 
-This tutorial introduces interaction models: how to recognize when they are needed, how to interpret their coefficients, and how to compute conditional estimated associations at meaningful values of the interacting predictors. Tutorial 19 will then build prediction plots that make those conditional associations visible across the full observed range.
-
-In this tutorial, you will learn to estimate and interpret conditional relationships in multiple regression. Specifically, we will cover:
+In this tutorial you will learn:
 
 * How to recognize when a relationship is likely to be conditional and what to ask before estimating an interaction model
 * How to understand what interaction coefficients and conditional slopes mean, for both interval × interval and categorical × interval interactions
 * How to include an interaction term in a regression formula using the `*` operator in `lm()`
-* How to compute and interpret the conditional estimated association of one variable at meaningful values of another, and how to read the model in both directions
+* How to compute and interpret the conditional slope of one predictor at meaningful values of another, and how to read the model in both directions
 
 ```{r setup, include=FALSE}
 library(learnr)
@@ -40,18 +38,23 @@ data("qog", package = "QPATutorialsCourse")
 qog$rights[qog$fh_pr <= 2] <- 0
 qog$rights[qog$fh_pr > 2] <- 1
 qog$rights_f <- factor(qog$rights, labels = c("Few Rights", "Many Rights"))
-qog$democ <- dplyr::case_when(
-  qog$fh_ipolity2 < 4  ~ 0,
-  qog$fh_ipolity2 > 6  ~ 2,
-  TRUE                  ~ 1
-)
-qog$democ_f <- factor(qog$democ, labels = c("Autocracy", "Partial Democracy", "Democracy"))
-model_fhrol_additive <- lm(fh_rol ~ wdi_fertility + democ_f, data = qog)
+data("ipu", package = "QPATutorialsCourse")
+ipu$electoral_f <- factor(ipu$electoral_system,
+                          levels = c("plurality_majority",
+                                     "proportional_representation",
+                                     "mixed_system"),
+                          labels = c("Plurality/Majority", "Proportional", "Mixed"))
+ipu$quota_f <- factor(ipu$gender_quota, levels = c(FALSE, TRUE),
+                      labels = c("No quota", "Quota"))
+ipu$years_c <- ipu$years_since_first_woman -
+               mean(ipu$years_since_first_woman, na.rm = TRUE)
+model_rep_additive <- lm(women_percent ~ quota_f + electoral_f + years_c, data = ipu)
+model_rep_int <- lm(women_percent ~ quota_f + electoral_f * years_c, data = ipu)
 ```
 
 ## What Is a Conditional Relationship?
 
-Consider a simple question: is income associated with voter turnout? The answer from an additive model is a single estimated association that applies equally at every unemployment level. But you might reasonably expect the income-turnout relationship to look different when unemployment is high than when it is low. When unemployment is high, even relatively wealthy people may feel economically anxious --- narrowing the gap in turnout between high- and low-income residents. When unemployment is low, the association between income and turnout may be stronger --- income may be a better signal of who has the resources and motivation to vote. In an additive model with income entered as an interval predictor, the answer is a single slope --- an estimated income association that applies equally at every unemployment level. If the estimated income association changes depending on the level of unemployment, the relationship is conditional, and that single-slope model may miss what is actually happening.
+Consider a simple question: does income predict voter turnout? The answer from an additive model is a single estimated slope that applies equally at every unemployment level. But you might reasonably expect the income-turnout relationship to look different when unemployment is high than when it is low. When unemployment is high, even relatively wealthy people may feel economically anxious --- narrowing the gap in turnout between high- and low-income residents. When unemployment is low, the association between income and turnout may be stronger --- income may be a better signal of who has the resources and motivation to vote. In an additive model with income entered as an interval predictor, the answer is a single slope --- an estimated income association that applies equally at every unemployment level. If the estimated income association changes depending on the level of unemployment, the relationship is conditional, and that single-slope model may miss what is actually happening.
 
 More formally: if the estimated association of $X_1$ with $Y$ differs based on the value of $X_2$, the relationship is [**conditional**]{.important-text} or [**interactive**]{.important-text}. $X_2$ conditions the association of $X_1$ --- and because the relationship is symmetric, $X_1$ conditions the association of $X_2$ at the same time.
 
@@ -62,7 +65,7 @@ knitr::include_graphics("images/conditional.png")
 If you estimate a model that includes $X_1$ and $X_2$ as separate predictors but omits the interaction term $X_1 \times X_2$, the model forces $X_1$ to have the same estimated association at every value of $X_2$ --- which may badly misrepresent the pattern in the data. A model containing only the two constituent terms cannot estimate how one association changes across values of the other predictor. You need an interaction term to represent that pattern.
 
 ::: {.tip}
-**A note on the word "conditional."** In Tutorial 16, "conditional" meant estimating a coefficient while holding the other variables in the model constant --- an all-else-equal association. Here it has a more specific meaning: the estimated association itself changes depending on the value of another variable. Both uses are standard, but they are distinct. In this tutorial, a [**conditional effect**]{.important-text} is the conventional statistical term for an estimated association at a particular value of another predictor. It describes a model-implied relationship and does not by itself imply a causal effect. When one predictor is interval, we will often call it a conditional slope to emphasize what is being calculated --- the two terms refer to the same thing.
+**A note on the word "conditional."** In Tutorial 16, coefficients described partial associations while holding the other variables in the model constant. Here, "conditional" has a more specific meaning: the estimated association itself changes depending on the value of another variable. Both uses are standard, but they are distinct. In this tutorial, a [**conditional effect**]{.important-text} is the conventional statistical term for an estimated association at a particular value of another predictor. It describes a model-implied relationship and does not by itself imply a causal effect. When one predictor is interval, we will often call it a conditional slope to emphasize what is being calculated --- the two terms refer to the same thing.
 :::
 
 This tutorial covers two of the three possible interaction types: interval × interval (Example 1) and categorical × interval (Examples 2 and 3). A third type --- two categorical variables interacting --- is also possible and follows the same conceptual logic. You would ask how the association between one categorical variable and the outcome differs across categories of the other. In practice, you would compute predicted outcomes for each combination of categories and compare them to see where the associations differ. We do not cover this case in detail because working through all category combinations simultaneously requires care, but the approach should be familiar once you have worked through the examples here.
@@ -89,6 +92,8 @@ The baseline slope is the main-effect coefficient on the interval predictor. The
 
 ### Interval × Interval Interactions
 
+Suppose the slope of $X_1$ changes as $X_2$ increases. The interaction coefficient tells us how much that slope changes for each one-unit increase in $X_2$, while the conditional-slope formula gives the slope of $X_1$ at any particular value of $X_2$.
+
 For a model with two interval predictors and an interaction term:
 
 $$Y = \hat{\alpha} + \hat{\beta}_1 X_1 + \hat{\beta}_2 X_2 + \hat{\beta}_3 X_1 X_2 + \ldots + \varepsilon$$
@@ -97,7 +102,7 @@ the coefficients are interpreted as follows:
 
 1. $\hat{\beta}_1$ is the slope of $X_1$ [**when $X_2 = 0$**]{.important-text}.
 2. $\hat{\beta}_2$ is the slope of $X_2$ [**when $X_1 = 0$**]{.important-text}.
-3. $\hat{\beta}_3$ is the estimated change in the slope of $X_1$ associated with a one-unit increase in $X_2$ --- and equivalently, the estimated change in the slope of $X_2$ associated with a one-unit increase in $X_1$.
+3. $\hat{\beta}_3$ is the estimated change in the slope of $X_1$ for a one-unit increase in $X_2$ --- and equivalently, the estimated change in the slope of $X_2$ for a one-unit increase in $X_1$.
 4. The [**conditional slope of $X_1$**]{.important-text} at any given value of $X_2$ is: $\hat{\beta}_1 + \hat{\beta}_3 X_2$.
 5. The [**conditional slope of $X_2$**]{.important-text} at any given value of $X_1$ is: $\hat{\beta}_2 + \hat{\beta}_3 X_1$.
 
@@ -112,7 +117,7 @@ For a model with a binary categorical variable $X_1$ (coded 0 for the reference 
 $$Y = \hat{\alpha} + \hat{\beta}_1 X_1 + \hat{\beta}_2 X_2 + \hat{\beta}_3 X_1 X_2 + \ldots + \varepsilon$$
 
 1. $\hat{\beta}_2$ is the slope of $X_2$ [**for the reference category**]{.important-text}.
-2. $\hat{\beta}_2 + \hat{\beta}_3$ is the slope of $X_2$ [**for the non-reference category**]{.important-text}. This is the step most often missed: the main effect alone gives the reference slope; you must add the interaction coefficient to get the non-reference slope.
+2. $\hat{\beta}_2 + \hat{\beta}_3$ is the slope of $X_2$ [**for the non-reference category**]{.important-text}. This is the step most often missed: the coefficient on $X_2$ gives the reference-category slope; you must add the interaction coefficient to get the non-reference-category slope.
 3. $\hat{\beta}_3$ is the difference between the two slopes --- how much steeper or shallower the non-reference slope is compared to the reference slope.
 4. $\hat{\beta}_1$ is the gap between the two categories **when $X_2 = 0$.** Whether that is substantively meaningful depends on the scale and observed range of $X_2$.
 
@@ -156,6 +161,8 @@ Adding an interaction to a regression model in R requires one new ingredient in 
 **Always include the constituent terms alongside the interaction.** If you omit either $X_1$ or $X_2$ while retaining the interaction term $X_1 \times X_2$, you impose strong restrictions on the model and the coefficients will no longer have the interpretations described above. The `*` operator handles this automatically. If you ever write an interaction by hand using `X1:X2`, you must add `+ X1 + X2` yourself.
 :::
 
+Across the three examples, we will use the same general logic: estimate the interaction model, identify the relevant conditional slopes, interpret what the interaction coefficient tells us about how those slopes differ, assess the evidence, and state the substantive conclusion. The examples emphasize different parts of this process as you move from observing the analysis to completing and then writing the code yourself.
+
 ## Does the Mortality Risk Association with Clinton's Vote Depend on Wage Growth?
 
 County-level mortality risk and wage growth are both associated with Hillary Clinton's 2016 two-party vote share --- but does the association between mortality risk and the vote depend on local economic conditions? The theoretical argument is that mortality risk may carry different political meaning under different economic circumstances. In counties where wages are growing, residents may see economic opportunity as available to those willing to work, and attribute poor health outcomes to individual choices --- weakening the connection between community health and political backlash. In counties where wages are stagnant or declining, those same health outcomes may feel more like a structural failure that working people have no control over --- producing a stronger political response against the incumbent party's candidate. If this reasoning is right, the estimated association between mortality risk and Clinton's vote should vary with the level of wage growth.
@@ -189,7 +196,7 @@ Find the row labeled `mortality_risk_25_45:wage_growth` in the Coefficients tabl
 
 ### What the Interaction Coefficient Tells Us
 
-The interaction coefficient measures the estimated change in the slope of mortality risk associated with each one-unit increase in wage growth. Before asking what it means substantively, read it numerically.
+The interaction coefficient measures how much the mortality-risk slope changes for each one-unit increase in wage growth. Before asking what it means substantively, read it numerically.
 
 **Practice: Interpret the interaction coefficient**
 
@@ -198,9 +205,9 @@ question("The interaction coefficient in the row labeled **mortality_risk_25_45*
   correct = "Right. The interaction coefficient is a rate of change in a slope, not a slope itself.",
   answer("For each additional percentage point of wage growth, the estimated slope of mortality risk on Clinton's vote becomes 0.139 percentage points more negative",
          correct = TRUE,
-         message = "Because the mortality-risk slope is negative when wage growth equals zero, becoming more negative means that higher mortality risk is more strongly associated with lower Clinton support as wage growth increases. The next section will let you compute exactly how large that slope is at specific values of wage growth."),
+         message = "Because the mortality-risk slope is negative when wage growth equals zero, becoming more negative means that higher mortality risk predicts a larger drop in Clinton support as wage growth increases. The next section will let you compute exactly how large that slope is at specific values of wage growth."),
   answer("The slope of mortality risk is -0.139 in counties with average wage growth",
-         message = "-0.139 is the interaction coefficient, not the conditional slope of mortality risk at the mean. The conditional slope depends on the level of wage growth and is computed using the formula: main effect + interaction coefficient * wage growth."),
+         message = "-0.139 is the interaction coefficient, not the conditional slope of mortality risk at the mean. The conditional slope depends on the level of wage growth and is computed using the formula: coefficient on mortality risk + interaction coefficient * wage growth."),
   answer("For each additional percentage point of mortality risk, Clinton's vote falls by 0.139 percentage points, controlling for wage growth",
          message = "That would be the main-effect coefficient on mortality risk, which appears on its own separate row. The interaction coefficient (-0.139) tells you how the mortality-risk slope changes as wage growth changes, not what the slope itself is."),
   answer("This coefficient is the combined result of both mortality risk and wage growth when both are non-zero",
@@ -211,7 +218,7 @@ question("The interaction coefficient in the row labeled **mortality_risk_25_45*
 )
 ```
 
-### What the Main-Effect Coefficients Tell Us
+### What the Constituent Coefficients Tell Us
 
 From rule 1: the coefficient on **mortality_risk_25_45** (-2.494) is the slope of mortality risk when wage growth equals zero. From rule 2: the coefficient on **wage_growth** (0.753) is the slope of wage growth when mortality risk equals zero. These are anchor points for the formulas, not typical-county summaries. Wage growth of zero falls within the observed range (about −69 to +63) but is not representative; mortality risk of zero is outside the observed range entirely. Conditional slopes evaluated at meaningful or commonly observed values are more informative, as you will see in the next section.
 
@@ -220,7 +227,7 @@ question("Which statements correctly describe what the coefficients on mortality
   correct = "Right. Both main-effect coefficients are anchor points --- the slope of each variable when the other equals zero.",
   answer("The coefficient on mortality_risk_25_45 (-2.494) is the slope of mortality risk when wage growth equals zero --- an anchor point for the conditional slope formula, not the slope in a typical county",
          correct = TRUE,
-         message = "In a county with flat wages, each additional percentage point of mortality risk is associated with about 2.5 fewer percentage points of Clinton's vote. Wage growth of zero is within the observed range and is substantively interpretable as flat wages --- but the mean is 4.3, so it is not a typical county. The conditional slope formula gives the slope at any specific value of wage growth."),
+         message = "In a county with flat wages, each additional percentage point of mortality risk predicts about 2.5 fewer percentage points of Clinton's vote. Wage growth of zero is within the observed range and is substantively interpretable as flat wages --- but the mean is 4.3, so it is not a typical county. The conditional slope formula gives the slope at any specific value of wage growth."),
   answer("The coefficient on wage_growth (0.753) is the slope of wage growth when mortality risk equals zero --- which is outside the observed range of the data",
          correct = TRUE,
          message = "Mortality risk ranges from about 1.1 to 8.4 in this dataset --- it is never zero. The coefficient on wage_growth is a mathematical anchor point, not a substantively meaningful prediction for any real county. The conditional slope formula is more useful."),
@@ -272,15 +279,15 @@ question("Using the formula $-2.494 + (-0.139)(\\text{wage growth})$, what is th
 
 Although we have been reading the model from the mortality risk perspective, the same model also tells us how the wage-growth slope changes with mortality risk --- a reminder that the interaction is symmetric.
 
-The conditional slope of wage growth at a given level of mortality risk is $0.753 + (-0.139)(\text{mortality risk})$. At the mean mortality-risk value of 3.1: $0.753 + (-0.139)(3.1) = 0.753 - 0.431 = 0.322$. A one-point increase in wage growth is associated with about a 0.32 point increase in Clinton's vote in a county at the mean mortality risk. As mortality risk rises, that estimated positive association becomes smaller.
+The conditional slope of wage growth at a given level of mortality risk is $0.753 + (-0.139)(\text{mortality risk})$. At the mean mortality-risk value of 3.1: $0.753 + (-0.139)(3.1) = 0.753 - 0.431 = 0.322$. A one-point increase in wage growth predicts about a 0.32-point increase in Clinton's vote in a county at the mean mortality risk. As mortality risk rises, that estimated positive association becomes smaller.
 
 ::: {.tip}
-**Extension: Where does the slope cross zero?** Setting $0.753 + (-0.139)(\text{mortality risk}) = 0$ gives a crossover at approximately 5.4. Above that value, the point estimates imply a negative wage-growth slope --- wage growth would be associated with lower rather than higher Clinton vote. This is near the upper end of the observed distribution (about 95% of counties fall below 5.4). This calculation uses point estimates only; Tutorial 19 will introduce prediction plots that help assess uncertainty around conditional relationships.
+**Extension: Where does the slope cross zero?** Setting $0.753 + (-0.139)(\text{mortality risk}) = 0$ gives a crossover at approximately 5.4. Above that value, the point estimates imply a negative wage-growth slope --- higher wage growth would predict lower rather than higher Clinton vote. This is near the upper end of the observed distribution (about 95% of counties fall below 5.4). This calculation uses point estimates only; Tutorial 19 will introduce prediction plots that help assess uncertainty around conditional relationships.
 :::
 
 ### What We Learned About Mortality Risk, Wage Growth, and Clinton's Vote
 
-The interaction term is statistically significant (p = .004). The negative interaction coefficient indicates that the estimated association between mortality risk and Clinton's vote becomes more negative as wage growth increases. Thus, higher mortality risk is more strongly associated with lower Clinton support in counties with greater wage growth. The additive model in Tutorial 16 constrained that slope to remain constant across all levels of wage growth; the interaction model provides evidence that it varies. Why this pattern occurs is a separate question that the regression cannot answer. Poor health outcomes may carry different political meaning under different economic conditions, but testing that explanation would require additional evidence.
+The interaction term is statistically significant (p = .004). The negative interaction coefficient indicates that the mortality-risk slope becomes more negative as wage growth increases. Thus, higher mortality risk predicts a larger drop in Clinton support in counties with greater wage growth. The additive model in Tutorial 16 constrained that slope to remain constant across all levels of wage growth; the interaction model provides evidence that it varies. Why this pattern occurs is a separate question that the regression cannot answer. Poor health outcomes may carry different political meaning under different economic conditions, but testing that explanation would require additional evidence.
 
 ## Applying the Same Logic to a Categorical × Interval Interaction
 
@@ -402,12 +409,12 @@ question("Using the coefficients in your output, what is the slope of ipi_tradeo
   correct = "Right. The two slopes are strikingly different.",
   answer("About 0.12 --- the estimated trade-openness slope is close to zero in Many Rights countries",
          correct = TRUE,
-         message = "For Few Rights countries the slope is 4.750: each additional point of trade openness is associated with about 4.75 more points on the EPI. For Many Rights countries the slope is 4.750 + (-4.629) = 0.121 --- close to zero. The two estimated slopes differ substantially."),
+         message = "For Few Rights countries the slope is 4.750: each additional point of trade openness predicts about 4.75 more points on the EPI. For Many Rights countries the slope is 4.750 + (-4.629) = 0.121 --- close to zero. The two estimated slopes differ substantially."),
   answer("About 4.750 --- the ipi_tradeopen coefficient is the slope for all countries regardless of rights status",
          message = "In an interaction model, the ipi_tradeopen coefficient is the slope only for the reference category (Few Rights). To find the Many Rights slope, add the interaction coefficient to that value."),
   answer("About -4.629 --- the interaction coefficient is the slope for Many Rights countries",
          message = "The interaction coefficient is the difference between the two slopes, not the Many Rights slope itself. Add the interaction coefficient to the Few Rights slope: 4.750 + (-4.629) = 0.121."),
-  answer("About 9.38 --- the Many Rights slope is the sum of the ipi_tradeopen and interaction coefficients added to the Many Rights main effect",
+  answer("About 9.38 --- the Many Rights slope is the sum of the ipi_tradeopen and interaction coefficients added to the Few Rights reference-category slope",
          message = "The Many Rights slope on ipi_tradeopen is simply the ipi_tradeopen coefficient plus the interaction coefficient: 4.750 + (-4.629) = 0.121. The rights_fMany Rights coefficient is the intercept gap between groups when trade openness is zero --- it is not part of the slope calculation."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -424,7 +431,7 @@ Now that you have both slopes, the interaction coefficient has a clear interpret
 | Few Rights (reference) | $4.750$ |
 | Many Rights | $4.750 + (-4.629) = 0.121$ |
 
-The interaction coefficient also tells you the direction and size of that difference. A large negative value means the Many Rights slope is substantially smaller (less positive or more negative) than the Few Rights slope. Here the near-cancellation is the key finding: the interaction coefficient (-4.629) is almost equal in magnitude to the main effect (4.750), which is why the resulting Many Rights slope is close to zero.
+The interaction coefficient also tells you the direction and size of that difference. A large negative value means the Many Rights slope is substantially smaller (less positive or more negative) than the Few Rights slope. Here the near-cancellation is the key finding: the interaction coefficient (-4.629) is almost equal in magnitude to the Few Rights reference-category slope (4.750), which is why the resulting Many Rights slope is close to zero.
 
 **Practice: Interpret the interaction coefficient**
 
@@ -461,9 +468,9 @@ question("Based on the model's point estimates, at low trade openness (ipi_trade
   answer("Many Rights countries always have higher predicted EPI scores regardless of trade openness",
          message = "At high trade openness, Few Rights countries are predicted to have a higher EPI score. The gap between the groups changes direction across the observed range."),
   answer("The interaction term is too small to be meaningful even though it is statistically significant",
-         message = "The interaction coefficient (-4.629) is actually large relative to the main effect of ipi_tradeopen (4.750) --- it nearly cancels the slope for Many Rights countries. A small p-value and a large estimated difference go together here."),
+         message = "The interaction coefficient (-4.629) is actually large relative to the Few Rights reference-category slope on ipi_tradeopen (4.750) --- it nearly cancels the slope for Many Rights countries. A small p-value and a large estimated difference go together here."),
   answer("Trade openness has the same positive estimated association with environmental performance in both Few Rights and Many Rights countries --- the interaction term just adjusts the magnitude slightly",
-         message = "The interaction coefficient (-4.629) nearly equals the main effect of ipi_tradeopen (4.750) in magnitude, so the resulting Many Rights slope is close to zero. This is not a small adjustment."),
+         message = "The interaction coefficient (-4.629) nearly equals the Few Rights reference-category slope on ipi_tradeopen (4.750) in magnitude, so the resulting Many Rights slope is close to zero. This is not a small adjustment."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: compare the two slopes and think about what different slopes imply for how the predicted gap between the groups changes as trade openness rises."
@@ -525,31 +532,37 @@ Nothing fundamentally changes when the categorical variable has three or more gr
 
 With more than two categories, individual p-values test whether each non-reference category's slope differs from the reference slope, but they do not jointly test whether the slopes are all equal across groups. The joint F-test --- comparing the additive and interaction models using `anova()` --- answers that broader question. Both tests are needed for a complete assessment.
 
-## Does the Fertility–Rule of Law Relationship Depend on Regime Type?
+## Does the History–Representation Relationship Depend on Electoral System?
 
-From Tutorial 16 you already know that **wdi_fertility** and **democ_f** both have estimated associations with **fh_rol** in the additive model. Here we ask whether their relationship is simply additive, or whether the fertility slope varies across regime types.
+Tutorial 16 asked whether proportional electoral systems seat more women than plurality systems, holding quotas and the length of women's parliamentary history constant. That model was additive: it assumed the relationship between history and representation was the same whatever the electoral system.
 
-There is a plausible reason to test for an interaction. Political institutions may shape how governments respond to the social and economic conditions associated with higher fertility, but the direction of that difference is not clear in advance. We estimate the model and report what we find.
+There is a reason to doubt that. The institutional argument says proportional systems provide shortcuts --- party lists, multimember districts, centralized candidate selection --- that let representation rise without waiting for parties to build constituency-level pipelines. If that is right, history should matter *more* where those shortcuts are absent. Under plurality rules, progress depends on the slow accumulation the shortcuts bypass.
+
+That is a claim about a slope depending on a category, which is what an interaction tests.
 
 ::: {.hypothesis}
-In a comparison of countries, the association between fertility rate and rule of law varies with regime type.
+In a comparison of countries, the relationship between the length of women's parliamentary history and women's representation will be stronger under plurality electoral systems than under proportional systems, controlling for electoral gender quotas.
 :::
 
-The data frame **qog** contains **fh_rol** (Freedom House Rule of Law, 0--16) and **democ_f** (the three-category factor from Tutorial 16, with **Autocracy** as the reference category). **wdi_fertility** is the total fertility rate. Because **democ_f** has three categories, `democ_f * wdi_fertility` will produce two interaction rows in the output:
+The data frame **ipu** contains **women_percent**, the percentage of seats held by women, and **electoral_f**, the three-category factor from Tutorial 16 with **Plurality/Majority** as the reference category. **quota_f** indicates whether the country has an electoral gender quota.
+
+**years_c** needs a moment, because it is centered. It is the number of years since a woman first entered that parliament, with its mean subtracted. Zero is the average, about 60 years --- a parliament that first seated a woman around 1966. Negative values are parliaments that seated their first woman more recently, positive values are ones that did so earlier. The range runs from about -55, a first woman in 2021, to about +59, a first woman in 1907.
+
+Because **electoral_f** has three categories, `electoral_f * years_c` will produce two interaction rows in the output:
 
 | Row label | Meaning |
 |:----------|:--------|
-| `democ_fPartial Democracy:wdi_fertility` | Difference between Partial Democracy slope and Autocracy slope |
-| `democ_fDemocracy:wdi_fertility` | Difference between Democracy slope and Autocracy slope |
+| `electoral_fProportional:years_c` | Difference between the Proportional slope and the Plurality slope |
+| `electoral_fMixed:years_c` | Difference between the Mixed slope and the Plurality slope |
 
 ### Estimate the Regression
 
 **Run and observe: Estimate the additive and interaction models**
 
-```{r exercise-fhrol-models, exercise=TRUE, exercise.cap="Run and observe: Estimate the additive and interaction models for fertility and rule of law"}
-model_fhrol_additive <- lm(fh_rol ~ wdi_fertility + democ_f, data = qog)
-model_fhrol <- lm(fh_rol ~ wdi_fertility * democ_f, data = qog)
-summary(model_fhrol)
+```{r exercise-ipu-models, exercise=TRUE, exercise.cap="Run and observe: Estimate the additive and interaction models for history and electoral system"}
+model_rep_additive <- lm(women_percent ~ quota_f + electoral_f + years_c, data = ipu)
+model_rep_int <- lm(women_percent ~ quota_f + electoral_f * years_c, data = ipu)
+summary(model_rep_int)
 ```
 
 Before answering the questions below, locate the two interaction rows in your output and note their signs and magnitudes.
@@ -558,85 +571,102 @@ Before answering the questions below, locate the two interaction rows in your ou
 
 Applying the categorical × interval rules to three groups:
 
-**Practice: Identify the three fertility slopes**
+**Practice: Identify the three history slopes**
 
-```{r quiz-fhrol-slopes, echo=FALSE}
-question("Using the coefficients in your output, which statement correctly identifies the three conditional slopes of wdi_fertility?",
-  correct = "Right. The Autocracy slope is the main effect; the other two add the relevant interaction coefficient.",
-  answer("Autocracy: the wdi_fertility main effect directly; Partial Democracy: wdi_fertility + the Partial Democracy interaction coefficient; Democracy: wdi_fertility + the Democracy interaction coefficient",
+```{r quiz-ipu-slopes, echo=FALSE}
+question("Using the coefficients in your output, which statement correctly identifies the three conditional slopes of years_c?",
+  correct = "Right. The Plurality slope is the reference-category slope; the other two add the relevant interaction coefficient.",
+  answer("Plurality: the coefficient on years_c directly; Proportional: the years_c coefficient + the Proportional interaction coefficient; Mixed: the years_c coefficient + the Mixed interaction coefficient",
          correct = TRUE,
-         message = "This is the three-category extension of the rule you applied in Example 2. The Autocracy slope is the baseline (the main effect of wdi_fertility). Each other category's slope adds that category's interaction coefficient. Compute all three before interpreting the pattern."),
-  answer("All three slopes equal the wdi_fertility main effect because the interaction coefficients adjust the intercepts, not the slopes",
-         message = "In an interaction model, the interaction coefficients adjust the slopes, not the intercepts. The wdi_fertility main effect is the Autocracy slope only; the other categories have different slopes."),
-  answer("Autocracy: the interaction coefficient for Partial Democracy; Partial Democracy: the wdi_fertility main effect; Democracy: the interaction coefficient for Democracy",
-         message = "The main effect of wdi_fertility is always the reference category's slope (Autocracy here). The interaction coefficients are differences from that baseline, not the slopes themselves for other categories."),
-  answer("Each regime type's slope equals its interaction coefficient with wdi_fertility",
-         message = "The interaction coefficients are differences between each non-reference slope and the Autocracy slope --- not the non-reference slopes themselves. Add the interaction coefficient to the Autocracy slope to get each other category's slope."),
+         message = "This is the three-category extension of the rule you applied in Example 2. The Plurality slope is the baseline (the coefficient on years_c). Each other category's slope adds that category's interaction coefficient. Compute all three before interpreting the pattern."),
+  answer("All three slopes equal the coefficient on years_c because the interaction coefficients adjust the intercepts, not the slopes",
+         message = "In an interaction model, the interaction coefficients adjust the slopes, not the intercepts. The coefficient on years_c is the Plurality slope only; the other categories have different slopes."),
+  answer("Plurality: the interaction coefficient for Proportional; Proportional: the coefficient on years_c; Mixed: the interaction coefficient for Mixed",
+         message = "The coefficient on years_c is always the reference category's slope (Plurality here). The interaction coefficients are differences from that baseline, not the slopes themselves for other categories."),
+  answer("Each electoral system's slope equals its interaction coefficient with years_c",
+         message = "The interaction coefficients are differences between each non-reference slope and the Plurality slope --- not the non-reference slopes themselves. Add the interaction coefficient to the Plurality slope to get each other category's slope."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: use the same rule as Example 2 --- the reference category (Autocracy) uses the main effect directly; add the interaction coefficient for each other category."
+  try_again = "Hint: use the same rule as Example 2 --- the reference category (Plurality/Majority) uses the coefficient on years_c directly; add the interaction coefficient for each other category."
 )
 ```
 
 ### What the Interaction Coefficients Tell Us
 
-**Practice: Interpret the interaction coefficients**
+Read the three slopes carefully, because the variable runs backwards in time. A positive slope on **years_c** means that the *earlier* a parliament first seated a woman, the more women it is predicted to seat today.
 
-```{r quiz-fhrol-interaction, echo=FALSE}
-question("Suppose the wdi_fertility coefficient is -0.54, the Partial Democracy interaction coefficient is 0.26, and the Democracy interaction coefficient is -0.71. Which statement correctly describes the three conditional slopes?",
-  correct = "Right: Autocracy -0.54, Partial Democracy -0.28, Democracy -1.25.",
-  answer("Autocracy: -0.54; Partial Democracy: -0.54 + 0.26 = -0.28; Democracy: -0.54 + (-0.71) = -1.25",
+**Apply: Interpret the interaction coefficients**
+
+```{r quiz-ipu-interaction, echo=FALSE}
+question("Your output gives a years_c coefficient of 0.194, a Proportional interaction coefficient of -0.102, and a Mixed interaction coefficient of -0.232. Which statement correctly describes the three conditional slopes and what they mean?",
+  correct = "Right: Plurality 0.194, Proportional 0.091, Mixed -0.038 --- and the Mixed slope runs the other way.",
+  answer("Plurality: 0.194; Proportional: 0.194 + (-0.102) = 0.091; Mixed: 0.194 + (-0.232) = -0.038. Under plurality rules, for each year earlier that a parliament first seated a woman, it is predicted to seat about 0.19 percentage points more women today. Under proportional rules that figure is about 0.09. Under mixed rules the sign flips: the earlier the first woman arrived, the slightly fewer women are predicted now.",
          correct = TRUE,
-         message = "All three slopes are negative --- higher fertility is associated with lower rule of law in every regime type. The slopes differ in magnitude: the Partial Democracy slope is similar to the Autocracy slope, while the Democracy slope is considerably more negative. But whether these differences are statistically supported is a separate question."),
-  answer("Autocracy: -0.54; Partial Democracy: 0.26; Democracy: -0.71",
-         message = "The interaction coefficients are differences from the Autocracy slope, not the slopes themselves. The Partial Democracy slope is -0.54 + 0.26 = -0.28, and the Democracy slope is -0.54 + (-0.71) = -1.25."),
-  answer("Autocracy: 0; Partial Democracy: 0.26; Democracy: -0.71",
-         message = "The Autocracy slope is the wdi_fertility main effect (-0.54), not zero. The interaction coefficients tell you how much each other category's slope differs from the Autocracy slope."),
-  answer("Autocracy: -0.54; Partial Democracy: -0.54 - 0.26 = -0.80; Democracy: -0.54 - (-0.71) = 0.17",
-         message = "Add the interaction coefficients, do not subtract them. The Partial Democracy slope is -0.54 + 0.26 = -0.28; the Democracy slope is -0.54 + (-0.71) = -1.25."),
+         message = "History matters roughly twice as much under plurality rules as under proportional ones, which is the direction the institutional argument predicted. The Mixed slope is the surprise --- it is close to zero, and it points the other way."),
+  answer("Plurality: 0.194; Proportional: -0.102; Mixed: -0.232",
+         message = "The interaction coefficients are differences from the Plurality slope, not the slopes themselves. The Proportional slope is 0.194 + (-0.102) = 0.091, and the Mixed slope is 0.194 + (-0.232) = -0.038."),
+  answer("Plurality: 0.194; Proportional: 0.194 - (-0.102) = 0.296; Mixed: 0.194 - (-0.232) = 0.426",
+         message = "Add the interaction coefficients, do not subtract them. The Proportional slope is 0.194 + (-0.102) = 0.091; the Mixed slope is 0.194 + (-0.232) = -0.038."),
+  answer("All three slopes are positive, since both interaction coefficients are smaller in absolute value than the years_c coefficient",
+         message = "Check the Mixed calculation: 0.194 + (-0.232) = -0.038, which is negative. The Mixed interaction coefficient is larger in absolute value than the years_c coefficient, so it flips the sign of that slope."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Autocracy slope = wdi_fertility main effect. Each other slope = Autocracy slope + that category's interaction coefficient."
+  try_again = "Hint: Plurality slope = coefficient on years_c. Each other slope = Plurality slope + that category's interaction coefficient. Then check the sign of each."
 )
 ```
 
 ### Test the Interaction as a Whole
 
-With two interaction terms, individual p-values test whether each non-reference slope differs from the Autocracy slope. But they do not jointly test whether the fertility slope varies across all three regime types simultaneously. The joint F-test compares the additive and interaction models.
+With two interaction terms, individual p-values test whether each non-reference slope differs from the Plurality slope. But they do not jointly test whether the history slope varies across all three electoral systems simultaneously. The joint F-test compares the additive and interaction models.
 
-**Run and observe: Joint F-test for the fertility × regime type interaction**
+::: {.caution}
+**A note on the threshold.** An interaction term is estimated from differences between subgroups, so it carries less information than a main effect and is correspondingly harder to detect. Here the subgroups are 65 plurality systems, 77 proportional, and 36 mixed --- and the smallest of those carries the comparison the test depends on most. We will therefore evaluate this interaction at $\alpha = .10$ rather than the $\alpha = .05$ used elsewhere in the course. That choice is made here, before the test is run, and for the reason just given. Tutorial 11 explains why .05 is a convention rather than a rule.
+:::
 
-```{r exercise-fhrol-anova, exercise=TRUE, exercise.cap="Run and observe: Joint F-test comparing additive and interaction models"}
-anova(model_fhrol_additive, model_fhrol)
+**Run and observe: Joint F-test for the history × electoral system interaction**
+
+```{r exercise-ipu-anova, exercise=TRUE, exercise.cap="Run and observe: Joint F-test comparing additive and interaction models"}
+anova(model_rep_additive, model_rep_int)
 ```
 
-The F-statistic tests whether the two interaction terms together add significant explanatory power over the additive model. If the p-value is below .05, the data provide evidence that the fertility slope varies across regime types as a whole.
+The F-statistic tests whether the two interaction terms together add significant explanatory power over the additive model.
 
 ### Assess the Evidence for the Interaction
 
-**Practice: Evaluate whether the interaction is supported**
+**Apply: Evaluate whether the interaction is supported**
 
-```{r quiz-fhrol-evidence, echo=FALSE}
-question("Based on the p-values for both interaction terms, which statement best describes what the data tell us?",
-  correct = "Right. Neither interaction term reaches conventional significance.",
-  answer("Neither interaction coefficient is statistically significant at the conventional .05 level. The Partial Democracy comparison provides little evidence of a slope difference (p = .649), while the Democracy comparison (p = .055) provides suggestive but inconclusive evidence",
+```{r quiz-ipu-evidence, echo=FALSE}
+question("The joint F-test gives F = 2.49 with p = .086. The Proportional interaction coefficient has p = .224 and the Mixed interaction coefficient has p = .027. Which statement best describes what the data tell us?",
+  correct = "Right. The interaction is supported at the .10 level, but the contrast the hypothesis is about is not the one the data distinguish.",
+  answer("The joint test supports the interaction at the .10 threshold set for this model. But the two interaction terms behave differently: the Mixed comparison is statistically distinguishable from the Plurality slope (p = .027), while the Proportional comparison is not (p = .224) --- and the Proportional comparison is the one the hypothesis is about.",
          correct = TRUE,
-         message = "The two p-values tell different stories: there is almost no evidence that the Partial Democracy slope differs from the Autocracy slope, while the Democracy comparison is close enough to the conventional threshold to warrant attention even though it does not reach it. The point estimates differ, but the uncertainty is too large to draw firm conclusions from this sample."),
-  answer("The interaction is confirmed because all three conditional slopes are negative and differ numerically",
-         message = "An interaction concerns whether the slopes differ, not whether they share the same sign or merely have different point estimates. The interaction p-values assess the evidence that the population slope differences are not zero --- and neither reaches the conventional threshold."),
-  answer("The interaction should be dropped entirely because the p-values are above 0.05",
-         message = "A p-value just above 0.05 does not automatically mean a term should be dropped. Here, the weak evidence simply means we should report the finding cautiously rather than concluding that the interaction is clearly supported."),
-  answer("The near-unchanged Adjusted R-squared proves neither interaction term is statistically significant",
-         message = "The R-squared change and the significance test address separate questions. The p-values are the direct evidence about whether the slopes differ; the R-squared change tells us about overall fit. They are consistent here but do not prove each other."),
+         message = "This is the honest reading. The overall pattern runs the way the institutional argument predicts, and the joint test supports treating the slopes as unequal. But the specific claim --- that history matters more under plurality rules than under proportional ones --- is the comparison with the weakest evidence. The strong evidence concerns mixed systems, which the argument says little about."),
+  answer("The interaction is confirmed, and the hypothesis is supported, because the joint F-test clears the .10 threshold",
+         message = "The joint test tells us the slopes are not all equal. It does not tell us which pair differs. Here the Proportional-versus-Plurality contrast --- the one the hypothesis names --- has p = .224, so the joint result is being carried by a comparison the hypothesis did not make."),
+  answer("The interaction should be rejected because the joint test does not clear .05",
+         message = "The threshold for this model was set at .10 before the test was run, and for a stated reason: interaction terms are estimated from subgroup differences and are harder to detect. Moving the goalposts after seeing the p-value would be the problem; choosing them in advance is not."),
+  answer("Because the Mixed interaction coefficient is significant, mixed systems must have the strongest relationship between history and representation",
+         message = "Significance says the Mixed slope differs from the Plurality slope, not that it is larger. The Mixed slope is -0.038, the weakest of the three in magnitude --- and it points in the opposite direction. What is significant is the difference, not the strength."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: look at the p-values for each interaction row separately. Which are below .05?"
+  try_again = "Hint: the joint test and the individual tests answer different questions. Which contrast does the hypothesis name, and what is its p-value?"
 )
 ```
 
-### What We Learned About Fertility, Regime Type, and Rule of Law
+### What We Learned About History, Electoral Systems, and Representation
 
-Three observations summarize the findings. First, the point estimates: the fertility slope is -0.54 for Autocracies, -0.28 for Partial Democracies, and -1.25 for full Democracies --- all negative. Second, the evidence: the joint F-test for the two interaction terms does not reach the conventional .05 threshold, meaning the data do not provide sufficient evidence that the fertility slope varies across regime types as a whole. Neither individual interaction term reaches .05 (p = .649 and p = .055); the Partial Democracy comparison provides little evidence of a difference, while the Democracy comparison is suggestive but inconclusive. Third, the appropriate conclusion: the interaction is not clearly supported by the available evidence. This does not demonstrate that the slopes are equal --- the Democracy estimate in particular suggests a potentially meaningful difference, but the uncertainty in this sample is too large to draw a firm conclusion. A non-significant interaction is not a failed analysis; it tells us that the available evidence is not strong enough to provide a clear conclusion that the slopes differ.
+::: {.research-example}
+The interaction is supported at the .10 level: the joint test gives $F = 2.49$, $p = .086$, and the model's $R^2$ rises from .307 to .327. The three conditional slopes tell the story the coefficients only imply. Under plurality rules, for each year earlier that a parliament first seated a woman, it is predicted to seat 0.194 percentage points more women today. Under proportional rules that figure is 0.091 --- less than half. Under mixed rules it is -0.038, essentially nothing.
+
+The institutional argument anticipated the first two. What it did not anticipate is that the only contrast the data distinguish clearly is the one it says least about. Plurality against proportional --- the comparison the theory is built on --- gives $p = .224$. Plurality against mixed gives $p = .027$. So the pattern points the way the theory predicts while the evidence for the specific claim is weak, and the evidence that *is* strong concerns a category the theory treats as a residual.
+
+The crossing points make this concrete, once translated. Zero on the centered scale is a parliament that first seated a woman around 1966. The mixed and plurality lines cross at a parliament whose first woman arrived around 1941. Where the first woman arrived *later* than that, mixed systems are predicted to seat more women than plurality systems; where she arrived *earlier*, plurality systems are predicted to seat more --- and the data run well back past 1941, to first women arriving in 1907. The proportional and plurality lines would cross at a parliament whose first woman arrived around 1895, earlier than any country in the file. So across the whole observed range, proportional systems stay ahead; it is only the mixed comparison that actually reverses.
+
+The two lines are not converging on a common value. Under plurality rules, the longer ago a parliament seated its first woman, the more women it is predicted to seat today. Under mixed rules the prediction runs the other way: the longer ago the first woman arrived, the *fewer* women are predicted now. The two are moving in opposite directions, which is what makes the crossing a reversal rather than a meeting point.
+
+A model can support a hypothesis in its overall shape while leaving its central comparison unresolved, and saying so is more useful than reporting only the parts that worked.
+:::
+
 
 ## Check Your Understanding
 
@@ -680,7 +710,7 @@ question("Using the formula $-1.8 + 0.4(\\text{education})$, what are the condit
   answer("At education = 8: 1.4 percentage points; at education = 16: 4.6 percentage points --- unemployment is associated with higher turnout at both values, and the estimated association grows stronger with education",
          correct = TRUE,
          message = "The estimated unemployment slope is 1.4 at education = 8 and 4.6 at education = 16. The estimated slope is positive at both values and grows larger with education --- the positive association between unemployment and turnout is larger in districts with more education."),
-  answer("At education = 8: -1.8 percentage points; at education = 16: -1.8 percentage points --- the main effect applies regardless of education",
+  answer("At education = 8: -1.8 percentage points; at education = 16: -1.8 percentage points --- the category coefficient applies regardless of education",
          message = "-1.8 is the conditional slope only when education equals zero, which is outside the observed range. At observed values, the interaction term changes the slope substantially. Substitute 8 and 16 into the formula: -1.8 + 0.4(education)."),
   answer("At education = 8: 0.4 percentage points; at education = 16: 0.4 percentage points --- the interaction coefficient is the same at every value",
          message = "0.4 is the interaction coefficient --- the rate at which the unemployment slope changes, not the conditional slope itself. Compute the conditional slope at each value: -1.8 + 0.4(8) and -1.8 + 0.4(16)."),
@@ -717,7 +747,7 @@ question("A researcher estimates a model with two predictors and finds both are 
 [**Conditional relationships**]{.important-text} arise when the estimated association of one predictor with the outcome changes across values or categories of another. Estimating them requires adding a term multiplying the two predictors together, created with the `*` operator in R.
 
 ::: {.tip}
-**Always include the constituent terms alongside the interaction.** The `*` operator handles this automatically --- `X1 * X2` expands to `X1 + X2 + X1:X2`. Retaining both main effects allows the interaction coefficient to represent how a slope changes across values of the other predictor. If you omit a constituent term, the coefficients will no longer have the interpretations described in this tutorial.
+**Always include the constituent terms alongside the interaction.** The `*` operator handles this automatically --- `X1 * X2` expands to `X1 + X2 + X1:X2`. Retaining both constituent terms allows the interaction coefficient to represent how a slope changes across values of the other predictor. If you omit a constituent term, the coefficients will no longer have the interpretations described in this tutorial.
 :::
 
 Both interaction types follow the same underlying logic: begin with a baseline slope and add the contribution represented by the interaction term.

@@ -13,46 +13,9 @@ description: >
 
 ## Overview {#main-content}
 
-In Tutorials 15 and 16 you learned to estimate linear regression models and interpret their coefficients. In Tutorial 17 you learned to translate those estimates into concrete predicted values and prediction plots --- making the model's implications visible across the full observed range of a predictor. Those tutorials all assumed an additive structure: the estimated association between any predictor and the outcome was the same regardless of the values of the other predictors.
+Interaction coefficients show whether a relationship changes across values or categories of another predictor, but they do not always make the resulting pattern easy to see. How much does a predicted outcome differ across realistic cases? Where do group differences widen, narrow, or reverse? Which parts of the pattern are estimated most precisely? Predicted values and plots turn the interaction into comparisons that can be interpreted directly.
 
-Tutorial 18 relaxed that assumption. Interaction models estimate associations that vary --- the estimated association between one predictor and the outcome depends on the level of another predictor. You interpreted those conditional associations numerically from the coefficient table.
-
-This tutorial completes the loop. The same tools from Tutorial 17 apply here --- `predict()` from base R and `plot_model()` from the [sjPlot]{.package-name} package --- but what they reveal is richer. When the model includes an interaction, prediction plots are no longer about a single line with a single association: they show how the estimated association changes across the full range of one predictor as the other varies. Non-parallel lines, changing gaps between groups, and crossover points are all findings that coefficient tables can only hint at.
-
-In this tutorial you will:
-
-* Choose a prediction strategy appropriate to the type of interaction in your model --- when both interacting predictors are interval variables versus when one is categorical --- and understand why the two cases require different comparison structures
-* Use `predict()` to calculate model-implied outcomes at strategically chosen combinations of the interacting predictors
-* Use `plot_model()` from the [sjPlot]{.package-name} package to visualize conditional relationships for both interval × interval and categorical × interval interactions
-* Interpret non-parallel prediction lines --- including changing predicted differences, the group gap at representative values, and where lines cross
-
-```{r setup, include=FALSE}
-library(learnr)
-library(dplyr)
-library(ggplot2)
-library(gradethis)
-library(stargazer)
-library(sjPlot)
-tutorial_options(exercise.checker = gradethis::grade_learnr,
-                 exercise.completion = FALSE)
-knitr::opts_chunk$set(error = TRUE)
-data("qog", package = "QPATutorialsCourse")
-qog$rights[qog$fh_pr <= 2] <- 0
-qog$rights[qog$fh_pr >  2] <- 1
-qog$rights_f <- factor(qog$rights, labels = c("Few Rights", "Many Rights"))
-qog$democ <- dplyr::case_when(
-  qog$fh_ipolity2 < 4  ~ 0,
-  qog$fh_ipolity2 > 6  ~ 2,
-  TRUE                  ~ 1
-)
-qog$democ_f <- factor(qog$democ, labels = c("Autocracy", "Partial Democracy", "Democracy"))
-data("counties", package = "QPATutorialsCourse")
-model_int <- lm(dem2p_percent ~ mortality_risk_25_45 * wage_growth +
-                  college_grad_percent + hispanic_percent +
-                  white_percent + Black_percent, data = counties)
-model_env <- lm(epi_epi ~ rights_f * ipi_tradeopen + hf_efiscore, data = qog)
-```
-
+This tutorial shows how to calculate and visualize predictions from interaction models. It builds on Tutorial 18, where you learned to interpret interaction coefficients and conditional slopes; here, you will use those results to show what the model predicts across substantively meaningful combinations of the predictors.
 ## The Prediction Strategy for Interaction Models
 
 In Tutorial 17, every time you produced a prediction plot, you made a choice: which predictor goes on the x-axis, and what values do the others take? For an additive model, the second choice was mostly a communication decision. You might show predictions for Southern states at average poverty and proportion non-white, or for Western states at the same values --- the held values shifted the line up or down, but the steepness of the line never changed. The association between the x-axis predictor and the outcome was the same regardless of which baseline you chose. That is the defining feature of an additive model: one set of estimated associations, visible from any angle.
@@ -153,7 +116,7 @@ stargazer(model_int,
                                "Mortality Risk x Wage Growth"))
 ```
 
-**Reading the predicted differences from Tutorial 18.** In Tutorial 18 you computed the predicted difference in Clinton's vote associated with a one-unit change in mortality risk at specific wage growth values:
+**Reading the predicted differences from Tutorial 18.** In Tutorial 18 you computed the predicted change in Clinton's vote for a one-unit increase in mortality risk at specific wage growth values:
 
 - The mortality risk association **when wage growth = 0**: −2.494 (the main effect)
 - The interaction coefficient: −0.139 (how much the mortality risk association changes per unit of wage growth)
@@ -162,13 +125,13 @@ stargazer(model_int,
 - At low wage growth (≈ −4.7, 25th percentile): −2.494 + (−0.139)(−4.7) ≈ **−1.84**
 - At high wage growth (≈ 12.7, 75th percentile): −2.494 + (−0.139)(12.7) ≈ **−4.26**
 
-These are per-unit figures from the coefficient table. The predict() calls below will make the predicted differences across a realistic range of mortality risk concrete.
+These are per-unit figures from the coefficient table. In Tutorial 18, these conditional slopes described how sharply Clinton's predicted vote changes with mortality risk at different wage growth values. Here, we translate those slopes into predicted vote shares and predicted differences for realistic county profiles.
 
 ### Obtain Specific Predicted Values
 
 Following the interval × interval strategy: we compute two predicted values at each of two wage growth levels --- holding all other predictors at their means --- to make the changing predicted difference concrete.
 
-**Comparison 1** fixes wage growth at a low value (≈ −4.7, 25th percentile) and varies mortality risk from 2.0 (near its 25th percentile) to 5.0 (near its 75th percentile), holding all controls at their means. The difference between the two predicted values is the model-implied predicted change in Clinton's vote associated with moving from low to high mortality risk in counties with weak or declining wages.
+**Comparison 1** fixes wage growth at a low value (≈ −4.7, 25th percentile) and varies mortality risk from 2.0 (near its 25th percentile) to 5.0 (near its 75th percentile), holding all controls at their means. The difference between the two predicted values is the model-implied change in Clinton's predicted vote when mortality risk moves from low to high in counties with weak or declining wages.
 
 **Comparison 2** does the same at a high wage growth value (≈ 12.7, 75th percentile). Comparing the two predicted differences --- one from Comparison 1, one from Comparison 2 --- shows directly how much the interaction changes the relationship between mortality risk and Clinton's vote across different economic contexts.
 
@@ -220,8 +183,8 @@ Compute the difference between the two values within each comparison before answ
 
 ```{r quiz-predict-int, echo=FALSE}
 question("Your four predicted values give you two predicted differences: the model-implied change in Clinton's vote when moving from low to high mortality risk at low wage growth, and the same at high wage growth. Which statement best describes what those two predicted differences together reveal?",
-  correct = "Right. The predicted difference is larger at high wage growth --- mortality risk is associated with a bigger drop where wages are growing faster.",
-  answer("The predicted change in Clinton's vote associated with moving from low to high mortality risk is larger (more negative) in counties with high wage growth than in counties with low wage growth --- mortality risk is associated with a bigger drop in Clinton support where wages are growing faster",
+  correct = "Right. The predicted difference is larger at high wage growth --- mortality risk predicts a bigger drop where wages are growing faster.",
+  answer("The change in Clinton's predicted vote when mortality risk moves from low to high is larger (more negative) in counties with high wage growth than in counties with low wage growth --- mortality risk is associated with a bigger drop in Clinton support where wages are growing faster",
          correct = TRUE,
          message = "Subtracting within each comparison: in Comparison 1 (low wage growth, ≈ −4.7), moving from mortality risk 2.0 to 5.0 predicts a drop of about 5.5 percentage points. In Comparison 2 (high wage growth, ≈ 12.7), the same move predicts a drop of about 12.7 percentage points. The interaction changes the predicted difference by about 7 percentage points across those two wage growth levels --- exactly what the interaction coefficient of −0.139 quantifies per unit of wage growth."),
   answer("The predicted change in Clinton's vote is nearly identical in both comparisons, suggesting wage growth does not meaningfully change the relationship between mortality risk and Clinton's vote",
@@ -323,7 +286,7 @@ Since [sjPlot]{.package-name} was loaded in the exercise above, you can assume i
 Read the plot carefully --- look at the direction and steepness of each line, the specific predicted values you can read at the ends of the lines, the confidence bands, and whether the lines converge or diverge.
 
 ```{r quiz-predplot-int-pattern, echo=FALSE}
-question("Which statement best describes how the predicted drop in Clinton's vote associated with moving from low to high mortality risk changes as wage growth increases?",
+question("Which statement best describes how the predicted drop in Clinton's vote when mortality risk moves from low to high changes as wage growth increases?",
   correct = "Right. The predicted drop is largest where wage growth is highest --- the lines diverge left to right.",
   answer("The predicted drop is largest in high-wage-growth counties and smallest in low-wage-growth counties --- the lines diverge from left to right, showing the interaction directly",
          correct = TRUE,
@@ -331,7 +294,7 @@ question("Which statement best describes how the predicted drop in Clinton's vot
   answer("The predicted drop is the same in all three wage growth groups --- the lines are parallel",
          message = "Look at how much each line falls from the left to the right edge of the plot. The three falls are different sizes --- the lines are not parallel, which is the whole point of the interaction."),
   answer("The predicted drop is largest in low-wage-growth counties --- economic hardship amplifies the association between mortality risk and Clinton's vote",
-         message = "Check which line is steepest. The red line (lowest wage growth) is the shallowest; the green line (highest wage growth) is the steepest. The interaction coefficient is negative, meaning higher wage growth is associated with a more negative predicted difference."),
+         message = "Check which line is steepest. The red line (lowest wage growth) is the shallowest; the green line (highest wage growth) is the steepest. The interaction coefficient is negative, meaning higher wage growth produces a more negative predicted difference in the fitted model."),
   answer("The lines converge as mortality risk increases, showing that the wage growth difference in predicted Clinton vote disappears at high mortality risk",
          message = "Look at the right side of the plot --- the lines are further apart there than on the left. They diverge, not converge, as mortality risk rises."),
   allow_retry = TRUE,
@@ -359,31 +322,31 @@ question("Using the mean wage growth line, approximately what is the predicted C
 ```
 
 ```{r quiz-predplot-int-uncertainty, echo=FALSE}
-question("Look at the confidence bands in the plot. Where are the individual predicted vote shares estimated more and less precisely?",
-  correct = "Right. Bands are narrower at low mortality risk and wider at high mortality risk --- individual predictions are more precise at the low end.",
-  answer("The bands are narrower at low mortality risk and wider at high mortality risk, indicating that the individual predicted vote shares are estimated more precisely at the low end of the mortality risk range --- band overlap should not be treated as a formal test of whether predictions for the wage-growth values differ",
+question("Look at the confidence bands in the plot. Where are the expected vote shares estimated more and less precisely?",
+  correct = "Right. Bands are narrower at low mortality risk and wider at high mortality risk --- the expected vote shares are estimated more precisely at the low end.",
+  answer("The bands are narrower at low mortality risk and wider at high mortality risk, indicating that the expected vote shares are estimated more precisely at the low end of the mortality risk range",
          correct = TRUE,
-         message = "Band width reflects uncertainty about each individual prediction. At low mortality risk the bands are narrow, meaning each prediction is estimated more precisely; at high mortality risk the bands widen substantially. Determining whether the predicted differences among wage-growth groups are statistically distinguishable would require intervals or tests for the differences themselves, not a visual inspection of band overlap."),
+         message = "Band width reflects uncertainty around the expected outcome for counties with each predictor profile. At low mortality risk, the bands are narrow, so the model estimates the average vote share for those counties more precisely. At high mortality risk, the bands widen, indicating greater uncertainty. The overlap or separation of the bands also helps show how distinctly the expected outcomes are estimated, but it is not an exact significance test of the differences among the wage-growth lines."),
   answer("The bands are equally wide across the full mortality risk range, so the uncertainty in the predicted values is the same at every point",
          message = "Look at the left and right ends of the plot. The bands are visibly narrower at low mortality risk and wider at high mortality risk --- confidence bands for prediction plots are typically narrower where data are denser and wider where data are sparser."),
   answer("The bands are widest at low mortality risk where the lines are most separated, confirming the interaction is most reliable at the high end of the scale",
          message = "This reverses what the plot shows. The bands are narrowest at low mortality risk --- where the lines are most separated --- and widest at high mortality risk where the lines converge. Look at the shaded regions at the far left and far right of the plot."),
   answer("The bands tell you only about overall model fit --- wider bands mean lower R-squared and narrower bands mean higher R-squared",
-         message = "Confidence bands in a prediction plot reflect uncertainty about the predicted value at each specific covariate profile, not overall model fit. R-squared is a single number summarizing overall fit; the bands vary across the x-axis depending on data density and the covariance structure of the estimates."),
+         message = "Confidence bands in a prediction plot reflect uncertainty around the expected outcome at each specific predictor profile, not overall model fit. R-squared is a single number summarizing overall fit; the bands vary across the x-axis depending on data density and the covariance structure of the estimates."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: look at the left side of the plot versus the right side. Where are the bands narrowest, indicating more precise individual predictions? Where do the bands widen, indicating less precision?"
+  try_again = "Hint: look at the left side of the plot versus the right side. Where are the bands narrowest, indicating more precise estimates of the expected vote share? Where do the bands widen, indicating less precision?"
 )
 ```
 
 ### What We Learned About Mortality Risk, Wage Growth, and the Vote
 
-The interaction plot makes visible what the coefficient table only hints at: the predicted change in Clinton's vote associated with higher mortality risk is not the same everywhere --- it varies with local economic conditions. Whether this reflects the political meaning of health outcomes differing under different economic conditions is a substantive question the regression cannot answer; it establishes the estimated pattern, not the mechanism.
+The interaction plot makes visible what the coefficient table only hints at: the predicted change in Clinton's vote as mortality risk increases is not the same everywhere --- it varies with local economic conditions. Whether this reflects the political meaning of health outcomes differing under different economic conditions is a substantive question the regression cannot answer; it establishes the estimated pattern, not the mechanism.
 
 Here is what a complete interpretation looks like, working through all six components from the Interpreting Interaction Plots section above:
 
 ::: {.research-example}
-*As mortality risk increases, predicted Clinton two-party vote share declines in all three wage growth groups, but the steepness of that decline differs. All control variables are held at their means throughout. At low mortality risk (≈ 2.5%), the three lines are clearly separated: counties at high wage growth (≈ 9%) are predicted to give Clinton about 42% of the two-party vote, while counties at low wage growth (≈ −0.35%) are predicted to give her about 38%. As mortality risk rises to approximately 7.5%, all three groups converge toward lower predicted values --- roughly 10--15% of the two-party vote --- and the confidence bands widen substantially, indicating greater uncertainty about the individual predicted vote shares at high mortality risk. The fitted lines also converge there, so the model-implied differences among the wage-growth values become smaller. Determining whether those predicted differences are statistically distinguishable would require intervals or tests for the differences themselves. This is consistent with the hypothesis that the estimated association between mortality risk and Clinton's vote varies with wage growth --- counties with stronger economic growth show a steeper predicted decline in Clinton's vote as mortality risk increases.*
+*As mortality risk increases, predicted Clinton two-party vote share declines in all three wage growth groups, but the steepness of that decline differs. All control variables are held at their means throughout. At low mortality risk (≈ 2.5%), the three lines are clearly separated: counties at high wage growth (≈ 9%) are predicted to give Clinton about 42% of the two-party vote, while counties at low wage growth (≈ −0.35%) are predicted to give her about 38%. As mortality risk rises to approximately 7.5%, all three groups converge toward lower predicted values --- roughly 10--15% of the two-party vote --- and the confidence bands widen substantially, indicating greater uncertainty about the expected vote shares at high mortality risk. The fitted lines also converge there, so the model-implied differences among the wage-growth values become smaller. The overlap of the bands indicates that the expected outcomes are less distinctly estimated there, but it is not an exact significance test of the differences among the wage-growth lines. This is consistent with the hypothesis that the estimated association between mortality risk and Clinton's vote varies with wage growth --- counties with stronger economic growth show a steeper predicted decline in Clinton's vote as mortality risk increases.*
 :::
 
 ## Example 2: Political Rights, Trade Openness, and Environmental Performance
@@ -420,6 +383,8 @@ stargazer(model_env,
 
 - **Few Rights slope** (reference group, main effect only): approximately **4.75** per unit of trade openness
 - **Many Rights slope** (main effect + interaction): 4.75 + (−4.63) ≈ **0.12** per unit of trade openness
+
+In Tutorial 18, these conditional slopes showed how the trade-openness association differs by rights status. Here, predicted values show what those different slopes imply for countries at substantively meaningful levels of trade openness.
 
 ### Obtain Specific Predicted Values
 
@@ -523,7 +488,7 @@ grade_this({
 ```{r quiz-predict-env, echo=FALSE}
 question("Your four predicted values show the interaction pattern concretely. Which statement best describes what Comparison 1 and Comparison 2 together reveal?",
   correct = "Right. Who leads at the mean, and how steep the Few Rights slope is.",
-  answer("At mean trade openness, Few Rights countries are predicted to outperform Many Rights countries; within Few Rights countries, moving from low to high trade openness is associated with a large additional increase --- together the two comparisons show who leads and how steep the Few Rights slope is",
+  answer("At mean trade openness, Few Rights countries are predicted to outperform Many Rights countries; within Few Rights countries, moving from low to high trade openness predicts a large additional increase --- together the two comparisons show who leads and how steep the Few Rights slope is",
          correct = TRUE,
          message = "Comparison 1 is a snapshot of the group difference at the mean --- it shows who leads and by how much at a typical trade level. Comparison 2 isolates the Few Rights slope across a realistic range of trade openness. Together they tell the story the interaction plot will show continuously."),
   answer("The two comparisons show the same pattern --- both Comparison 1 and Comparison 2 describe the group difference between Few Rights and Many Rights countries at different trade openness levels",
@@ -602,7 +567,7 @@ question("The plot shows predicted values for Few Rights and Many Rights countri
   answer("This orientation is always preferred when one variable is categorical, because it makes the group comparison easiest to read",
          message = "The choice depends on what you want to communicate. Putting the interval variable on the x-axis shows the full continuous range and is more informative for an interaction interpretation."),
   answer("Because the confidence intervals overlap at the middle trade openness value, the interaction is not statistically significant",
-         message = "Overlapping confidence intervals reflect uncertainty about the predicted values at specific covariate profiles. Statistical significance requires the coefficient test from Tutorial 18."),
+         message = "Overlapping confidence intervals show uncertainty around the expected outcomes at those predictor profiles. They may indicate that the predictions are not sharply separated at that point, but they do not provide an exact test of the interaction coefficient. Statistical significance requires the coefficient test from Tutorial 18."),
   answer("This orientation and the continuous-axis orientation show exactly the same information in different visual formats",
          message = "They show related but not identical information. This orientation gives snapshots at three trade values; the continuous orientation shows the full range for each group."),
   allow_retry = TRUE,
@@ -685,7 +650,7 @@ grade_this({
     fail("Use labs(color = \"Rights Status\") to set the legend title.")
   if (!grepl("Predictions are for countries with average economic freedom.", code_nc, fixed = TRUE))
     fail("Use the prescribed caption ending with a period.")
-  pass("Well done. Look carefully at the two lines --- their slopes, whether they are parallel, and where they cross --- before answering.")
+  pass("Well done. Look carefully at the two lines --- especially their slopes and whether they are parallel --- before answering.")
 })
 ```
 
@@ -706,7 +671,7 @@ question_checkbox(
   answer("Because the adjusted R-squared is below 0.65, the model's predictions are unreliable",
          correct = FALSE,
          message = "Adjusted R-squared summarizes overall explanatory fit. It does not determine whether the interaction coefficient or specific predictions are reliable."),
-  correct = "Right. Non-parallel lines, a steep Few Rights slope, a near-flat Many Rights slope, and a crossover at approximately 6.3.",
+  correct = "Right. The central finding is the contrast between the steep Few Rights slope and the near-flat Many Rights slope. The fitted lines also cross at approximately 6.3.",
   incorrect = "Not quite. Review which statements are accurate descriptions of the plot.",
   allow_retry = TRUE,
   random_answer_order = TRUE
@@ -717,12 +682,12 @@ question_checkbox(
 
 The interaction coefficient of −4.63 quantifies the difference between the two estimated associations. The plot makes that difference visible: the Few Rights line sweeps steeply upward while the Many Rights line is nearly flat.
 
-The fitted prediction lines cross at approximately **ipi_tradeopen** = 6.3 based on the point estimates. Below that value, the model predicts Many Rights countries to have higher environmental performance; above it, the steep Few Rights predicted association produces higher predicted values. This crossover is a feature of the fitted predictions and its exact location is estimated with uncertainty.
+As an additional feature of the fitted point predictions, the lines cross at approximately **ipi_tradeopen** = 6.3: below that value, Many Rights countries have higher predicted environmental performance, while above it, Few Rights countries do. The exact location is estimated with uncertainty and should not be treated as a precise threshold.
 
 Here is what a complete interpretation looks like, working through all six components from the Interpreting Interaction Plots section above:
 
 ::: {.research-example}
-*A complete interpretation of the interaction prediction plot: as trade openness increases, predicted environmental performance rises steeply in Few Rights countries and barely changes in Many Rights countries. Predictions hold the economic freedom score at its mean throughout. At a trade openness score of about 5, Few Rights countries are predicted to score approximately 46 on the Environmental Performance Index while Many Rights countries are predicted to score approximately 52 --- Many Rights are ahead. At a score of about 9, Few Rights countries are predicted to reach approximately 65 while Many Rights countries remain near 53 --- Few Rights have overtaken them by a wide margin. The prediction lines and their confidence bands overlap near the middle of the trade-openness range, where the fitted values are closest. The crossover near 6.3 is a feature of the point estimates and should not be interpreted as a precisely determined threshold. Assessing uncertainty about the crossover or the difference between the predictions would require calculations designed specifically for those quantities. The crossing of the lines at approximately 6.3 marks where the predicted advantage shifts from Many Rights to Few Rights countries --- a feature of the point estimates that should be interpreted with caution given the uncertainty in that region. This is consistent with the hypothesis that the estimated association between trade openness and environmental performance is stronger in countries with limited political rights.*
+*A complete interpretation of the interaction prediction plot: as trade openness increases, predicted environmental performance rises steeply in Few Rights countries and barely changes in Many Rights countries. Predictions hold the economic freedom score at its mean throughout. At a trade openness score of about 5, Few Rights countries are predicted to score approximately 46 on the Environmental Performance Index while Many Rights countries are predicted to score approximately 52 --- Many Rights are ahead. At a score of about 9, Few Rights countries are predicted to reach approximately 65 while Many Rights countries remain near 53 --- Few Rights have overtaken them by a wide margin. The prediction lines and their confidence bands overlap near the middle of the trade-openness range, where the fitted values are closest. As an additional feature of the point estimates, the lines cross near 6.3, where the predicted advantage shifts from Many Rights to Few Rights countries; this should not be treated as a precisely determined threshold. This is consistent with the hypothesis that the estimated association between trade openness and environmental performance is stronger in countries with limited political rights.*
 :::
 
 ## Check Your Understanding
@@ -740,7 +705,7 @@ question("Given that both interacting predictors are interval variables, which p
   answer("Use the group-difference strategy: compute one predicted value per category at the mean of the other variable, then vary the interval predictor within the key category",
          message = "The group-difference strategy applies when one variable is categorical. With two interval variables there are no discrete groups --- you choose specific values of one to show how the predicted difference varies."),
   answer("Produce a single prediction plot with foreign aid on the x-axis --- an interval x interval interaction is interpreted the same way as an additive model plot",
-         message = "An interaction changes the interpretation: the predicted difference associated with foreign aid varies with GDP per capita. A single plot shows only one slice. Bracket notation is needed to show how the relationship changes across GDP levels."),
+         message = "An interaction changes the interpretation: the predicted difference produced by changing foreign aid varies with GDP per capita. A single plot shows only one slice. Bracket notation is needed to show how the relationship changes across GDP levels."),
   answer("Use a joint F-test first; if non-significant, revert to the additive model prediction strategy",
          message = "Prediction plots are informative regardless of significance --- they show the estimated pattern from the fitted model. The joint F-test informs how strongly you can interpret the pattern, not whether to plot it."),
   allow_retry = TRUE,
@@ -784,7 +749,7 @@ question("How would you correct this claim?",
   answer("The colleague is correct --- non-parallel lines can only arise when the interaction coefficient is significantly different from zero",
          message = "Non-parallel lines result from any nonzero estimated interaction, regardless of significance. A non-significant interaction still produces non-parallel lines; they just reflect sampling variation that could plausibly be zero in the population."),
   answer("The colleague is correct if the confidence bands for the three lines do not overlap, since that confirms a statistically significant separation",
-         message = "Non-overlapping prediction bands reflect uncertainty about predicted values at specific covariate profiles, not about the statistical significance of the interaction coefficient."),
+         message = "Non-overlapping prediction bands show that the expected outcomes are visually well separated relative to their uncertainty at those predictor profiles. They do not, by themselves, establish that the interaction coefficient is statistically significant."),
   answer("The plot is uninformative about the interaction --- only the coefficient table can say whether the interaction is clearly supported by the data",
          message = "The plot is informative about the estimated pattern --- it just cannot establish statistical significance. The right correction is to clarify what the plot shows and what the coefficient test adds."),
   allow_retry = TRUE,
@@ -809,7 +774,7 @@ Across Tutorials 17 and 19 you applied `predict()` and `plot_model()` to additiv
 
 6. **Non-parallel fitted lines appear whenever an interaction term is in the model**, whether or not the interaction is statistically significant. The plot shows the estimated pattern; the coefficient test indicates how strongly the data support a nonzero interaction.
 
-7. **A complete interpretation of an interaction plot covers:** the pattern for each group or line (direction and steepness), the held values, specific predicted values and their differences, the confidence bands, any crossover (described as a feature of the fitted point estimates with appropriate uncertainty), and the connection to the hypothesis.
+7. **A complete interpretation of an interaction plot covers:** the pattern for each group or line (direction and steepness), the held values, specific predicted values and their differences, the confidence bands, and the connection to the hypothesis. When the fitted lines cross and the change in ordering is substantively meaningful, you may also note the crossover as a feature of the point estimates, with appropriate caution about its uncertainty.
 
 ## Submit Your Work
 

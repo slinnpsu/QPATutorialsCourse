@@ -5,22 +5,22 @@
 \alias{states}
 \title{U.S. State Characteristics in 2010}
 \format{
-A data frame with 50 rows and 927 variables.
+A data frame with 50 rows and 928 variables.
 }
 \source{
 Correlates of State Policy Project, Institute for Public Policy and Social
 Research, Michigan State University.
 
-`nonwhite`: Kelly and Witko (2014).
+\code{nonwhite}: Kelly and Witko (2014).
 
-`povrate`: University of Kentucky Center for Poverty Research,
+\code{povrate}: University of Kentucky Center for Poverty Research,
 National Welfare Data.
 
-`hs_dem_prop_all`: Klarner, State Partisan Balance Data.
+\code{hs_dem_prop_all}: Klarner, State Partisan Balance Data.
 
-`liberal`: Enns and Koch (2013).
+\code{liberal}: Enns and Koch (2013).
 
-`guncontrol_opencarry`: Caughey and Warshaw (2016).
+\code{guncontrol_opencarry}: Caughey and Warshaw (2016).
 }
 \usage{
 states
@@ -33,61 +33,64 @@ and public-policy characteristics for the 50 U.S. states in 2010.
 The dataset was extracted from the Correlates of State Policy Project
 compiled at Michigan State University. The complete object contains a large
 number of variables from many original sources. The variables described
-below are the identifiers and substantive variables used in the
-QPATutorialsCourse tutorials.
+below are a selected subset. Consult the Correlates of State Policy Project
+codebook for definitions of the remaining variables.
 
-
-The variables used in the QPATutorialsCourse tutorials are:
+The variables described here are:
 
 \describe{
 
-  \item{year}{
-    Observation year. All observations are from 2010.
-    Missing values: 0.
-  }
+\item{year}{
+Observation year. All observations are from 2010.
+Missing values: 0.
+}
 
-  \item{state}{
-    Full state name.
-    Missing values: 0.
-  }
+\item{state}{
+Full state name.
+Missing values: 0.
+}
 
-  \item{guncontrol_opencarry}{
-    Indicator for whether the state had an open-carry law for guns:
-    0 = no and 1 = yes. Original CSPP coverage: 1961--2014.
-    Missing values: 0.
-  }
+\item{guncontrol_opencarry}{
+Indicator for whether the state had an open-carry law for guns:
+0 = no and 1 = yes. Original CSPP coverage: 1961--2014.
+Missing values: 0.
+}
 
-  \item{nonwhite}{
-    Proportion of the state population that is non-White.
-    Original CSPP coverage: 1974--2011.
-    Missing values: 0.
-  }
+\item{nonwhite}{
+Proportion of the state population that is non-White.
+Original CSPP coverage: 1974--2011.
+Theoretical range: 0--1.
+Missing values: 0.
+}
 
-  \item{region_census}{
-    Census region, coded 1 = South, 2 = West, 3 = Midwest, and
-    4 = Northeast.
-    Missing values: 0.
-  }
+\item{region_census}{
+Census region, coded 1 = South, 2 = West, 3 = Midwest, and
+4 = Northeast.
+Missing values: 0.
+}
 
-  \item{povrate}{
-    Estimated percentage of individuals living in poverty. The official
-    poverty definition uses money income before taxes and excludes capital
-    gains and noncash benefits such as public housing, Medicaid, and food
-    stamps. Original CSPP coverage: 1980--2017.
-    Missing values: 0.
-  }
+\item{povrate}{
+Estimated percentage of individuals living in poverty. The official
+poverty definition uses money income before taxes and excludes capital
+gains and noncash benefits such as public housing, Medicaid, and food
+stamps. Original CSPP coverage: 1980--2017.
+Theoretical range: 0--100.
+Missing values: 0.
+}
 
-  \item{hs_dem_prop_all}{
-    Proportion of state house seats held by Democrats.
-    Original CSPP coverage: 1936--2011.
-    Missing values: 1.
-  }
+\item{hs_dem_prop_all}{
+Proportion of state house seats held by Democrats.
+Original CSPP coverage: 1936--2011.
+Theoretical range: 0--1.
+Missing values: 1.
+}
 
-  \item{liberal}{
-    Over-time estimate of the percentage of state residents who identify
-    as political liberals. Original CSPP coverage: 1976--2010.
-    Missing values: 0.
-  }
+\item{liberal}{
+Over-time estimate of the percentage of state residents who identify
+as political liberals. Original CSPP coverage: 1976--2010.
+Theoretical range: 0--100.
+Missing values: 0.
+}
 }
 
 The Correlates of State Policy Project combines information from many
@@ -97,10 +100,10 @@ original coverage, measurement procedures, and source organizations.
 Tutorial 17 creates two additional variables from this dataset:
 
 \itemize{
-  \item `p.liberal`, equal to `liberal / 100`, which expresses the liberal
-  percentage as a proportion.
-  \item `region_censusf`, a factor version of `region_census` with levels
-  `"South"`, `"West"`, `"Midwest"`, and `"Northeast"`.
+\item \code{p.liberal}, equal to \code{liberal / 100}, which expresses the liberal
+percentage as a proportion.
+\item \code{region_censusf}, a factor version of \code{region_census} with levels
+\code{"South"}, \code{"West"}, \code{"Midwest"}, and \code{"Northeast"}.
 }
 
 The package retains the full 927-variable source extract so that additional

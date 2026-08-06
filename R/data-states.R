@@ -6,13 +6,13 @@
 #' The dataset was extracted from the Correlates of State Policy Project
 #' compiled at Michigan State University. The complete object contains a large
 #' number of variables from many original sources. The variables described
-#' below are the identifiers and substantive variables used in the
-#' QPATutorialsCourse tutorials.
+#' below are a selected subset. Consult the Correlates of State Policy Project
+#' codebook for definitions of the remaining variables.
 #'
-#' @format A data frame with 50 rows and 927 variables.
+#' @format A data frame with 50 rows and 928 variables.
 #'
 #' @details
-#' The variables used in the QPATutorialsCourse tutorials are:
+#' The variables described here are:
 #'
 #' \describe{
 #'
@@ -35,6 +35,7 @@
 #'   \item{nonwhite}{
 #'     Proportion of the state population that is non-White.
 #'     Original CSPP coverage: 1974--2011.
+#'     Theoretical range: 0--1.
 #'     Missing values: 0.
 #'   }
 #'
@@ -49,18 +50,21 @@
 #'     poverty definition uses money income before taxes and excludes capital
 #'     gains and noncash benefits such as public housing, Medicaid, and food
 #'     stamps. Original CSPP coverage: 1980--2017.
+#'     Theoretical range: 0--100.
 #'     Missing values: 0.
 #'   }
 #'
 #'   \item{hs_dem_prop_all}{
 #'     Proportion of state house seats held by Democrats.
 #'     Original CSPP coverage: 1936--2011.
+#'     Theoretical range: 0--1.
 #'     Missing values: 1.
 #'   }
 #'
 #'   \item{liberal}{
 #'     Over-time estimate of the percentage of state residents who identify
 #'     as political liberals. Original CSPP coverage: 1976--2010.
+#'     Theoretical range: 0--100.
 #'     Missing values: 0.
 #'   }
 #' }
