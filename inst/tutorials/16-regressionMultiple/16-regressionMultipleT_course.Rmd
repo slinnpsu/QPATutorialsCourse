@@ -8,7 +8,7 @@ output:
     allow_skip: true
 runtime: shiny_prerendered
 description: >
-  Learn how to estimate and interpret multiple regression models.
+  Several predictors at once, and what "all else equal" changes about interpretation.
 ---
 
 ## Overview {#main-content}
@@ -25,15 +25,15 @@ In this tutorial you will learn:
 * How to interpret the slope on a nominal variable with three or more categories, using `factor()` and `relevel()`
 * How to center a continuous predictor so that the intercept describes a typical case rather than one outside the data
 * How to assess model fit using two statistics: the Adjusted $R^2$ and the residual standard error, and when to prefer the Adjusted $R^2$ over the Multiple $R^2$
+* How to present a fitted model in a publication-style table with `stargazer()`
 
 ```{r setup, include=FALSE}
 library(learnr)
-library(dplyr)
-library(ggplot2)
 library(gradethis)
 library(stargazer)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
+options(lifecycle_verbosity = "quiet")
 knitr::opts_chunk$set(error = TRUE)
 data("counties", package = "QPATutorialsCourse")
 data("qog", package = "QPATutorialsCourse")
@@ -63,19 +63,19 @@ model_simple <- lm(dem2p_percent ~ wage_growth, data = counties)
 
 Before running a model, it is worth being clear about why multiple regression exists in the first place. There are two central reasons to include additional variables in an additive multiple-regression model. A third possibility --- conditional relationships, where the association between one variable and the outcome depends on the level of another --- requires an interaction term rather than simply adding a variable, and will be introduced in Tutorial 18.
 
-[**Spurious relationships.**]{.important-text} Sometimes two variables appear to be related because a third variable causes both. If poor health contributes to weaker local economic conditions and also leads voters to oppose the incumbent party, wage growth and incumbent-party voting may appear to be related even if wage growth itself is not responsible for the voting difference. Including a health measure lets us estimate the wage-growth association among counties with similar measured health risk --- and if the coefficient shrinks, we have learned something important about what the original bivariate estimate was combining. A third variable that is related to both the predictor and the outcome in a way that distorts the estimated association is called a [**confounder**]{.important-text} --- and the distortion it produces is called [**confounding**]{.important-text}.
+[**Spurious relationships.**]{.important-text} Sometimes two variables are associated only because a third is related to both, and there is no relationship between them at all. Counties with more coffee shops per person gave Hillary Clinton a higher share of the vote. Nothing about a coffee shop changes how anyone votes --- both are consequences of population density, and dense places differ from sparse ones in ways that matter for elections. Control for density and the coffee-shop association disappears. Not shrinks: disappears, because there was never a relationship to estimate. A third variable that produces an association like this is called a [**confounder**]{.important-text}, and the distortion it produces is [**confounding**]{.important-text}.
 
 ```{r diagram-spurious, echo=FALSE, out.width="70%", fig.align="center"}
 knitr::include_graphics("images/spurious.png")
 ```
 
-[**Multiple correlated causes.**]{.important-text} Most political and social outcomes have several potential causes, and the variables that represent them are often correlated with one another. Counties with higher college-educated populations tend to have higher wage growth and lower mortality risk. When an omitted variable is related to both an included predictor and the outcome, the included coefficient may combine their overlapping relationships rather than isolate the relationship of interest. This is called [**omitted variable bias**]{.important-text}, and it is the main reason you will almost never see a published regression with only one predictor.
+[**Multiple correlated causes.**]{.important-text} More often the relationship is real, but the bivariate estimate is wrong about its size. Most political and social outcomes have several causes, and the variables representing them are correlated with one another: counties with more college graduates tend to have higher wage growth and lower mortality risk. Regress the vote on wage growth alone and the slope credits wage growth with differences that actually belong to education and health. Controlling for them does not make the wage-growth relationship vanish --- it changes its magnitude, because we have stopped attributing other characteristics of those counties to wage growth. This is [**omitted variable bias**]{.important-text}, and it is the main reason you will almost never see a published regression with only one predictor.
 
 ```{r diagram-correlated, echo=FALSE, out.width="70%", fig.align="center"}
 knitr::include_graphics("images/correlated.png")
 ```
 
-The remedy in both cases is the same: include the relevant variables in the model. Once you do, each coefficient is estimated holding the other variables constant. That is the meaning of the phrase you will see throughout this tutorial: [**controlling for all other variables in the model**]{.important-text}, or equivalently, [**all else equal**]{.important-text}.
+The remedy in both cases is the same: include the relevant variables in the model. Once you do, each coefficient is estimated holding the other variables constant --- and what happens to the coefficient tells you which case you were in. A slope that collapses to nothing suggests the original association was spurious; one that changes size but survives suggests the bivariate estimate was crediting the predictor with differences that belonged elsewhere. That is the meaning of the phrase you will see throughout this tutorial: [**controlling for all other variables in the model**]{.important-text}, or equivalently, [**all else equal**]{.important-text}.
 
 ::: {.caution}
 **Controlling for variables reduces some alternative explanations but does not eliminate them.** Multiple regression holds measured variables constant, which is more informative than a simple bivariate association --- but it cannot guarantee that all relevant differences between cases have been accounted for. Variables not included in the model may still distort the relationships we estimate. Causal conclusions require a research design and assumptions that justify them; regression coefficients alone describe partial associations among the variables included in the model. Throughout this tutorial, we describe our estimates as relationships and associations, not causes.
@@ -89,9 +89,11 @@ Does the association between local economic conditions and presidential voting h
 In a comparison of counties, those with higher wage growth will cast a higher percentage of the two-party vote for Hillary Clinton than those with lower wage growth.
 :::
 
-The data frame **counties** contains **wage_growth**, the percent by which wages grew or fell in a county, and **dem2p_percent**, the percent of the two-party vote cast for Hillary Clinton. Both variables are already measured in percentage points, so a one-unit increase in either is a one-percentage-point increase --- wage growth moving from 4% to 5%, for example --- not a one-percent relative increase on top of whatever the value already was. These sound similar but mean very different things, and the distinction matters when you interpret the estimated association.
+The data frame **counties** contains **wage_growth**, the percent by which wages grew or fell in a county between the third quarter of 2015 and the third quarter of 2016, and **dem2p_percent**, the percent of the two-party vote cast for Hillary Clinton in the November 2016 election. Every variable in **counties** describes the county as of 2016. Both variables are already measured in percentage points, so a one-unit increase in either is a one-percentage-point increase --- wage growth moving from 4% to 5%, for example --- not a one-percent relative increase on top of whatever the value already was. These sound similar but mean very different things, and the distinction matters when you interpret the estimated association.
 
-The other variables we include as controls are **mortality_risk_25_45**, **college_grad_percent**, **hispanic_percent**, **white_percent**, and **Black_percent**. Each was chosen because it is plausibly related to both local economic conditions and presidential voting and may therefore contribute to the bivariate association.
+Missing values are few but not zero. Of the 3,112 counties, **dem2p_percent** has none; **wage_growth** and **Black_percent** are each missing for 2; **mortality_risk_25_45**, **college_grad_percent**, **hispanic_percent** and **white_percent** for 1 each. Any summary you compute describes the counties with a recorded value rather than all 3,112.
+
+The other variables we include as controls are **mortality_risk_25_45**, **college_grad_percent**, **hispanic_percent**, **white_percent**, and **Black_percent**. Each was chosen because it is plausibly related to both local economic conditions and presidential voting. That combination is what makes a variable worth controlling for: if counties with higher wage growth also have more college graduates, and college attainment independently predicts the vote, then the simple two-variable slope on wage growth is partly measuring education.
 
 ### Estimate the Regression
 
@@ -123,20 +125,18 @@ Take a moment to look at the output before moving on. Find the `Coefficients` ta
 
 ### Interpret the Coefficients
 
-The key interpretive rule is the same as in simple regression: the slope gives the expected change in the outcome for a one-unit increase in the predictor. The crucial difference in multiple regression is what comes after: [**controlling for all other variables in the model**]{.important-text}. Every coefficient is now a [**partial slope**]{.important-text} --- the estimated change in the outcome for a one-unit increase in that predictor while the other predictors are held constant.
+The key interpretive rule is the same as in simple regression: the slope gives the expected change in the outcome for a one-unit increase in the predictor. The crucial difference in multiple regression is what comes after: **controlling for all other variables in the model**. Every coefficient is now a [**partial slope**]{.important-text} --- the estimated change in the outcome for a one-unit increase in that predictor while the other predictors are held constant.
 
 The model includes six predictors, but we will focus our interpretation on the three most directly tied to the hypothesis --- **wage_growth**, **mortality_risk_25_45**, and **college_grad_percent**. The racial-composition variables serve primarily as controls; their coefficients follow the same interpretive logic but are not the focus of this example.
 
-That qualifier matters more than it might seem. Without controls, the simple regression of Clinton's two-party vote percent on **wage_growth** alone yields a larger slope. In this model, controlling for mortality risk, education, and racial composition, the slope on **wage_growth** is smaller --- because some of the original wage-growth relationship overlapped with differences in education, mortality risk, and racial composition. The multiple-regression coefficient shows the remaining wage-growth relationship after those measured characteristics are held constant. Find the slope on **wage_growth** and see for yourself what controlling for the other variables does to it.
+That qualifier matters more than it might seem. Without controls, the simple regression of Clinton's two-party vote percent on **wage_growth** alone yields a larger slope. In this model it is smaller, and the reason is worth spelling out. Counties with higher wage growth also tend to have more college graduates and lower mortality risk, and those characteristics predict the vote on their own. The bivariate slope had no way to separate them, so it credited wage growth with all of it. Adding the controls compares counties that are alike on education and health, which leaves only the part of the association that belongs to wage growth itself. Find the slope on **wage_growth** and see for yourself what controlling for the other variables does to it.
 
 **Apply 3: Interpret the slope on wage_growth**
-
-Look at your Coefficients table and note that each coefficient is now a partial slope before answering.
 
 ```{r quiz-interpret-wagegrowth, echo=FALSE}
 question("Look at the slope on wage_growth in your output. Which statement correctly gives its value and what it means?",
   correct = "Right: holding all other variables constant, a one-percentage-point increase in wage growth predicts a 0.314-percentage-point increase in Clinton's percent of the two-party vote.",
-  answer("The slope is 0.314; for every one-percentage-point increase in wage growth, Clinton's percent of the two-party vote is expected to increase by about 0.31 percentage points, controlling for mortality risk, education, and racial composition",
+  answer("The slope is 0.314; for every one-percentage-point increase in wage growth, Clinton's two-party vote percent is expected to rise by about 0.31 points",
          correct = TRUE,
          message = "The coefficient on wage growth is smaller than it appeared without controls. Some of what looks like a wage growth association is actually driven by correlated county characteristics --- education levels, racial composition, mortality risk --- that also shape the vote."),
   answer("The slope is 0.039; for every one-percentage-point increase in wage growth, Clinton's percent of the two-party vote is expected to increase by about 0.04 percentage points, controlling for other variables",
@@ -155,7 +155,7 @@ Now consider **mortality_risk_25_45**, the probability of dying between ages 25 
 
 **Apply 4: Interpret the slope on mortality_risk_25_45**
 
-Look at your Coefficients table before answering.
+Look at your Coefficients table before answering. Mortality risk is measured in percentage points, like the outcome.
 
 ```{r quiz-interpret-mortality, echo=FALSE}
 question("Which statement correctly gives the value and meaning of the slope on mortality_risk_25_45?",
@@ -179,7 +179,7 @@ Now consider **college_grad_percent**, the percent of county residents with a co
 
 **Apply 5: Interpret the slope on college_grad_percent**
 
-Look at your Coefficients table before answering.
+Look at your Coefficients table before answering, and note the sign.
 
 ```{r quiz-interpret-college, echo=FALSE}
 question("Which statement correctly gives the value and meaning of the slope on college_grad_percent?",
@@ -215,7 +215,7 @@ sd(counties$mortality_risk_25_45, na.rm = TRUE)
 sd(counties$college_grad_percent, na.rm = TRUE)
 ```
 
-The output shows standard deviations of about 4.7, 0.9, and 9.1 percentage points respectively. For **wage_growth**, one standard deviation is about 5 percentage points. With a slope of 0.314, the predicted change in Clinton's vote for a one-sd increase in wage growth is $5 * 0.314 = 1.57$ percentage points --- a modest association. Now apply the same recipe to the other two variables.
+The output shows standard deviations of about 4.7, 0.9, and 9.1 percentage points respectively. For **wage_growth**, one standard deviation is about 5 percentage points. With a slope of 0.314, the predicted change in Clinton's vote for a one-sd increase in wage growth is 5 × 0.314 = 1.57 percentage points --- a modest association. Now apply the same recipe to the other two variables.
 
 **Apply 7: Scale the mortality risk slope to one standard deviation**
 
@@ -234,7 +234,8 @@ question("What change in Clinton's percent of the two-party vote does the model 
   answer("A decrease of about 1.56 percentage points",
          message = "Check your value of c. The standard deviation is 0.9, not 0.5: 0.9 * (-3.117) = -2.805."),
   allow_retry = TRUE,
-  random_answer_order = TRUE
+  random_answer_order = TRUE,
+  try_again = "Hint: multiply the slope on mortality risk by the size of the increase. Watch the sign."
 )
 ```
 
@@ -255,7 +256,8 @@ question("What change in Clinton's percent of the two-party vote does the model 
   answer("A decrease of about 6.46 percentage points",
          message = "The slope on college_grad_percent is positive, so higher college graduation rates predict higher Clinton two-party vote percent, not lower."),
   allow_retry = TRUE,
-  random_answer_order = TRUE
+  random_answer_order = TRUE,
+  try_again = "Hint: multiply the slope on college attainment by the size of the increase."
 )
 ```
 
@@ -276,7 +278,7 @@ Find the t-statistic and p-value for the slope on **wage_growth** in your output
 ```{r quiz-hypothesistesting-clintonvote, echo=FALSE}
 question("Which statements are true? Select all that apply.",
   correct = "Right. The evidence is consistent: we reject the null hypothesis that wage growth has no relationship with Clinton's percent of the two-party vote, controlling for the other county characteristics.",
-  answer("The p-value is less than .05, so we reject the null hypothesis --- wage growth has a significant positive relationship with Clinton's percent of the two-party vote, controlling for the other county characteristics",
+  answer("The p-value is less than .05, so we reject the null of no relationship",
          correct = TRUE,
          message = "The data provide strong evidence against a zero relationship between wage growth and Clinton's two-party vote percent, even after accounting for correlated county characteristics."),
   answer("The absolute value of the t-statistic exceeds 1.96, which leads to the same conclusion as the p-value",
@@ -299,7 +301,7 @@ Find the t-statistic and p-value for mortality risk in your output before answer
 ```{r quiz-hypothesistesting-mortality, echo=FALSE}
 question("What can you conclude from the hypothesis test on mortality_risk_25_45?",
   correct = "Right. We reject the null hypothesis --- counties with higher mortality risk show significantly lower support for Clinton, controlling for the other variables.",
-  answer("The p-value is far below .05, so we reject the null hypothesis that mortality risk has no relationship with Clinton's percent of the two-party vote, controlling for the other county characteristics",
+  answer("The p-value is far below .05, so we reject the null of no relationship",
          correct = TRUE,
          message = "The negative slope (-3.117) is large in practical terms and highly significant. Even after controlling for wage growth, education, and racial composition, counties where more young adults are dying show substantially lower support for Clinton."),
   answer("We fail to reject the null hypothesis because the slope is negative",
@@ -321,7 +323,7 @@ Find the t-statistic and p-value for college_grad_percent in your output before 
 ```{r quiz-test-college, echo=FALSE}
 question("What can you conclude from the hypothesis test on college_grad_percent?",
   correct = "Right: a large t-statistic and a very small p-value lead to rejecting the null hypothesis.",
-  answer("The p-value is far below .05 and the t-statistic is large, so we reject the null hypothesis that college attainment has no relationship with Clinton's percent of the two-party vote, controlling for the other county characteristics",
+  answer("The p-value is far below .05 and the t-statistic is large, so we reject the null of no relationship, controlling for the other predictors",
          correct = TRUE,
          message = "With over 3,100 counties, we have a very precise estimate of this effect. College attainment is one of the strongest predictors in the model --- both statistically and in practical terms."),
   answer("We fail to reject the null hypothesis because the college_grad_percent coefficient is smaller than 1",
@@ -359,9 +361,9 @@ Find the Multiple R-squared and residual standard error in your output before an
 ```{r quiz-modelfit-clintonvote, echo=FALSE}
 question("Which statement correctly describes what the model fit statistics tell us?",
   correct = "Right. The Multiple R-squared gives the percentage of variation explained, and the residual standard error gives the estimated standard deviation of the residuals.",
-  answer("The Multiple R-squared of 0.6066 tells us the model explains about 60.66% of the county-to-county variation in Clinton's two-party vote, and under roughly normal errors, about two-thirds of counties have a predicted vote share within about 10.13 percentage points of their actual value",
+  answer("The Multiple R-squared of 0.6066 means the model explains about 60.7% of the variation, and the residual standard error of 10.13 is the typical miss",
          correct = TRUE,
-         message = "Compare this to the simple regression of Clinton's vote on wage growth alone, which explained only about 1.7% of the variation. Adding the other county characteristics dramatically improves the model's fit."),
+         message = "Under roughly normal errors, about two-thirds of counties fall within about 10.13 percentage points of their predicted value. Compare this to the simple regression of Clinton's vote on wage growth alone, which explained only about 1.7% of the variation. Adding the other county characteristics dramatically improves the model's fit."),
   answer("The model explains about 60.66% of the county-to-county variation in Clinton's two-party vote, and our predictions are off by exactly 10.13 percentage points for every county",
          message = "The residual standard error is not a fixed error for every prediction. It is the standard deviation of the residuals --- under roughly normal errors, it tells us that about two-thirds of predictions are within about 10 points, not all of them."),
   answer("The Adjusted R-squared of 0.6058 tells us the model explains about 60.58% of the variation in Clinton's two-party vote",
@@ -379,7 +381,7 @@ question("Which statement correctly describes what the model fit statistics tell
 So is wage growth associated with Clinton's vote once we account for everything else? Yes --- but the full picture is more nuanced than the simple regression suggested.
 
 ::: {.research-example}
-This example produced four findings worth carrying forward. First, wage growth has a statistically significant positive relationship with Clinton's percent of the two-party vote --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. Second, that relationship is smaller than simple regression would suggest: controlling for education, racial composition, and mortality risk, the wage growth slope shrank from 0.456 to 0.314, indicating that part of the original bivariate relationship overlapped with differences in those county characteristics. Third, scaling the coefficients to one-standard-deviation differences makes the estimated associations more comparable. Among these three continuous predictors, college attainment has the largest estimated association with Clinton's vote: about 6.5 percentage points, compared with about 2.8 points for mortality risk and 1.6 points for wage growth. Fourth, the Multiple $R^2$ of 0.607 tells us the model accounts for about 60.7% of the county-to-county variation in Clinton's vote, a dramatic improvement over the near-zero fit of the simple wage growth model; the residual standard error of 10.13 percentage points gives the estimated standard deviation of the residuals, with about two-thirds of counties having observed vote shares within about 10 points of their fitted values. Together, these findings suggest that Clinton's 2016 performance was shaped as much by the long-run demographic and educational character of counties as by the economic conditions of the preceding years.
+Wage growth has a statistically significant positive relationship with Clinton's percent of the two-party vote --- counties where wages grew faster gave her more of the vote, consistent with retrospective voting theory. Second, that relationship is smaller than simple regression would suggest: controlling for education, racial composition, and mortality risk, the wage growth slope shrank from 0.456 to 0.314, indicating that part of the original bivariate relationship overlapped with differences in those county characteristics. Third, scaling the coefficients to one-standard-deviation differences makes the estimated associations more comparable. Among these three continuous predictors, college attainment has the largest estimated association with Clinton's vote: about 6.5 percentage points, compared with about 2.8 points for mortality risk and 1.6 points for wage growth. Fourth, the Multiple $R^2$ of 0.607 tells us the model accounts for about 60.7% of the county-to-county variation in Clinton's vote, a dramatic improvement over the near-zero fit of the simple wage growth model; the residual standard error of 10.13 percentage points gives the estimated standard deviation of the residuals, with about two-thirds of counties having observed vote shares within about 10 points of their fitted values. Together, these findings suggest that Clinton's 2016 performance was shaped as much by the long-run demographic and educational character of counties as by the economic conditions of the preceding years.
 :::
 
 ## Is Democracy Associated with Control of Corruption?
@@ -390,9 +392,9 @@ Let's consider a second example using a different unit of analysis: countries. I
 In a comparison of countries, those with higher levels of democratic governance will have stronger control of corruption than those with lower levels of democratic governance, after controlling for economic development and women's representation in the legislature.
 :::
 
-The data frame **qog** contains country-level data from multiple sources. Our outcome variable is **wbgi_cce**, the World Bank's control of corruption score --- it runs from about -2.5 to 2.5, where higher values indicate better control of corruption. Our predictors are:
+The data frame **qog** contains country-level data from multiple sources, drawn from the January 2020 cross-section of the Quality of Government Basic Dataset. Variables in that cross-section take their most recent available observation as of that release, so they are not all measured in the same year --- consult the codebook with `?qog` when a specific year matters. Of the 194 countries, **wdi_fertility** is missing for 9, **wbgi_cce** for 2, **ipu_l_sw** for 1, and **fh_ipolity2** for none. Our outcome variable is **wbgi_cce**, the World Bank's control of corruption score --- it runs from about -2.5 to 2.5, where higher values indicate better control of corruption. Our predictors are:
 
-- **wdi_fertility**: the total fertility rate (average number of children per woman), standing in here for economic development
+- **wdi_fertility**: the total fertility rate --- the expected number of children per woman, observed from 1.17 to 7.09 --- standing in here for economic development
 - **ipu_l_sw**: the percentage of seats in the national legislature held by women
 - **democ_f**: a three-category factor in which **Autocracy** = lowest democracy level, **Partial Democracy** = middle, and **Democracy** = highest
 
@@ -431,10 +433,10 @@ Now let's estimate the model with **Autocracy** as the reference --- which is al
 
 **Practice 15: Estimate the corruption model with Autocracy as the reference category**
 
-Fill in the blanks to estimate the model, assigning it to **model_gov**, then display the results. Two hints are available. Click "Submit Answer" to check your work.
+Fill in the blanks to regress **wbgi_cce** on **wdi_fertility**, **ipu_l_sw** and **democ_f** in the **qog** data frame, assigning the model to **model_gov**, then display the results. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-multipleregression-governance, exercise=TRUE, exercise.cap="Practice 15"}
-model_gov <- lm(___ ~ ___ + ___ + ___, data = ___)
+___ <- lm(___ ~ ___ + ___ + ___, data = ___)
 summary(model_gov)
 ```
 
@@ -497,13 +499,17 @@ grade_this({
     tolerance = 1e-6))) {
     fail("Check that your model includes wbgi_cce as the outcome and wdi_fertility, ipu_l_sw, and democ_f as predictors, using the qog data.")
   }
-  pass("Correct! A side-by-side comparison of both models appears in the next section --- look at the factor coefficient rows to see what changes and what stays the same.")
+  pass("Correct! With Autocracy as the reference, each factor coefficient now compares a regime type against autocracies rather than against full democracies.")
 })
 ```
 
 ### Interpret the Coefficients
 
 The table below places both models side by side so you can compare them directly. The key question is what changes when we switch the reference category from Democracy to Autocracy --- and what that change reveals about the relationship between regime type and control of corruption. You will learn to produce tables like this with the `stargazer()` function later in this tutorial --- for now, use it as a reference for the questions that follow.
+
+::: {.caution}
+**Factor coefficient names get long, and long names wrap.** R builds the name of a factor coefficient by gluing the variable name to the level name, so **democ_f** plus Partial Democracy becomes `democ_fPartial Democracy`. Wrap a `relevel()` call around the variable and the name grows again. In `summary()` output these can be wide enough to wrap onto a second line even on a full screen. Nothing is wrong when that happens --- read the wrapped name as a single label, and remember the numbers on the row still line up with the columns above them.
+:::
 
 ```{r governance-comparison, echo=FALSE}
 stargazer(model_gov_dem, model_gov,
@@ -525,23 +531,21 @@ Look carefully at both columns. You can verify directly from the table which row
 
 **Apply 16: Interpret the factor coefficients**
 
-Look at the factor coefficient rows in both columns of the table above before answering.
-
 ```{r quiz-interpret-democ-governance, echo=FALSE}
 question("Look at both columns in the table above. Which statements are true? Select all that apply.",
   correct = "Right: three statements correctly describe what the table shows.",
-  answer("In column (2) (Autocracy as reference), full democracies score about 0.68 points higher on control of corruption than autocracies on average, controlling for fertility and women's representation",
+  answer("In column (2), full democracies score about 0.68 points higher on control of corruption than autocracies on average",
          correct = TRUE,
          message = "Column (2) shows the Democracy vs. Autocracy coefficient as 0.681 (p < .001). This is the comparison we wanted: how much better do full democracies control corruption relative to the autocratic baseline?"),
-  answer("In column (2) (Autocracy as reference), the Partial Democracy coefficient is about 0.01 points and is not statistically significant --- partial democracies do not reliably control corruption better than autocracies once we control for fertility and women's representation",
+  answer("In column (2), the Partial Democracy coefficient is about 0.01 points and is not statistically significant",
          correct = TRUE,
          message = "This finding was invisible in column (1). When Democracy was the reference, both other categories looked nearly equally worse. Column (2) reveals that partial democracies and autocracies are statistically indistinguishable on control of corruption."),
-  answer("The constant in column (2), 0.154, gives the predicted control of corruption score for autocracies when fertility rate and women's representation are both zero",
+  answer("The constant in column (2), 0.154, is the predicted score for autocracies when the other predictors are zero",
          correct = TRUE,
          message = "Correct. In column (2) the reference category is Autocracy, so the constant gives the predicted value for autocracies at X = 0. Compare to column (1): there the reference is Democracy, so the constant (0.835) gives the predicted value for full democracies at X = 0 --- a different quantity entirely."),
   answer("The constant in column (1), 0.835, gives the predicted average control of corruption score for full democracies",
          message = "The constant gives the predicted value of the outcome when all other variables are zero --- not the average for the reference category across the real data. Since full democracy is the reference in column (1), the constant is the predicted corruption score for full democracies only when fertility rate = 0 and women's representation = 0, values no country actually has."),
-  answer("The choice of reference category changes the coefficients on wdi_fertility and ipu_l_sw",
+  answer("The choice of reference category changes the coefficients on wdi_fertility and ipu_l_sw as well as the factor rows",
          message = "Look at the Fertility Rate and Women in Legislature rows in both columns --- the values are identical. The reference category choice only affects the intercept and the factor coefficient rows, not the interval variable estimates."),
   type = "learnr_checkbox",
   allow_retry = TRUE,
@@ -567,7 +571,7 @@ sd(qog$wdi_fertility, na.rm = TRUE)
 sd(qog$ipu_l_sw, na.rm = TRUE)
 ```
 
-The output shows standard deviations of about 1.32 children per woman for **wdi_fertility** and about 12.2 percentage points for **ipu_l_sw**. With a slope of -0.335 on the fertility rate, a one-sd difference of 1.32 gives an expected change of $1.32 \times (-0.335) = -0.44$ points on the corruption scale. With a slope of 0.0121 on women's representation, a one-sd difference of 12.2 gives $12.2 \times 0.0121 = 0.15$<span style='display:inline-block;width:1.2em'></span> points. Development is the more powerful of the two continuous predictors, by roughly a factor of three --- and note that this comparison is only possible because we scaled each slope by its own variable's spread. Comparing -0.335 to 0.0121 directly would tell you nothing, since one is measured in children per woman and the other in percentage points.
+The output shows standard deviations of about 1.32 children per woman for **wdi_fertility** and about 12.2 percentage points for **ipu_l_sw**. With a slope of -0.335 on the fertility rate, a one-sd difference of 1.32 gives an expected change of 1.32 × (−0.335) = −0.44 points on the corruption scale. With a slope of 0.0121 on women's representation, a one-sd difference of 12.2 gives 12.2 × 0.0121 = 0.15 points. Development is the more powerful of the two continuous predictors, by roughly a factor of three --- and note that this comparison is only possible because we scaled each slope by its own variable's spread. Comparing -0.335 to 0.0121 directly would tell you nothing, since one is measured in children per woman and the other in percentage points.
 
 The factor variable **democ_f** works differently. Its coefficients describe a discrete jump from one named category to another --- the Democracy and Partial Democracy coefficients already express the most natural comparison: how much better do those countries control corruption than autocracies, controlling for fertility and women's representation. There is no standard deviation to scale by because the variable doesn't vary continuously.
 
@@ -590,16 +594,12 @@ The table comparison showed us the estimates. Now let's check whether those esti
 summary(model_gov)
 ```
 
-Look at both factor coefficient rows in this output before answering.
-
 **Apply 19: Test and interpret the Democracy coefficient**
 
-Find the t-statistic and p-value for the Democracy coefficient in your output before answering.
-
 ```{r quiz-hypothesistesting-governance, echo=FALSE}
-question("Find the t-statistic and p-value for the Democracy vs. Autocracy coefficient in your model output. Which statements are true? Select all that apply.",
+question("Find the t-statistic and p-value for the Democracy vs. Autocracy coefficient in your model output. Which statement is true?",
   correct = "Right: the p-value provides strong evidence against a zero democracy effect.",
-  answer("The p-value is below .05, so we reject the null hypothesis --- full democracies control corruption significantly better than autocracies, controlling for fertility and women's representation",
+  answer("The p-value is below .05, so we reject the null of no difference",
          correct = TRUE,
          message = "The data provide strong evidence against a zero difference in control of corruption between full democracies and autocracies."),
   answer("Because the Partial Democracy p-value is above .05, neither the Partial Democracy nor the Democracy coefficient is statistically significant",
@@ -620,13 +620,12 @@ The coefficients and tests tell us whether the relationships are statistically d
 
 **Apply 20: Assess the fit of the corruption model**
 
-Find the Multiple R-squared and residual standard error in your output before answering.
+Find the Multiple R-squared and residual standard error at the foot of your output. This model runs on countries rather than counties, and on far fewer cases.
 
-
-```{r quiz-modelfit-governance-check, echo=FALSE}
+```{r quiz-modelfit-governance, echo=FALSE}
 question("Which statement correctly describes what the model fit statistics tell us?",
   correct = "Right. The model explains a meaningful share of the variation in control of corruption, and the residual standard error is large relative to the scale of the outcome.",
-  answer("The Multiple R-squared of 0.437 tells us the model explains about 43.7% of the variation in control of corruption across the 185 countries with complete data, and under roughly normal errors, about two-thirds of countries fall within about 0.76 points of their predicted value",
+  answer("The Multiple R-squared of 0.437 means the model explains about 43.7% of the variation in control of corruption across the 185 countries with complete data",
          correct = TRUE,
          message = "That is respectable explanatory power for a three-variable model, and it rests on 185 of the 194 countries --- almost the full set, so these results are not confined to a narrow subsample. But note the scale: the outcome's own standard deviation is about 1.0, so a typical miss of 0.76 is large. Most of what separates countries on corruption is not captured here."),
   answer("The Adjusted R-squared of 0.4245 tells us the model explains about 42.45% of the variation in control of corruption",
@@ -646,12 +645,12 @@ question("Which statement correctly describes what the model fit statistics tell
 So is democracy associated with control of corruption? The answer depends on what kind of democracy --- and that distinction only becomes visible once you choose the right reference category.
 
 ::: {.research-example}
-The most important finding from this example is not the significant full democracy coefficient --- it is the non-significant partial democracy finding. When Autocracy is the reference category, we can directly ask whether partial democracies control corruption better than autocracies, and in these data they are not distinguishable once we control for development and women's representation. The advantage appears concentrated among full democratic regimes. Partial democracies --- those with competitive elections but weak civil liberties and rule of law --- do not appear to control corruption meaningfully better than their autocratic counterparts, controlling for these two variables. With only 20 partial democracies in the data, that null result is worth holding loosely.
+The most important finding is not the significant full democracy coefficient --- it is the non-significant partial democracy finding. When Autocracy is the reference category, we can directly ask whether partial democracies control corruption better than autocracies, and in these data they are not distinguishable once we control for development and women's representation. The advantage appears concentrated among full democratic regimes. Partial democracies --- those with competitive elections but weak civil liberties and rule of law --- do not appear to control corruption meaningfully better than their autocratic counterparts, controlling for these two variables. With only 20 partial democracies in the data, that null result is worth holding loosely.
 :::
 
 ## Why Do Some Countries Elect More Women Than Others?
 
-The share of seats held by women in a national legislature runs from zero to nearly 64 percent. Explaining that spread is one of the most studied questions in comparative politics, and the leading answer is institutional.
+As of August 2026, the share of seats held by women in a national legislature ran from zero to nearly 64 percent. Explaining that spread is one of the most studied questions in comparative politics, and the leading answer is institutional.
 
 Electoral rules shape what parties can do. A proportional system lets a party balance its list, putting women in winnable positions without displacing anyone in particular. A plurality system asks the same party to nominate a woman in a particular district against a particular opponent, so identical party pressure yields fewer women. If that account is right, countries using proportional representation should elect more women than countries using plurality rules.
 
@@ -681,7 +680,23 @@ Centering changes nothing about a slope or about model fit. It changes only what
 
 **Apply 21: Build the two factors and center the history variable**
 
-Create **electoral_f** from **electoral_system**, with **plurality_majority** as the first level, labeled "Plurality/Majority", "Proportional", and "Mixed". Create **quota_f** from **gender_quota**, labeled "No quota" and "Quota". Create **years_c** by subtracting the mean of **years_since_first_woman** from itself. Three hints are available. Click "Submit Answer" to check your work.
+In Tutorial 15 you built a factor with `factor()` and a `labels` argument, which named the categories but left R to order them. Here the order matters, so `factor()` takes a second argument: `levels`, a vector of the values **as they appear in the data**, in the order you want them. The first one becomes the reference category. `labels` then supplies the printed names, in that same order.
+
+**Example code:**
+
+```{r factor-levels-template, exercise=FALSE, eval=FALSE}
+yourdata$new_factor <- factor(yourdata$original_variable,
+                              levels = c("value to use as reference",
+                                         "second value",
+                                         "third value"),
+                              labels = c("Name for the reference",
+                                         "Name for the second",
+                                         "Name for the third"))
+```
+
+Create **electoral_f** from **electoral_system**, with **plurality_majority** as the first level, labeled \"Plurality/Majority\", \"Proportional\", and \"Mixed\". Create **quota_f** from **gender_quota**, labeled \"No quota\" and \"Quota\". Create **years_c** by subtracting the mean of **years_since_first_woman** from itself.
+
+Then check your work with three lines: display the levels of **electoral_f**, cross-tabulate **electoral_system** against **electoral_f** so you can confirm each category was labeled correctly, and display the mean of **years_c**, which should be zero if the centering worked. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-prepare-ipu, exercise=TRUE, exercise.cap="Apply 21"}
 
@@ -689,9 +704,12 @@ Create **electoral_f** from **electoral_system**, with **plurality_majority** as
 
 ```{r exercise-prepare-ipu-hint-1}
 # Hint 1 of 3
-# A factor's first level is its reference category, and factor()
-# takes the levels in the order you give them. Centering means
-# subtracting a variable's mean from every one of its values.
+# Two ideas here. A categorical variable has one category that every
+# comparison gets made against, and which one that is depends on the
+# order the categories are stored in --- so the order is something you
+# choose rather than something to accept. Separately, a variable is
+# centered when its average has been subtracted from every value,
+# which moves zero to the middle of the data.
 ```
 
 ```{r exercise-prepare-ipu-hint-2}
@@ -699,7 +717,7 @@ Create **electoral_f** from **electoral_system**, with **plurality_majority** as
 # factor() takes a levels argument giving the values as they
 # appear in the data, and a labels argument giving the names you
 # want printed. The two must be in the same order.
-# mean() needs na.rm = TRUE here, since some values are missing.
+# mean() takes the variable and nothing else here.
 ```
 
 ```{r exercise-prepare-ipu-hint-3}
@@ -732,24 +750,27 @@ grade_this({
   if (!grepl("mean\\s*\\(", code_no_comments)) {
     fail("Centering subtracts the mean, so your code needs mean().")
   }
-  if (!grepl("na\\.rm", code_no_comments)) {
-    fail("mean() returns NA here unless you set na.rm = TRUE.")
+
+  if (!grepl("levels\\s*\\(\\s*ipu\\$electoral_f", code_no_comments)) {
+    fail("Display the levels of electoral_f, so you can see which category is the reference.")
+  }
+  if (!grepl("table\\s*\\(", code_no_comments)) {
+    fail("Cross-tabulate electoral_system against electoral_f with table(), so you can confirm each category was labeled correctly.")
+  }
+  if (!grepl("mean\\s*\\(\\s*ipu\\$years_c", code_no_comments)) {
+    fail("Display the mean of years_c on the last line. If the centering worked it should be zero.")
   }
 
-  if (is.null(.result) || !is.data.frame(.result)) {
-    fail("Your last line should display the data frame, so the new variables can be checked.")
+  if (is.null(.result)) {
+    fail("Your code did not produce a result. The last line should display the mean of years_c.")
   }
-  if (!all(c("electoral_f", "quota_f", "years_c") %in% names(.result))) {
-    fail("All three new variables should be columns in ipu.")
-  }
-  if (!identical(levels(.result$electoral_f)[1], "Plurality/Majority")) {
-    fail("Plurality/Majority should be the first level of electoral_f --- that is what makes it the reference category.")
-  }
-  if (!isTRUE(all.equal(mean(.result$years_c, na.rm = TRUE), 0, tolerance = 1e-6))) {
-    fail("A centered variable has a mean of zero. Check that you subtracted the mean rather than something else.")
+  value <- suppressWarnings(as.numeric(.result))
+  if (length(value) != 1 || is.na(value) ||
+      !isTRUE(all.equal(value, 0, tolerance = 1e-6))) {
+    fail("The mean of years_c should be zero. Check that you subtracted the mean of years_since_first_woman rather than something else.")
   }
 
-  pass("Correct. Plurality/Majority is the reference category, and years_c is centered at 60.3 years.")
+  pass("Correct. Plurality/Majority is the reference category, the cross-tab confirms each label landed on the right category, and years_c is centered at its mean of 60.3 years.")
 })
 ```
 
@@ -757,7 +778,7 @@ grade_this({
 
 **Practice 22: Regress women's representation on electoral system, quotas, and history**
 
-Write the code from scratch to estimate the model, assigning it to **model4**, then display the results. Two hints are available. Click "Submit Answer" to check your work.
+Write the code from scratch to regress **women_percent** on **quota_f**, **electoral_f** and **years_c** in the **ipu** data frame, assigning the model to **model4**, then display the results. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-multipleregression-ipu, exercise=TRUE, exercise.cap="Practice 22"}
 
@@ -807,7 +828,7 @@ grade_this({
   if (!grepl("summary\\s*\\(", code_no_comments)) {
     fail("Pass the model to summary() so the coefficients and fit statistics are displayed.")
   }
-  pass("Correct. Every coefficient on electoral_f is a comparison against plurality systems, and the intercept describes a country at the average length of women's parliamentary history.")
+  pass("Correct. The model is estimated with plurality systems as the reference category, which is what makes the electoral-system coefficients readable.")
 })
 ```
 
@@ -818,19 +839,19 @@ grade_this({
 ```{r quiz-interpret-ipu, echo=FALSE}
 question("Which statements about the estimated coefficients are correct? Select all that apply.",
   correct = "Right. Each factor coefficient is a comparison against plurality systems, and the intercept now describes a country at the average length of history.",
-  answer("Countries using proportional representation are estimated to have about 7.77 percentage points more women in their legislature than countries using plurality systems, among countries with the same quota status and the same length of history",
+  answer("Countries using proportional representation are estimated to have about 7.77 percentage points more women than countries using plurality systems",
          correct = TRUE,
          message = "This is the hypothesis test. The comparison is against plurality systems because that is the reference category you set."),
-  answer("Countries using mixed systems are estimated to have about 5.54 percentage points more women than countries using plurality systems, among countries alike on the other predictors",
+  answer("Countries using mixed systems are estimated to have about 5.54 percentage points more women than countries using plurality systems",
          correct = TRUE,
          message = "Mixed systems sit between proportional and plurality systems, closer to proportional."),
-  answer("Among countries alike on the other predictors, for each year earlier that a parliament first seated a woman, it is predicted to seat about 0.09 percentage points more women",
+  answer("For each year earlier that a parliament first seated a woman, it is predicted to seat about 0.09 percentage points more women",
          correct = TRUE,
          message = "Small per year, but the variable spans 114 years --- from a first woman in 2021 to a first woman in 1907 --- so the two ends of that range differ by about 11 percentage points."),
   answer("The intercept of 17.79 is the predicted percentage of women for a country with no quota, a plurality system, and no history of women in parliament",
          message = "Not quite --- and this is what centering changed. Because years_c is centered, zero means the average length of history, about 60 years, not none at all. The intercept describes a plurality country with no quota whose first woman entered parliament around 1966."),
   answer("Because proportional systems have the largest coefficient, electoral system explains more of the variation in women's representation than the other predictors",
-         message = "Coefficient size and variation explained are different things. Comparing predictors on the same footing requires scaling each by its own spread, which the next section does."),
+         message = "Coefficient size and variation explained are different things. Comparing predictors on the same footing requires scaling each by its own spread, because a one-unit change means something different for each of them."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: three statements are correct. Check what the reference category is, and what zero means on a centered variable."
@@ -844,7 +865,7 @@ The outcome has a standard deviation of about 13.0 percentage points, and **year
 - A gender quota: 7.29 points, about **0.56** of a standard deviation of the outcome
 - A proportional rather than plurality system: 7.77 points, about **0.60**
 - A mixed rather than plurality system: 5.54 points, about **0.43**
-- A one-standard-deviation difference in history: 24.3 years --- roughly the gap between a parliament that first seated a woman in 1966 and one that did so in 1942 --- gives $24.3 \times 0.094 = 2.28$ points, about **0.18**
+- A one-standard-deviation difference in history: 24.3 years --- roughly the gap between a parliament that first seated a woman in 1966 and one that did so in 1942 --- gives 24.3 × 0.094 = 2.28 points, about **0.18**
 
 The institutional predictors move representation roughly three times as much as a typical difference in history does. That is the case for the institutional account, and it is worth noticing that the raw coefficients would not have told you this: 7.77 and 0.094 are not comparable until each is scaled by the spread of the variable it belongs to.
 
@@ -881,10 +902,10 @@ question("What do the p-values tell us about the hypothesis and the controls? Se
 ```{r quiz-modelfit-ipu, echo=FALSE}
 question("What do the fit statistics tell us? Select all that apply.",
   correct = "Right. The model explains about a third of the variation, and a typical country sits nearly 11 points from its predicted value.",
-  answer("The Multiple R-squared of 0.3068 means the model explains about 30.7% of the variation in women's representation across the 173 countries with complete data",
+  answer("The Multiple R-squared of 0.3068 means the model explains about 30.7% of the variation in women's representation",
          correct = TRUE,
          message = "Respectable for three predictors on a question this complex --- and it leaves roughly 69% unexplained."),
-  answer("The residual standard error of 10.77 means a typical country's actual representation sits about 10.8 percentage points from what the model predicts",
+  answer("The residual standard error of 10.77 means a typical country sits about 10.8 percentage points from its predicted value",
          correct = TRUE,
          message = "Against an outcome whose standard deviation is 13.0, that is a large typical miss. Electoral rules, quotas and history together leave most of the country-to-country variation unaccounted for."),
   answer("Twenty countries drop out of the model because they are missing a value on at least one variable",
@@ -951,7 +972,7 @@ For a complete list of arguments and customization options, run `?stargazer` in 
 
 ### A Customized Table
 
-Use the title "Predictors of Control of Corruption" and the outcome-variable label "Control of Corruption Score". The covariate labels for this model are: **Fertility Rate**, **Women in Legislature**, **Partial Democracy**, and **Democracy**. Determine the correct order to supply them from the basic table output above.
+Use the title \"Predictors of Control of Corruption\" and the outcome-variable label \"Control of Corruption Score\". The covariate labels for this model are: **Fertility Rate**, **Women in Legislature**, **Partial Democracy**, and **Democracy**. Determine the correct order to supply them from the basic table output above.
 
 **Practice 27: Produce a labeled, titled `stargazer()` table for the corruption model**
 
@@ -998,7 +1019,7 @@ grade_this({
     fail("Use the prescribed dep.var.labels: \"Control of Corruption Score\"")
   }
   labels <- c("Fertility Rate", "Women in Legislature", "Partial Democracy", "Democracy")
-  for (lbl in labels) {
+  for (lbl in labels[-1]) {
     if (!grepl(lbl, code_no_comments, fixed = TRUE)) {
       fail(paste0("The label \"", lbl, "\" is missing. Use the four prescribed labels in formula order."))
     }
@@ -1026,10 +1047,10 @@ The three examples showed that what you conclude about a relationship depends on
 ```{r quiz-cyu-conditional, echo=FALSE}
 question("In the multiple regression predicting Clinton's county vote share, the coefficient on wage growth is 0.314. Which interpretation is correct?",
   correct = "Right. The 'all else equal' qualifier and the units are both essential.",
-  answer("Among counties with the same values on the other variables in the model, a one-percentage-point increase in wage growth is associated with an expected 0.314-percentage-point increase in Clinton's vote share",
+  answer("A one-point rise in wage growth predicts a 0.314-point rise in Clinton's vote share",
          correct = TRUE,
          message = "The key phrase is 'among counties with the same values on the other variables.' That is what the partial slope means: the expected change in the outcome between two counties that differ by one unit on wage growth but are otherwise identical on the other predictors in the model."),
-  answer("Clinton's vote share causes wage growth to rise by 0.314 points",
+  answer("Clinton's vote share causes wage growth to rise by 0.314 points in the average county",
          message = "This reverses the direction and implies causation. The coefficient describes the expected change in the outcome for a change in the predictor --- not the reverse, and not a causal effect."),
   answer("Wage growth explains 31.4% of the variation in Clinton's vote share",
          message = "A coefficient of 0.314 is not a proportion of variance explained. That is R-squared's job. The coefficient gives the expected change in the outcome for a one-unit change in the predictor, holding other variables constant."),
@@ -1046,14 +1067,14 @@ question("In the multiple regression predicting Clinton's county vote share, the
 ```{r quiz-cyu-ovb, echo=FALSE}
 question("The wage-growth coefficient shrinks from 0.456 in simple regression to 0.314 once county characteristics are added to the model. Which conclusion is best supported?",
   correct = "Right. The smaller coefficient reflects overlap between wage growth and the added county characteristics.",
-  answer("Part of the original bivariate association between wage growth and Clinton's vote overlapped with differences in the added county characteristics",
+  answer("Part of the wage-growth association overlapped with the added characteristics",
          correct = TRUE,
          message = "Counties with higher wage growth also tend to have higher education levels, lower mortality risk, and different racial compositions. In the simple regression, the wage growth slope absorbed some of those correlated influences. Controlling for them separates wage growth's partial association from the others."),
   answer("The simple-regression coefficient must have been calculated incorrectly",
          message = "Both coefficients are calculated correctly. They answer different questions: the simple regression slope is the bivariate association; the multiple regression slope is the partial association holding the other predictors constant. Different questions, different answers."),
   answer("The smaller coefficient proves that the controls caused Clinton's vote share",
          message = "The controls do not cause anything --- they are included to isolate the partial association of interest. A change in a coefficient after adding controls tells us about overlap between predictors, not about causation."),
-  answer("Adding controls always makes coefficients smaller and more accurate",
+  answer("Adding controls always makes coefficients smaller and more accurate estimates of the truth",
          message = "Controls can make coefficients larger, smaller, or change their sign, depending on the direction of the confounding. And 'more accurate' depends on whether the right variables are included --- adding the wrong controls can introduce bias rather than reduce it."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -1066,7 +1087,7 @@ question("The wage-growth coefficient shrinks from 0.456 in simple regression to
 ```{r quiz-cyu-refcat, echo=FALSE}
 question("Why does changing the reference category from Democracy to Autocracy reveal a comparison that was not directly available in the first output?",
   correct = "Right. The reference category determines which comparisons appear directly in the output.",
-  answer("With Autocracy as the reference, the Partial Democracy coefficient directly compares partial democracies with autocracies --- a comparison that does not appear as its own coefficient in the Democracy-reference output",
+  answer("It puts the partial-democracy-versus-autocracy comparison in its own coefficient",
          correct = TRUE,
          message = "With Democracy as the reference, the output showed how Autocracy and Partial Democracy compared to full democracies. Switching to Autocracy as the reference puts the Autocracy-vs-Partial Democracy comparison in its own row, making it directly readable without any arithmetic."),
   answer("Changing the reference category changes which countries are included in the model",
@@ -1086,16 +1107,16 @@ question("Why does changing the reference category from Democracy to Autocracy r
 ```{r quiz-cyu-outcomes, echo=FALSE}
 question("Examples 2 and 3 each set a reference category deliberately rather than accepting R's default. What does that choice change? Select all that apply.",
   correct = "Right. The reference category decides which comparisons the coefficients report --- and nothing else.",
-  answer("It decides which comparison each factor coefficient reports: in Example 2, against autocracies; in Example 3, against plurality systems",
+  answer("It decides which comparison each factor coefficient reports",
          correct = TRUE,
          message = "In both cases the default would have reported a comparison the hypothesis did not ask about --- Democracy in Example 2, mixed systems in Example 3, which R would take alphabetically."),
-  answer("It changes what the intercept describes, since the intercept is the predicted outcome for the reference category when the other predictors are zero",
+  answer("It changes what the intercept describes, since the intercept belongs to the reference category",
          correct = TRUE,
          message = "Example 2 showed this directly: the constant was 0.835 with Democracy as reference and 0.154 with Autocracy."),
-  answer("It changes which differences appear statistically significant, because the tests compare each category against the reference",
+  answer("It changes which differences appear statistically significant",
          correct = TRUE,
          message = "This is what Example 2 revealed. Partial Democracy was significant against Democracy and not against Autocracy --- the same countries, the same data, a different comparison."),
-  answer("It changes the coefficients on the continuous predictors in the model",
+  answer("It changes the coefficients on the continuous predictors as well as the factor rows",
          message = "It does not. In Example 2, the fertility and representation coefficients were identical under both reference categories. Only the factor coefficients and the intercept move."),
   answer("It changes the model's fit, since a different reference category means a different model",
          message = "Releveling a factor does not change the model --- the R-squared and residual standard error were identical in both Example 2 columns. It changes how the same model is reported."),
@@ -1110,7 +1131,7 @@ question("Examples 2 and 3 each set a reference category deliberately rather tha
 ```{r quiz-cyu-connect, echo=FALSE}
 question("Across Examples 1, 2, and 3, which statement best captures what multiple regression adds compared to simple regression?",
   correct = "Right: multiple regression changes both what we estimate and how we interpret it.",
-  answer("In multiple regression, each coefficient describes the partial relationship between a predictor and the outcome among cases with the same values on the other included variables --- this can change both the size and significance of individual coefficients compared to simple regression",
+  answer("Each coefficient describes the partial relationship between a predictor and the outcome, among cases with the same values on the other included variables",
          correct = TRUE,
          message = "In Example 1, wage growth's slope shrank from 0.456 to 0.314 once we controlled for other county characteristics. In Example 2, partial democracy went from appearing significantly worse than full democracy to being indistinguishable from autocracy once we controlled for fertility and equal opportunity. The 'all else equal' qualifier changes both the estimates and their interpretation."),
   answer("Adding controls necessarily brings coefficients closer to their true causal effects, since the remaining variation is unconfounded",
@@ -1164,9 +1185,9 @@ learnrhash::encoder_ui(
 cat('
 <p class="tutorial-complete"
    role="status"
-   aria-label="Excellent work! You have completed this tutorial and can now estimate and interpret multiple regression models, present results in a professional table, and draw substantive conclusions from what the estimates tell you.">
+   aria-label="Excellent work! You can now estimate and interpret multiple regression models with interval and nominal predictors — and present your results in a professional table.">
   <span aria-hidden="true">📊</span>
-  Excellent work! You can now estimate and interpret multiple regression models with interval and nominal predictors --- and present your results in a professional table.
+  Excellent work! You can now estimate and interpret multiple regression models with interval and nominal predictors &mdash; and present your results in a professional table.
 </p>
 ')
 ```

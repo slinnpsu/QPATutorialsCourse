@@ -8,7 +8,7 @@ output:
     allow_skip: true
 runtime: shiny_prerendered
 description: >
-  Learn how to estimate and interpret a simple linear regression model.
+  Estimating a line, reading its two coefficients, and using a factor as a predictor.
 ---
 
 ## Overview {#main-content}
@@ -34,10 +34,10 @@ In this tutorial you will learn:
 ```{r setup, include=FALSE}
 library(learnr)
 library(dplyr)
-library(ggplot2)
 library(gradethis)
 tutorial_options(exercise.checker = gradethis::grade_learnr,
                  exercise.completion = FALSE)
+options(lifecycle_verbosity = "quiet")
 knitr::opts_chunk$set(error = TRUE)
 data("counties", package = "QPATutorialsCourse")
 data("fHouse", package = "QPATutorialsCourse")
@@ -62,7 +62,7 @@ We write the fitted line for our sample as
 
 $$\hat{Y} = \hat{\alpha} + \hat{\beta} X,$$
 
-where the hats mark estimated rather than true values. [The intercept]{.important-text} ($\hat{\alpha}$) is the predicted value of $Y$ when $X = 0$. [The slope]{.important-text} ($\hat{\beta}$) is the predicted change in $Y$ for a one-unit increase in $X$. The gap between an observed value of $Y$ and the value the line predicts for that case is called a [**residual**]{.important-text}.
+where the hats mark estimated rather than true values. [The intercept]{.important-text} ($\hat{\alpha}$) is the predicted value of $Y$ when $X = 0$. [The slope]{.important-text} ($\hat{\beta}$) is the predicted change in $Y$ for a one-unit increase in $X$. The gap between an observed value of $Y$ and the value the line predicts for that case is called a **residual**.
 
 ### Estimating a Model with `lm()`
 
@@ -94,6 +94,8 @@ In a comparison of counties, those with higher wage growth will cast a higher pe
 :::
 
 The data frame **counties** contains **wage_growth**, the percent by which wages grew or fell in a county between the third quarter of 2015 and the third quarter of 2016, and **dem2p_percent**, the percent of the two-party vote cast for Hillary Clinton in the November 2016 election. Both variables are already measured in percentage points, so a one-unit increase in either is a one-*percentage-point* increase --- wage growth moving from 4% to 5%, for example --- not a one-*percent* relative increase on top of whatever the value already was. These sound similar but mean very different things, and the distinction matters when you interpret the slope. We estimate a regression with **dem2p_percent** as the outcome variable and **wage_growth** as the predictor.
+
+**dem2p_percent** has no missing values. **wage_growth** is missing for 2 of the 3,112 counties, so any summary you compute from it describes the 3,110 counties with a recorded value rather than all of them.
 
 ### Estimate the Regression
 
@@ -163,7 +165,7 @@ $$\widehat{\text{dem2p_percent}} = \hat{\alpha} + \hat{\beta}\,\text{wage_growth
 
 Notice what this arithmetic reveals about the slope. If wage growth were 5.3 instead --- one percentage point higher --- the prediction would be $31.3521 + 0.45582 \times 5.3 = 33.768$. The difference between the two predictions is exactly 0.456 --- the slope. That is not a coincidence: the slope *is* the expected change in $\hat{Y}$ for a one-unit increase in X, by definition. For any other change of size $c$, the expected change in $\hat{Y}$ is $\hat{\beta} \times c$ --- the same multiplication, scaled to the size of the change you care about. You will use this directly in Tutorial 16 when interpreting coefficients whose natural unit of change is not one.
 
-**Practice 4: Calculate a predicted value**
+**Practice 4: Calculate a predicted Clinton vote share**
 
 
 ```{r quiz-prediction-voteclinton-wagegrowth, echo=FALSE}
@@ -199,8 +201,10 @@ Clinton did about 17.8 percentage points better in Centre County than a model bu
 
 **Practice 5: Calculate a residual**
 
+Now do the same for a different county. Martin County, Kentucky sits in the eastern coalfield and voted Democratic for generations; in 2016 it gave Clinton 9.39% of the two-party vote. There is no function for this yet, so use R as a calculator: read the intercept and slope off your `summary(model1)` output, type them into an expression that computes Martin County's predicted value, and subtract that from the observed value. Three hints are available. Click "Submit Answer" to check your work.
+
 ```{r exercise-residual-centre, exercise=TRUE, exercise.cap="Practice 5"}
-# Centre County: wage_growth = 4.672224, dem2p_percent = 51.25
+# Martin County, Kentucky: wage_growth = 6.4206898, dem2p_percent = 9.386503
 # Use the intercept and slope from your regression output.
 
 
@@ -211,20 +215,20 @@ Clinton did about 17.8 percentage points better in Centre County than a model bu
 # A residual is the error in a prediction for a single case:
 # how far the observed value sits from the value the line
 # predicts. You need two numbers --- what the model expected
-# for Centre County, and what actually happened there.
+# for Martin County, and what actually happened there.
 ```
 
 ```{r exercise-residual-centre-hint-2}
 # Hint 2 of 3
 # The predicted value comes from the fitted line: the intercept
-# plus the slope times Centre County's wage growth. Both
+# plus the slope times Martin County's wage growth. Both
 # estimates are in the Coefficients table from your regression.
 ```
 
 ```{r exercise-residual-centre-hint-3}
 # Hint 3 of 3
 # The order of the subtraction matters. Observed minus predicted
-# --- so a positive answer means the model predicted too low.
+# --- so a negative answer means the model predicted too high.
 ```
 
 ```{r exercise-residual-centre-check}
@@ -234,18 +238,18 @@ grade_this({
   }
   value <- suppressWarnings(as.numeric(.result))
   if (length(value) != 1 || is.na(value)) {
-    fail("Your code should produce a single number --- the residual for Centre County.")
+    fail("Your code should produce a single number --- the residual for Martin County.")
   }
-  if (isTRUE(all.equal(value, -17.77, tolerance = 0.05))) {
+  if (isTRUE(all.equal(value, 24.89, tolerance = 0.05))) {
     fail("Check the order of the subtraction. A residual is the observed value minus the predicted value, not the other way around.")
   }
-  if (isTRUE(all.equal(value, 33.48, tolerance = 0.05))) {
+  if (isTRUE(all.equal(value, 34.28, tolerance = 0.05))) {
     fail("That is the predicted value. The residual is what is left after subtracting the predicted value from the observed value.")
   }
-  if (!isTRUE(all.equal(value, 17.77, tolerance = 0.05))) {
+  if (!isTRUE(all.equal(value, -24.89, tolerance = 0.05))) {
     fail("Not quite. Compute the predicted value from the fitted line first, then subtract it from the observed value.")
   }
-  pass("Right. The model underpredicts Clinton's vote share in Centre County by about 17.8 percentage points.")
+  pass("Right. The model overpredicts Clinton's vote share in Martin County by about 24.9 percentage points --- the opposite direction from Centre County, and a larger miss.")
 })
 ```
 
@@ -360,7 +364,7 @@ question("Which conclusions follow from the hypothesis test on the slope? Select
 
 A significant slope tells us the relationship is statistically distinguishable from zero. But how well does this model actually predict which counties gave Clinton more of their vote? The fit statistics at the bottom of the output address that question.
 
-**Apply 10: Assess model fit**
+**Apply 10: Assess the fit of the wage growth model**
 
 Find `Multiple R-squared` and `Residual standard error` at the bottom of your output before answering.
 
@@ -456,7 +460,7 @@ grade_this({
     fail("Assign your model to an object called model2.")
   }
   if (!grepl("Pro\\.Strong\\.Leader\\s*~\\s*FHTotalAggr_2016", code_no_comments)) {
-    fail("The formula should be Pro.Strong.Leader ~ FHTotalAggr_2016 --- approval of a strong leader as a function of national freedom. Check that the dependent variable is on the left of the ~ and the independent variable is on the right.")
+    fail("The formula should be Pro.Strong.Leader ~ FHTotalAggr_2016 --- approval of a strong leader as a function of national freedom. Check that the outcome variable is on the left of the ~ and the predictor is on the right.")
   }
   if (!grepl("data\\s*=\\s*fHouse", code_no_comments)) {
     fail("Set data = fHouse so R knows where to find the variables.")
@@ -478,7 +482,7 @@ grade_this({
     as.numeric(result_coef[order(names(result_coef))]),
     as.numeric(coef(expected)[order(names(coef(expected)))]),
     tolerance = 1e-6))) {
-    fail("Check that your model regresses Pro.Strong.Leader on FHTotalAggr_2016 using the fHouse data. The dependent variable goes on the left of the ~.")
+    fail("Check that your model regresses Pro.Strong.Leader on FHTotalAggr_2016 using the fHouse data. The outcome variable goes on the left of the ~.")
   }
 
   pass("Correct! This model regresses approval of a strong leader on a country's overall Freedom House score. Notice the direction of the slope before moving on.")
@@ -489,7 +493,7 @@ grade_this({
 
 The Coefficients table now describes the relationship between political freedom and appetite for unconstrained leadership. Keep in mind what the Freedom House scale represents --- 0 is the least free end, 100 the most --- as you interpret what each estimate tells us.
 
-**Apply 12: Interpret the coefficients**
+**Apply 12: Interpret the national freedom coefficients**
 
 Look at your Coefficients table before answering.
 
@@ -520,7 +524,7 @@ $$\widehat{\text{Pro.Strong.Leader}} = 70.107 + (-0.283)\times 59 = 70.107 - 16.
 
 So the model predicts about 38.6% approval of a strong leader in a country near the middle of the freedom distribution.
 
-**Practice 13: Calculate a predicted value**
+**Practice 13: Calculate a predicted strong-leader approval**
 
 ```{r quiz-prediction-strongleader-freedom, echo=FALSE}
 question("Using the intercept and slope from your output, what is the predicted approval of a strong leader in a highly free country with FHTotalAggr_2016 = 90?",
@@ -570,7 +574,7 @@ question("Which conclusions follow from the hypothesis test on the slope? Select
 
 Significance and fit address different questions. The slope test told us the relationship is statistically distinguishable from zero --- the fit statistics now tell us how much of the country-to-country variation in strong leader approval that relationship accounts for.
 
-**Apply 15: Assess model fit**
+**Apply 15: Assess the fit of the national freedom model**
 
 Find `Multiple R-squared` and `Residual standard error` at the foot of your output. This model runs on 62 countries rather than 3,110 counties, which is worth keeping in mind as you read them.
 
@@ -689,7 +693,7 @@ grade_this({
     fail("The levels are not in the expected order. The labels are assigned from the smallest original value upward, so the label for 0 must come first.")
   }
 
-  pass("Correct. \"Not Majority White\" is listed first, so it is the reference category --- the group the regression will compare against.")
+  pass("Correct. `levels()` reports the order R will use, and the first level is the one every comparison gets made against.")
 })
 ```
 
@@ -763,7 +767,7 @@ grade_this({
 
 Notice the slope in the output is now labeled something like `majority_white_fMajority White` --- R names factor coefficients after the variable and the non-reference category, rather than printing a bare 0 or 1. The intercept and slope still have precise meanings, but those meanings are specific to the factor structure --- what the reference category is and how the two groups compare.
 
-**Apply 18: Interpret the coefficients**
+**Apply 18: Interpret the majority-white coefficients**
 
 Look at your Coefficients table before answering.
 
@@ -796,7 +800,7 @@ The slope for **majority_white_fMajority White** is what we care about here --- 
 ```{r quiz-hypothesistesting-voteclinton-majoritywhite, echo=FALSE}
 question("Which conclusions follow from the hypothesis test? Select all that apply.",
   correct = "Right. Both the p-value and the t-statistic lead to the same conclusion: reject the null hypothesis.",
-  answer("The p-value is less than 0.05, so we reject the null hypothesis --- majority-white status is significantly related to the vote for Hillary Clinton",
+  answer("The p-value is less than 0.05, so we reject the null of no relationship",
          correct = TRUE,
          message = "The p-value is less than 2e-16, far below 0.05. A difference this large between majority-white and non-majority-white counties would be extremely unlikely if there were truly no relationship in the population."),
   answer("The absolute value of the t-statistic exceeds 1.96, so we reject the null hypothesis",
@@ -816,7 +820,7 @@ question("Which conclusions follow from the hypothesis test? Select all that app
 
 The slope told us majority-white counties voted differently for Clinton --- but how much of the county-to-county variation in her vote does that single distinction capture? The fit statistics address that question.
 
-**Apply 20: Assess model fit**
+**Apply 20: Assess the fit of the majority-white model**
 
 Find `Multiple R-squared` and `Residual standard error` at the foot of your output, then compare what you find with the two earlier examples.
 
@@ -844,7 +848,7 @@ question("Which of the following statements about model fit are correct? Select 
 So is majority-white status associated with Clinton's vote? Yes, and by a wide margin --- but even a 32-percentage-point gap between groups leaves most of the county-to-county variation unexplained.
 
 ::: {.research-example}
-Majority-white counties cast about 25 percentage points fewer votes for Clinton than non-majority-white counties --- a large, highly significant difference. But the fit is weak: the R-squared of 0.18 means majority-white status accounts for only about 18% of the county-to-county variation in Clinton's vote, and the residual standard error of about 15 percentage points means individual county predictions are often substantially off. This is the same pattern we saw in Examples 1 and 2: a statistically significant relationship coexisting with poor to weak fit, because most political outcomes have many causes and a single predictor rarely accounts for most of the variation. Across all three examples, a single predictor explained between 1.7% and 18% of the variation in the outcome --- enough to provide strong evidence that the population relationship is not zero, but far from the whole story.
+Majority-white counties cast about 25 percentage points fewer votes for Clinton than non-majority-white counties --- a large, highly significant difference. But the fit is weak: the R-squared of 0.18 means majority-white status accounts for only about 18% of the county-to-county variation in Clinton's vote, and the residual standard error of about 15 percentage points means individual county predictions are often substantially off. A statistically significant relationship can coexist with poor to weak fit, because most political outcomes have many causes and a single predictor rarely accounts for much of the variation. Here one predictor explains about 18% of the variation in the outcome --- enough to provide strong evidence that the population relationship is not zero, but far from the whole story.
 :::
 
 ## Check Your Understanding
@@ -898,7 +902,7 @@ question("Across the examples above, the slopes were statistically significant, 
 ```{r quiz-cyu-pct-vs-pctpoint, echo=FALSE}
 question("A regression of county Democratic vote share on **wage_growth** produces a slope of 0.456. A student reports: 'For each 1% increase in wage growth, Clinton's vote share increases by 0.456 percentage points.' What is wrong with this interpretation?",
   correct = "Right. wage_growth is measured in percentage points, so a one-unit change is a one-percentage-point change, not a one-percent relative change.",
-  answer("The slope describes a one-percentage-point increase in wage growth, not a one-percent relative increase --- moving from 4% to 5% wage growth, not from 4% to 4.04%",
+  answer("The slope describes a one-percentage-point increase in wage growth, not a one-percent relative increase",
          correct = TRUE,
          message = "Because wage_growth is measured in percentage points, a one-unit change is a one-percentage-point change. A 1% relative increase would be a much smaller change --- from 4% to 4.04%, for example. The student's phrasing implies the latter, which misrepresents what the slope actually measures."),
   answer("The slope should be negative, since higher wage growth in Republican-leaning counties would reduce Clinton's vote share",
@@ -959,7 +963,7 @@ learnrhash::encoder_ui(
 cat('
 <p class="tutorial-complete"
    role="status"
-   aria-label="Excellent work! You have completed this tutorial and can now estimate and interpret simple regression models, including models with a factor variable as the predictor.">
+   aria-label="Excellent work! You can now estimate and interpret simple regression models, including models with a factor variable as the predictor.">
   <span aria-hidden="true">📉</span>
   Excellent work! You can now estimate and interpret simple regression models, including models with a factor variable as the predictor.
 </p>
