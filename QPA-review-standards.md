@@ -1,4 +1,54 @@
-# QPATutorialsCourse — Review Standards (v17.10)
+# QPATutorialsCourse — Review Standards (v18)
+
+**New in v18**, from the full external-review pass over all 21 tutorials on
+8 August 2026. Most entries are corrections to rules that were being applied
+too widely or too narrowly, not new requirements.
+
+**Rules corrected or scoped:**
+- §5 **Reported statistics are ordinary prose text** --- no backticks, no math
+  mode. Math mode is for symbols alone and for formulas.
+- §5 **The em-dash ban applies to markdown prose only, not to raw HTML.** The
+  completion banner uses `&mdash;` in the visible text and a literal em dash in
+  the `aria-label`, on purpose.
+- §6 **A forward reference earns its place when it answers a question the
+  tutorial has raised.** History assumptions and catalogues still go; substantive
+  pointers stay.
+- §6 **The objectives lead-in varies**; three forms are legitimate. What matters
+  is that the lead-in reads into its bullets.
+- §6 **T1 is an exception to the Overview shape**, because its Roadmap does the
+  tutorial-specific orienting.
+- §6 **Decide the Overview preview by content, not tutorial number** --- T4, T12
+  and T16 have framing sections and still need the paragraph.
+- §1 **`pass()` must not do work that belongs to the student elsewhere** ---
+  replacing "confirms the work just submitted and nothing else", which forbade
+  legitimate interpretation. "Elsewhere" includes the question immediately below.
+- §4 **The answer-length rule needs an absolute floor**: flag only at 1.25x the
+  mean AND at least five words longer.
+- §4 **Output-reading exception** --- a question may ask students to read output
+  they just produced.
+- §10 **The missing-count rule has a narrow T2 extension**: in the tutorial that
+  introduces missingness, counts are stated from the Missing Values section on.
+- The **example-shape rule with its labelled theoretical sentence is the T7--T9
+  convention**, not a corpus requirement.
+- **Nine tutorials have no Takeaways infographic and should not**: T1, T2, T10,
+  T11 and T15--T21.
+- **Named scaffold exceptions**: T16 Practice 15, T19 Practices 3, 7 and 15, and
+  T20's two `stargazer()` starters keep their mid-call blanks, because the blank
+  isolates the decision the exercise is about.
+
+**Recurring defects this pass found, worth checking first in any new tutorial:**
+- **Graders that search the submission instead of checking the result.** Roughly
+  twenty were rebuilt. Where an object exists in the invisible setup, text checks
+  prove nothing --- bind the assignment to its right-hand side, or compare the
+  fitted object, the rendered output, or the built plot. See §1.
+- **Overstated inference language.** Relative-importance rankings, post-hoc
+  power explanations for null results, "the relationship is real", confidence
+  bands read as tests. The flat phrasing is the correct one in a methods
+  tutorial.
+- **A claim corrected in one file usually lives in three others.** The
+  bare-string claim about factors took five passes across three files; relative
+  importance appeared in four. **Grep the corpus for the corrected wording
+  rather than fixing the instance you were shown.**
 
 **New in v17.9**, corrections of 4 August 2026 rather than new rules: the
 version in this title (it read v17 while the document carried v17.8 content);
@@ -61,10 +111,25 @@ before enforcing it. Where it describes a shape or a test, it is more reliable.
   work!" all qualify. Across T4, T12, and T16 only 5 of 12 use "Right!" and T4
   uses it zero times. Eighteen identical openings in one tutorial are
   monotonous. Do not standardize on one word.
-- **[script] `pass()` CONFIRMS THE WORK JUST SUBMITTED AND NOTHING ELSE.** It
-  must not point forward or duplicate what comes next. **The same rule governs
-  question feedback** --- `correct =` and per-answer `message =` are subject to
-  it too. T3's ideology question pointed at "the next section" in two separate
+- **[script] `pass()` MUST NOT DO WORK THAT BELONGS TO THE STUDENT ELSEWHERE.**
+  It must not preview the next item, supply a calculation, comparison or
+  inference the student will later be asked to produce, or duplicate the prose
+  immediately below the chunk. **The same rule governs question feedback** ---
+  `correct =` and per-answer `message =` are subject to it too.
+  **A brief substantive interpretation of the result the student has just
+  produced IS legitimate**, and is worth having where otherwise mechanical
+  exercises would lose their connection to the data --- T1's pass messages note
+  what a narrow range of vote shares says about competitive elections, which is
+  the point of the exercise rather than a theft from a later one. Revised
+  8 August 2026; the earlier wording was "confirms the work just submitted and
+  nothing else", which forbade this too.
+  **The test is not "does the message say anything beyond correct?" but "does it
+  perform work that belongs to the student elsewhere?"** and **"elsewhere"
+  includes the question immediately below** --- that is the common case, not an
+  edge one. **[script] Mechanically: compare each `pass()` against the next
+  `correct =` for shared five-word runs.** That check fired on three of T21's
+  six pass messages on 8 August, each of which opened with the sentence the
+  following question's correct answer opened with. T3's ideology question pointed at "the next section" in two separate
   distractor messages, and the next section was the next thing on the page. Two distinct failures,
   both found repeatedly:
   - **Anticipating the next item.** "…before answering the next question",
@@ -183,6 +248,17 @@ before enforcing it. Where it describes a shape or a test, it is more reliable.
   exercise.completion = FALSE)` in every setup chunk that has exercises.
   Autocomplete inserts junk in the learnr editor. Not applicable to tutorials
   with no exercise chunks.
+- **THE FIRST EXERCISE THAT USES A PACKAGE CALLS `library()` VISIBLY, AND THE
+  PROSE SAYS SO. This is not redundancy and must not be "fixed".** Students
+  never see the setup chunk and do not know it exists. Setup attaches packages
+  so that a student who jumps to a later exercise is not blocked --- that is
+  invisible infrastructure, not instruction. From the student's position the
+  visible `library()` call is the only reason the function works, and loading a
+  package before using it is the habit being taught. **Do not rewrite the prose
+  to say the packages are already attached, and do not remove the call from
+  setup to make the prose literally true.** A reviewer reading the source will
+  flag the duplication as a contradiction; it is not one. Settled 8 August 2026,
+  after it was raised and wrongly acted on.
 - **Attach only what the tutorial uses.** DESCRIPTION `Imports` declares a
   dependency and makes a package reachable as `pkg::fn()`, but does not attach
   it — a bare `fn()` still fails. `library()` in the setup chunk attaches it.
@@ -267,6 +343,30 @@ before enforcing it. Where it describes a shape or a test, it is more reliable.
   separation *is* the point — e.g. one box showing that assignment produces no
   output, followed by one showing how to display a value.
 
+- **T19 PRACTICES 3, 7 AND 15 KEEP THEIR MID-CALL BLANKS. Settled 8 August
+  2026.** The rule below exists to stop meaningless slot-filling; it should not
+  remove scaffolding where **the blank is exactly the decision the exercise is
+  about**. In all three the surrounding call is machinery the student is not
+  being tested on:
+  - **Practice 3** is the first interaction prediction plot. Its blanks are
+    `plot_model`, the `[meansd]` term notation and the legend label --- the three
+    interaction-specific pieces, with the rest of the call supplied.
+  - **Practice 7** supplies one worked `predict()` call with the category left
+    blank, then asks for three more from scratch. The blank is which category to
+    predict for; constructing the remaining calls is the work.
+  - **Practice 15** blanks the held quota value and the three history values
+    inside `expand.grid()`. Recognising the 3 x 3 combinations and choosing those
+    values is the lesson; rebuilding `expand.grid()` is not.
+  **Do not report these as violations and do not open them to whole-expression
+  blanks.** The test to apply elsewhere: does the blank isolate the new decision,
+  or is the student filling slots in a call they already know how to write?
+- **T16 PRACTICE 15 KEEPS ITS FILL-IN SKELETON. Settled 8 August 2026 on her
+  ruling.** The starter is `___ <- lm(___ ~ ___ + ___ + ___, data = ___)` at a
+  point where students have already seen the same model family in Run and
+  observe 14, so it reads as over-scaffolded against the post-T2 rule. She chose
+  to keep it. **Do not report it as a violation, and do not open it up to an
+  empty starter.** The general rule below still holds everywhere else.
+
 ## 3. Hints
 
 **Terminology.** A *hint* is a numbered `-hint-1`, `-hint-2` chunk the student
@@ -332,6 +432,15 @@ is `try_again`, covered in section 4 — different thing, different rules.
 
 - House style is conceptual and interpretive: a scenario in which someone has
   reasoned wrongly, and the student diagnoses it. Not recall of a rule.
+- **OUTPUT-READING EXCEPTION, added 8 August 2026.** A question may ask the
+  student directly to read or identify something in output they have just
+  produced, where interpreting that output IS the skill being taught --- T2's
+  Practice 13 asks what type R reports for **date** in `str()` output.
+  **Do not rewrite such an item into a contrived misconception scenario to make
+  it match the usual shape.** §2 already permits a Practice question "about what
+  was just seen", and §4 must not contradict it. The item still has to require
+  the student to inspect and understand the output: a question answerable from a
+  sentence in the prose above is recall, and remains a defect.
 - **[script]** At least four options — more is fine. Fewer when the answer
   space is genuinely smaller: Nominal / Ordinal / Interval is the whole set,
   and three options is correct there. **Never invent a fourth option the
@@ -370,7 +479,12 @@ is `try_again`, covered in section 4 — different thing, different rules.
   answer states the claim AND explains it, duplicating what `message =` already
   says. Fix by moving the explanation to the message.
   **Measure against the MEAN distractor length, not the longest, and flag
-  anything above 1.25x.** Comparing to the longest hides the tilt: a question
+  anything above 1.25x --- AND by at least five words in absolute terms.**
+  **The absolute floor was added 8 August 2026**, on her ruling about T4's
+  `question-tool-choice`: the correct answer ran 10 words against a mean of 7,
+  which is 1.43x, and "10 words v 9 or 8 is no big deal". The cue this rule
+  guards against is a visibly longer answer; a word or two is not visible, and
+  flagging it trains people to ignore the check. Comparing to the longest hides the tilt: a question
   can sit comfortably under its longest distractor while running twice the
   typical one, and the typical one is what a student's eye calibrates against.
   Measured across T15--T19 at 1.6x-of-longest, four questions flagged; the same
@@ -380,6 +494,14 @@ is `try_again`, covered in section 4 — different thing, different rules.
   instead --- a four-word throwaway option is its own tell.
   Multi-select items are less exposed, since the cue does not tell you how many
   to pick.
+- **[script] A box that concedes the reader already knows is a box that should
+  not be there.** Grep the first line of every callout for "As in earlier
+  tutorials", "As you know", "You will recall", "By now". T20 carried a `.tip`
+  explaining "Run Code" versus "Submit Answer" --- in the twenty-first tutorial,
+  opening with "As in earlier tutorials". Nothing here flagged it: every box
+  check asks whether a box is well-formed, correctly typed, unstacked and not
+  duplicating adjacent prose, and none asks whether the reader needed telling.
+  It passed all of them.
 - **Markup conventions apply INSIDE `question()` too — check this in every
   tutorial.** Variable and data-frame names take **bold** in stems, answer
   options, and `message =` text, exactly as in prose; functions and arguments
@@ -514,6 +636,40 @@ backticks are fine everywhere.
 ## 5. Markup
 
 - **Bold** for object, variable, and data frame names in prose.
+- **THE EM-DASH BAN APPLIES TO MARKDOWN PROSE ONLY, NOT TO RAW HTML. Recorded
+  8 August 2026, after the completion banner was reported as a violation twice
+  and was correct both times.** In markdown you write `---` and Pandoc renders an
+  em dash; a literal em-dash character there is the defect the rule is about.
+  **Inside raw HTML none of that applies, because Pandoc does not process
+  markdown there --- `---` would reach the reader as three hyphens.** So the
+  banner uses two different forms on purpose, and every one of the seven banners
+  in the corpus that contains an em dash does it the same way:
+  - **In the visible `<p>` text: the HTML entity** `&mdash;`, which the browser
+    decodes.
+  - **In the `aria-label` attribute: the literal em-dash character.** The entity
+    would also work --- an HTML parser decodes attribute values too --- but the
+    literal is what the corpus uses and it keeps the source readable.
+  **Do not "fix" either one.** A checker comparing the label to the visible text
+  must normalise `&mdash;` and the literal character to the same thing before
+  comparing, which the battery does.
+- **REPORTED STATISTICS ARE ORDINARY PROSE TEXT --- NO BACKTICKS, NO MATH MODE.
+  Recorded 8 August 2026, after this was raised as a violation three times and
+  was not one.** A reported value is written exactly as it would be spoken, with
+  no markup around it in the source: r = 0.633, p < .001, t = 7.431, df = 149,
+  n = 3,110. Counts across the set: T14 writes 14 of these bare, T13 writes all
+  of its bare, and T12's single math-mode instance was an error introduced on
+  8 August and since corrected.
+  - **Backticks are wrong** --- these are not code the student types.
+    `t.test()` is code and takes backticks; t = 0.952 is a result and does not.
+  - **Math mode is wrong for a reported number, and RIGHT for a symbol alone**
+    --- $r$, $\\rho$, $\\mu_d$, $H_0$, $\\pi$ --- **and for a formula**, where the
+    symbolic content lives. One sentence may correctly contain both: "$r$ is the
+    sample correlation; here r = 0.633."
+  - The exception recorded further down still holds: plain arithmetic contrasted
+    with a symbolic expression in the same sentence stays in math mode, because
+    mixing the two sizes in one clause looks broken.
+  **Never convert one tutorial toward a different convention. If this is ever
+  changed, change T12, T13 and T14 together and rewrite this entry.**
 - `` `backticks` `` for function names with parens — `` `summary()` `` —
   argument names, `arg = value`, operators, and code fragments.
 - `[pkg]{.package-name}` for package names in prose, never backticks.
@@ -680,8 +836,18 @@ backticks are fine everywhere.
 - **The second paragraph says what the tutorial covers --- unless the section
   below already does.** Where a framing section follows the Overview and teaches
   the same procedure, drop the middle paragraph and leave the Overview at two.
-  T7--T14 all have such a section, so a preview duplicates it; T1--T6 do not, so
-  the middle paragraph earns its place. **Read the section that follows before
+  T7--T14 all have such a section, so a preview duplicates it; T2--T6 do not, so
+  the middle paragraph earns its place.
+  **T1 IS AN EXCEPTION and must not be made to match T2--T6.** Added 8 August
+  2026. T1 opens the entire series, and its Overview uses the space a
+  tutorial-specific preview would occupy to explain the purpose and progression
+  of the series as a whole; "Before You Begin" then covers the tutorial
+  machinery, and the **Roadmap** does the tutorial-specific orienting by saying
+  what Part 1 covers and why its loosely connected R mechanics come in that
+  order. Adding a "this tutorial covers..." paragraph to T1's Overview would
+  duplicate the Roadmap, not improve orientation. This is the same uniqueness
+  §6 already recognises when it says T1 needs a Roadmap where other tutorials
+  need a framing section --- the Overview rule has to acknowledge it too. **Read the section that follows before
   writing one.** The move is prescribed, the wording is not --- vary it rather
   than repeating "This tutorial covers..." down the sequence. This is a
   deliberate exception to §9's ban on formulaic openers: in a sequence the
@@ -718,6 +884,27 @@ backticks are fine everywhere.
   headings; unannounced material is the common failure. This is also the
   closest thing to an authoritative statement of what the function-restriction
   rule permits.
+- **THE OBJECTIVES LEAD-IN VARIES, AND THAT IS FINE --- WHAT MATTERS IS THAT THE
+  LEAD-IN AND THE BULLETS MATCH GRAMMATICALLY. Recorded 8 August 2026.** Her
+  ruling: elegant variation in the lead-in is appropriate; the real key is that
+  the two fit together sensibly. Three forms are in use, each covering exactly
+  the tutorials that belong together, and **all three are legitimate --- do not
+  normalise them to one**:
+  - **"In this tutorial you will learn:"** with `* How to ...` bullets.
+    T1--T9 and T15--T21.
+  - **"In this tutorial you will learn to:"** with bare-verb bullets ---
+    `* Explain ...`, `* Describe ...`, `* Distinguish ...`, `* State ...`.
+    T10 and T11, the two inference-logic tutorials, where "How to explain the
+    difference between" would be clumsy and the verb form reads better for
+    conceptual objectives.
+  - **"In this tutorial, you will learn how to <do the thing>. Specifically, we
+    will cover:"** with `* How to ...` bullets. T12--T14, the hypothesis-test
+    set, where the topic sentence names the test the tutorial is about before
+    the list breaks it down.
+  **Read the lead-in straight into each bullet.** "you will learn to: Explain",
+  "we will cover: How to test", "you will learn: How to" all parse; a mismatch
+  such as "you will learn to: How to explain" does not, and that is the defect
+  to look for.
 - **An orienting section between the Overview and the first hands-on material.**
   T4, T12, and T16 use a conceptual framing section, 446–687 words, no
   exercises. T1 uses a Roadmap instead, because its material is many loosely
@@ -749,6 +936,28 @@ backticks are fine everywhere.
   as one of the three classes and spanned in paragraph 4 --- is the
   preview-then-develop shape §5 already blesses. **Do not "fix" T1's recap into
   body order.**
+- **A FORWARD REFERENCE EARNS ITS PLACE WHEN IT ANSWERS A QUESTION THE TUTORIAL
+  HAS RAISED. Added 8 August 2026, after the rule below was applied too widely.**
+  Three different things were being removed as one, and only two of them should
+  be:
+  - **History assumptions** --- "you have used `group_by()` since Tutorial 5",
+    "you built single box plots in Tutorial 6", "in the previous tutorial you
+    described...". These assert what the reader has done and break for anyone
+    arriving directly. **Remove them.**
+  - **Catalogues** --- "This tutorial covers the first case; Tutorials 8 and 9
+    cover the other two." A table of contents, which `qpa_launch()` already
+    provides and which goes stale on renumbering. **Remove them.**
+  - **Substantive pointers** --- "that requires a formal hypothesis test, which
+    Tutorial 12 takes up for two categorical variables." **KEEP THESE.** T7--T9
+    spend their length telling students what a descriptive pattern cannot
+    establish; ending there without saying where the answer lives raises a
+    question and withholds its address. **The rule below already states the test
+    --- actionability** --- and a reader who has just been told a cross-tab
+    cannot settle chance can act on that pointer. Within a SET (T4--T6, T7--T9,
+    T12--T14, T15--T19, T20--T21) these connections are what make the set read as
+    one, and the infographic-growth exemption below rests on the same reasoning.
+  **The test is whether the pointer answers something the reader is now asking,
+  not whether it points forward.**
 - **The Takeaways end by pointing forward.** One short paragraph naming the next
   tutorial and what it adds --- the tool that changes, the question that becomes
   answerable. This is where forward references belong, and the only place they
@@ -760,6 +969,15 @@ backticks are fine everywhere.
   than summarizing what was finished. Run it as plain prose, not under a bolded
   label. Settled 4 August 2026, when six of fourteen tutorials did this and
   eight did not.
+  **THE LAST TUTORIAL IN THE SEQUENCE IS THE EXCEPTION: it ends on its own
+  material, with no forward paragraph at all.** Settled 8 August 2026 on T21.
+  A pointer with no referent cannot be written without either naming a tutorial
+  that does not exist or summarising what was finished, and §6 forbids the
+  second. What T21 carried instead was a catalogue of the whole sequence, which
+  is what `qpa_launch()` is for; it was removed and the Takeaways now close on
+  the tutorial's own last point. Do not re-flag T21 as missing a forward
+  pointer. Open for revisiting if a tutorial is ever added after it, or if the
+  end of the sequence is judged to want a closing note of its own.
   **A SENTENCE DESCRIBING HOW THE ACCUMULATING TABLE GROWS IS NOT THE FORWARD
   REFERENCE THIS RULE RESTRICTS** --- settled 4 August 2026 after it was raised
   as a defect and withdrawn. The infographic lead-ins say "Tutorial 6 adds a
@@ -794,6 +1012,14 @@ backticks are fine everywhere.
   the variable description. The labelled sentence is deliberate --- students
   struggle to form their own theoretical explanations, and naming it cues them
   on what one is. Check Your Understanding follows the same shape.
+  **THIS IS THE T7--T9 CONVENTION AND IS NOT REQUIRED ELSEWHERE. Settled
+  8 August 2026 on her instruction: "I like the example openings as they are."**
+  The labelled cue appears in T7 (3 times), T8 (5), T9 (4) and once in T14, and
+  nowhere else in the corpus. Other tutorials open their examples in whatever
+  way the material suits --- T15's Example 2, for instance, gives the
+  theoretical argument before the hypothesis rather than after it, and that is
+  fine. **Do not report a missing "The theoretical explanation is that…" as a
+  defect outside T7--T9, and do not restructure example openings to create one.**
 - **An umbrella term is spanned wherever a tutorial defines or develops it**
   (revised 3 August 2026 --- see §5). The Overview stays plain bold and the
   Takeaways re-mark whatever the body spanned. What remains a defect under the
@@ -809,11 +1035,29 @@ backticks are fine everywhere.
   in T1 and none anywhere else in T1--T6; a term taught and
   spanned but never re-marked in the Takeaways; and a term spanned twice within
   one tutorial.
+- **WHERE A TUTORIAL HAS A TAKEAWAYS INFOGRAPHIC, THE INFOGRAPHIC OPENS THE
+  TAKEAWAYS.** Clarified 8 August 2026: the rule below describes the
+  accumulating table, and naming T3's standalone levels table beside it left it
+  ambiguous whether "opens" applied to both. It applies to both. T3's table was
+  sixteen lines into its Takeaways and has been moved to the top. T1 and T2 are
+  the only exceptions, because they have no infographic at all.
 - **The Takeaways open with an HTML infographic table that accumulates across
   the sequence.** One data column in the first tutorial, headed generically;
   at the second, that column is RENAMED to its case and a second added. Cells
   are short noun phrases. Function names need `<code>` tags --- markdown
   backticks do not render inside the raw `<table>`.
+  **NINE TUTORIALS HAVE NO INFOGRAPHIC AND SHOULD NOT: T1, T2, T10, T11, AND
+  T15--T21.** T10, T11 and the regression sequence added 8 August 2026 on her
+  ruling ("I don't think we need an infographic"). The accumulating table works
+  where a framework builds column by column across a set --- T4--T6 add nominal,
+  ordinal and interval; T7--T9 add the three variable pairings. **T10 and T11 do
+  not work that way**: T10 is one causal chain from sampling variation to the
+  CLT, and T11 is two views of the same idea, hypothesis tests and confidence
+  intervals. **T15--T21 do not either** --- and none of the seven has one, so
+  adding one to a single tutorial would leave six at odds with it. A table built
+  for these would have one row and columns that mean nothing to a student, which
+  is the same reason T1 and T2 have none. **Do not report the absence as a
+  finding in any of the nine.**
   **T1 AND T2 HAVE NO INFOGRAPHIC AND SHOULD NOT.** Settled 4 August 2026. The
   accumulating table belongs to a sequence that builds one framework across
   several tutorials --- the univariate run from T4, and T3's standalone levels
@@ -842,8 +1086,47 @@ backticks are fine everywhere.
 
 ## 7. Accessibility
 
+- **DIAGRAM CHUNKS CARRY DIFFERENT `out.width` VALUES ON PURPOSE --- do not
+  normalise them.** Settled 8 August 2026, after two wrong attempts worth
+  recording. `NODE_STYLE` in `tools/render-diagrams.R` fixes box size and font
+  size in graphviz units, so **rendering each diagram at its OWN size times a
+  common scale factor** makes a box the same number of pixels in every diagram,
+  whatever the layout. Forcing a common output width, or a common output height,
+  rescales each diagram by a different factor and the boxes come out visibly
+  different sizes on the page --- **fixing the height does NOT fix it**, because
+  diagrams fill their height differently. With a common box scale, set each
+  chunk's `out.width` in proportion to the width the script prints, using a common
+  anchor: at anchor 70, 634px → 46%, 754px → 55%, 966px → 70%. **To resize the
+  diagrams, move the anchor and re-derive all three --- changing one alone breaks
+  the match.** `scale` in the render script sets pixel resolution, not display
+  size; lowering it only makes the images blurrier. **A reviewer will read the three different
+  percentages as an inconsistency; it is the opposite.** Re-derive them whenever
+  a diagram is re-rendered.
 - `fig.alt` on every figure. For figures that feed a question, describe visual
   features only — nothing that reveals the answer.
+- **T15--T19 HAVE NO `fig.alt` ANYWHERE --- outstanding, logged 8 August 2026.**
+  Not on exercise chunks and not on the non-exercise figures either: T16's two
+  diagrams, T17's reference prediction plot and T18's conditional diagram are all
+  unlabelled, alongside the five plot-producing exercises in T17 and T19.
+  **The v17.10 pass reported §7 clean on all five.** This was not a checker gap
+  --- §7's first rule is "`fig.alt` on every figure" and the check was simply not
+  run. T20 and T21 were brought into compliance on 8 August; T15--T19 still need
+  it, and writing the text requires the rendered figures.
+- **OPEN CORPUS-WIDE GAP, logged 8 August 2026: figures produced by STUDENT code
+  carry no alt text at all.** `fig.alt` is a knitr chunk option and the checks
+  written for it only ever looked at non-exercise chunks, so an exercise whose
+  output is a plot passes every accessibility check while shipping an unlabelled
+  image. Ten plot-producing exercises across T17, T19 and T21 are in this state,
+  and the true count is higher because a from-scratch exercise has an empty
+  starter and is invisible to a scan. **This is a real accessibility problem and
+  must be revisited.** Two candidate mechanisms, neither yet tested: `fig.alt`
+  on the `exercise=TRUE` chunk, if learnr passes chunk options through to
+  runtime output --- invisible to students and free if it works; or
+  `labs(alt = "...")` inside the plot call, which certainly works for a rendered
+  figure but sits in student-visible prescribed code and so becomes taught
+  content needing prompts, hints, graders and code files to match. Establish
+  which mechanism works before scoping the fix, and do all three tutorials
+  together.
 - **[script] Success banner `aria-label` must match the visible text**, not
   restate it at greater length. Screen reader users otherwise hear something
   sighted readers never see. Found in T2, T3, and T16 — check every tutorial.
@@ -919,6 +1202,19 @@ ONWARD --- BUT §10 EXTENDS IT TO EVERY TUTORIAL, INCLUDING WHEN THE COUNT IS
   forward-looking clause at the END OF A FULL PARAGRAPH is ordinary connective
   writing and is NOT a defect — T4's four Step transitions are correct.
 
+- **OPEN CORPUS-WIDE GAP, logged 8 August 2026: grouped prediction plots are
+  separated by hue alone.** `plot_model()` with two variables in `terms =` draws
+  one line per group and distinguishes them by colour only. T17, T19 and T21 all
+  do this --- `linetype` and `shape` appear nowhere in any of them --- so it is
+  not a defect in any one tutorial but a gap the §7 sweep did not catch, and
+  T17 and T19 passed the full v17.10 pass carrying it. T19 also teaches the
+  colour-only form explicitly ("one line appears per category, colored and
+  labeled by category name"). **This is a real accessibility problem and should
+  be revisited**, but the fix is not cosmetic: it means adding a second
+  aesthetic to prescribed calls across several exercises in three tutorials,
+  with the prompts, hints and graders that go with them. Deliberately deferred;
+  do not fix it in one tutorial alone, which would leave the corpus
+  inconsistent.
 - **Color-only information is fixed in the PLOT, not the caption.** Map the same
   variable to a second channel — `linetype` for lines, `shape` for points — with
   matching `labels` in both scales so ggplot merges them into one legend key. A
@@ -983,6 +1279,16 @@ ONWARD --- BUT §10 EXTENDS IT TO EVERY TUTORIAL, INCLUDING WHEN THE COUNT IS
 ## 9. Voice
 
 - Warm, direct, second person. Humor where it lands.
+- **Never assume WHEN the reader is reading, or what they have just been doing.**
+  These tutorials are used in other courses, and by students returning to them
+  semesters later while writing honors theses. So nothing may refer to the
+  course calendar or to a reader's recent history: not "a week has passed
+  since", not "as you saw last class", not "by now in the semester", not "we
+  covered this on Tuesday". Where a reader genuinely needs reminding of
+  something, say what it is and why it is worth recalling without dating it ---
+  "the shape is worth recalling before you write it", not "you have not written
+  one of these in a while". A cross-reference to another tutorial is fine: that
+  points at a place, not at a time.
 - Cut formulaic openers. A sentence telling students to press "Run Code" when
   the paragraph above already explained the box is filler — delete it rather
   than rewriting it into a different formula.
@@ -1026,7 +1332,16 @@ carried.** Decided 1 August 2026.
   good practice" and "always filter before plotting" are banned for the same
   reason "`na.rm = TRUE` is good practice" is banned in section 1: they teach a
   reflex in place of a check.
-- **Where nothing needs filtering, do not raise filtering at all.** A sentence
+- **Where nothing needs filtering, do not raise filtering at all** --- in prose,
+  prompts or hints. **THIS DOES NOT SILENCE A GRADER RESPONDING TO FILTERING THE
+  STUDENT ACTUALLY USED. Clarified 8 August 2026.** T8's graders accept an
+  otherwise correct answer carrying a gratuitous `filter()` or `na.rm = TRUE`
+  and then say so: "which does no harm --- but neither of these variables has a
+  missing value, so there was nothing to remove. Check the counts before
+  reaching for either." That is the pass-with-a-nudge design settled 1 August,
+  and it is the opposite of planting the reflex --- it corrects one the student
+  has just demonstrated. **Do not delete that feedback as a violation of this
+  rule. Do not plant the reflex; do correct it when it appears.**** A sentence
   saying "no filter is needed here" introduces the idea in order to negate it.
   If a deletion leaves such a sentence as the first mention of a function in the
   tutorial, the sentence goes.
@@ -1044,6 +1359,16 @@ carried.** Decided 1 August 2026.
   re-flagged as a violation. The exception is narrow: it applies where counting
   missing values is itself the skill being introduced and graded, not where the
   count is context for some other analysis.
+  **Extended 8 August 2026, and still narrow: in the tutorial that INTRODUCES
+  missingness, counts are stated from the Missing Values section onward, not
+  before it.** T2 uses **likes_count**, **shares_count**, **month** and **date**
+  well before that section. Announcing counts for them earlier would state
+  something the student has no way to read --- they have not yet met `NA` or
+  `is.na()` --- and would pre-empt the sequence the tutorial is built on. The
+  rule exists so students know how many cases a calculation uses; that sentence
+  is meaningless until they know what a missing value is. **This licence covers
+  exactly one tutorial and exactly the material before its Missing Values
+  section. It is not a general permission to omit counts early in a file.**
 - **Never infer a joint count by subtraction.** Two variables missing 95 and 34
   of 167 do not leave 38 --- the missing sets overlap. `gender_equal3` and
   `regime_type3` leave 61. Take it from the output or from
@@ -1216,119 +1541,32 @@ string appears somewhere in the submission rather than verifying the thing.
   wrong `alternative`, filter, or formula all shift the p-value. T12's
   `prop.test`, T13's `t.test`/`oneway.test`, and T14's `cor.test` graders are
   all sound for this reason --- do not "harden" them.
-- **Do NOT check values the starter supplies.** A grader that fails a student
-  for altering a pre-written title punishes tampering, not misunderstanding.
-  Declined on T5 Practice 13, T7 Practice 15, T8 Practice 12.
-  **[script] Extract every literal in an exercise's starter code and every value
-  its grader compares with `identical()` or `%in%`. A value appearing in both is
-  a starter-supplied check and comes out.** The grader and the starter often sit
-  two hundred lines apart, which is what reading misses. Applied backwards on
-  4 August 2026 to T4 Practice 17, T5 Practice 6, T6 Practice 12 and T6
-  Practice 17 --- sixteen checks, all written before this rule existed. **The
-  same check can be right in one exercise and wrong in another**: T6's
-  Practice 12 and Practice 18 carry an identical `color = "white"` test, and it
-  is a defect only in Practice 12, because Practice 18's starter is empty and
-  the student types it. Anchor on the surrounding block, never on the test
-  alone. **And when a check goes, re-read the `pass()`** --- T5 Practice 6's
-  credited the student for nine category labels the starter had handed over.
-
-## Naming things in prose
-
-Three kinds of name, three treatments, and they are not interchangeable.
-
-**Variable names are bold.** `**wage_growth**`, `**electoral_f**`. This holds in
-body prose, in `question()` stems, in `answer()` text and in grader messages.
-
-**Code, function names and R output labels are backticked.** `` `factor()` ``,
-`` `levels =` ``, `` `Multiple R-squared` ``, `` `democ_fPartial Democracy` ``.
-An output label is what R prints, so it is code even when it reads like prose.
-
-**Literal strings are in quotes, never bold.** That includes factor level names
-and any prescribed string a student must type. Bolding a level name makes it
-look like a variable, which is the confusion this rule exists to prevent --- a
-student reading **Mixed** cannot tell whether to type `Mixed` or `"Mixed"`.
-
-**Which quotes depends on whether the student TYPES the string**, and §5 has
-the rule: a string that gets copied into code takes backslash-escaped quotes,
-`\"Plurality/Majority\"`, so Pandoc's smart typography does not turn them into
-curly quotes R will reject. A string merely referred to keeps ordinary quotes
-and renders curly, which is correct for prose. Do NOT use backticks for either
---- backticks imply code formatting the string does not have.
-
-## Data dates
-
-Every example states the period its data cover, in the paragraph that
-introduces the variables. A reader should never have to open the codebook to
-learn what year a finding is about.
-
-State the period for the OUTCOME and for any predictor measured at a different
-time. Where a dataset is a single cross-section, one sentence covers it:
-
-    Every variable in `counties` describes the county as of 2016.
-
-Where variables come from different years, say so and say which:
-
-    The Freedom House scores assess 2016; the survey responses come from
-    World Values Survey Wave 7, fielded between 2017 and 2023.
-
-Where a dataset takes each variable from its own most recent available year,
-say that rather than implying a common date:
-
-    Variables in that cross-section take their most recent available
-    observation as of the January 2020 release, so they are not all measured
-    in the same year --- consult `?qog` when a specific year matters.
-
-The current periods:
-
-| Dataset | Period |
-|:--|:--|
-| `counties` | 2016 |
-| `ipu` | August 2026; `first_woman_year` runs 1907--2021 |
-| `fHouse` | Freedom House 2016 and 2022; WVS Wave 7 fielded 2017--2023 |
-| `qog` | January 2020 cross-section, most recent available observation per variable |
-| `world` | mixed; see `?world` |
-| `states` | 2010 |
-| `statesPolicy` | mixed, 2020--2024 by variable name |
-| `unFBposts` | see `?unFBposts` |
-
-**Where temporal ordering is part of the argument, state it explicitly and say
-why it matters.** A predictor measured after its outcome cannot explain it,
-and a reader cannot check that unless the dates are on the page.
-
-## Math mode
-
-Use `$...$` for symbols, equations and anything with a subscript, superscript
-or Greek letter:
-
-    $\hat{Y} = \hat{\alpha} + \hat{\beta}X$
-    where $\alpha$ is the intercept
-    $H_0: \beta = 0$
-
-Do NOT use it for arithmetic on plain numbers. Write those as text:
-
-    5 × 0.314 = 1.57 percentage points          <- correct
-    $5 \times 0.314 = 1.57$ percentage points   <- wrong
-
-Two reasons. MathJax renders at a different size from the surrounding text, so
-a sentence containing both a math-mode number and a plain one shows the same
-quantity at two sizes. And MathJax sizing is unstable on first render --- the
-math is noticeably larger before the page settles --- which makes a paragraph
-of mixed arithmetic look broken to a student who has just opened the tutorial.
-
-Use the multiplication sign `×` and the minus sign `−` rather than `*` and `-`
-when writing arithmetic as text, so it reads as arithmetic rather than as code.
-
-The same rule applies inside `question()` stems, `answer()` text and grader
-messages. Math renders in body prose, `question()` and `fig.cap`, but not in
-`fig.alt` or ggplot `labs()` --- so a quantity written in math mode cannot be
-reused in alt text without rewriting it.
-
-## Codebooks
-
-All seven exist, confirmed 4 August 2026: `data-counties.R`, `data-world.R`,
-`data-qog.R`, `data-states.R`, `data-fHouse.R`, `data-statesPolicy.R` and
-`data-unFBposts.R`.
-
+- **CHECKING STARTER-SUPPLIED CODE: PERMITTED, NOT REQUIRED --- and the FAIL
+  MESSAGE must match the starter. Clarified 8 August 2026, replacing the earlier
+  absolute "do NOT check values the starter supplies".** A grader checks the
+  submission it receives, not the difference between the submission and the
+  starter. Verifying something the starter provided is therefore legitimate: a
+  student can delete or alter it, and a prompt that says "change nothing else"
+  states a requirement like any other. **Neither a grader that checks it nor one
+  that does not is a defect, and both patterns exist in the corpus --- do not
+  sweep a tutorial from one to the other, and do not flag one file for matching
+  the opposite pattern to its neighbour.** What IS a defect:
+  - **A fail message that blames the student for code they never had to write.**
+    Where the starter supplies it, the message says *keep* it --- "Keep
+    `type = \"response\"`" --- not *use* it. The verb tells the student whether
+    they were meant to type it; getting it wrong sends them hunting for a
+    mistake they did not make.
+  - **A grader that checks ONLY starter-supplied code** and never verifies what
+    the student actually had to supply. That grader passes an untouched starter.
+  - **A check on a value the student was invited to choose.** Prescribed values
+    are requirements; open ones are not. T6's Practice 12 and Practice 18 carry
+    an identical `color = "white"` test; it is wrong only where the starter
+    already supplies it and the prompt does not prescribe it. Anchor on the
+    surrounding block, never on the test alone.
+  - History: sixteen such checks were removed on 4 August from T4 Practice 17,
+    T5 Practice 6, T6 Practice 12 and T6 Practice 17, and declined earlier on
+    T5 Practice 13, T7 Practice 15, T8 Practice 12. Those removals stand; they
+    are not to be reinstated, and their absence is not a defect either.
 - **Check every variable description against the codebook, not against other
   tutorials.** Standardising across files makes them consistent, not correct:
   `prop_college_grad` read "adults over 25" in T8, T9 and T13 because it was

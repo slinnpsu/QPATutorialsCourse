@@ -75,13 +75,31 @@ dir.create(out_dir_18, recursive = TRUE, showWarnings = FALSE)
 ## Render a grViz diagram to PNG via a temporary SVG.
 ## The width and height set the raster size; the tutorials scale the result
 ## with out.width, so these control resolution rather than displayed size.
-save_png <- function(diagram, filename, dirs, width = 600, height = 220) {
+# Render at the SVG's OWN size -- pass neither width nor height. NODE_STYLE
+# already fixes the node size and font size in graphviz units, so an unscaled
+# render makes a box the same number of pixels in every diagram, whatever the
+# layout. Forcing a common width, or a common height, rescales each diagram by a
+# different factor and the boxes come out visibly different sizes on the page.
+# Set each chunk's out.width in proportion to the widths printed below.
+# Read a PNG's pixel dimensions from its header, using base R only.
+png_dim <- function(f) {
+  con <- file(f, "rb"); on.exit(close(con))
+  readBin(con, "raw", 16)                       # signature + IHDR length/type
+  be <- function() sum(as.numeric(readBin(con, "raw", 4)) * c(256^3, 256^2, 256, 1))
+  c(be(), be())
+}
+
+save_png <- function(diagram, filename, dirs, scale = 2) {
+  svg <- export_svg(diagram)
   tmp <- tempfile(fileext = ".svg")
-  writeLines(export_svg(diagram), tmp)
+  writeLines(svg, tmp)
+  # The SVG header carries its own width, e.g. <svg width="553pt" ...>.
+  hit <- regmatches(svg, regexpr('width="[0-9.]+', svg))
+  nat <- as.numeric(sub('width="', "", hit))
   for (d in dirs) {
     out <- file.path(d, filename)
-    rsvg_png(tmp, file = out, width = width, height = height)
-    cat("Saved:", out, "\n")
+    rsvg_png(tmp, file = out, width = round(nat * scale))
+    cat("Saved:", out, "-", paste(png_dim(out), collapse = " x "), "\n")
   }
   unlink(tmp)
 }
@@ -100,8 +118,8 @@ d1 <- grViz(paste0("
     graph [layout = dot, rankdir = LR, bgcolor = white]
     ", NODE_STYLE, "
     X2 [label = 'X\u2082\nOmitted cause']
-    X1 [label = 'X\u2081\nIndependent variable']
-    Y  [label = 'Y\nDependent variable']
+    X1 [label = 'X\u2081\nExplanatory variable']
+    Y  [label = 'Y\nOutcome variable']
     ", EDGE_STYLE, "
     X2 -> X1
     X2 -> Y
@@ -114,9 +132,9 @@ d2 <- grViz(paste0("
   digraph correlated {
     graph [layout = dot, rankdir = LR, bgcolor = white]
     ", NODE_STYLE, "
-    X1 [label = 'X\u2081\nIndependent variable']
+    X1 [label = 'X\u2081\nExplanatory variable']
     X2 [label = 'X\u2082\nCorrelated cause']
-    Y  [label = 'Y\nDependent variable']
+    Y  [label = 'Y\nOutcome variable']
     ", EDGE_STYLE, "
     X1 -> X2
     X1 -> Y
@@ -130,9 +148,9 @@ d3 <- grViz(paste0("
   digraph conditional {
     graph [layout = dot, rankdir = LR, bgcolor = white]
     ", NODE_STYLE, "
-    X1 [label = 'X\u2081\nIndependent variable']
+    X1 [label = 'X\u2081\nExplanatory variable']
     X2 [label = 'X\u2082\nConditioning variable']
-    Y  [label = 'Y\nDependent variable']
+    Y  [label = 'Y\nOutcome variable']
     ", EDGE_STYLE, "
     X1 -> Y
     X2 -> Y [label = 'changes the\neffect of X\u2081',

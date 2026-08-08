@@ -15,7 +15,7 @@ description: >
 
 A statistically significant coefficient does not always tell a reader whether a relationship is substantively important. How much higher is turnout predicted to be in a wealthy community than in a poor one? How different are the predicted outcomes for democracies and autocracies? What does a model imply for realistic cases rather than for a one-unit change in isolation? Answering questions like these requires translating regression coefficients into predicted values that can be compared and visualized.
 
-This tutorial shows how to turn an additive regression model into concrete predictions and prediction plots. It builds on Tutorials 15 and 16, where you learned to estimate models, interpret coefficients, test hypotheses, assess model fit, and present results in a regression table. Here, you will use those results to communicate what the model predicts across substantively meaningful values of the predictors.
+This tutorial shows how to turn an additive regression model into concrete predictions and prediction plots. It builds on Tutorials 15 and 16, which cover estimating models, interpreting coefficients, testing hypotheses, assessing model fit, and presenting results in a regression table. Here, you will use those results to communicate what the model predicts across substantively meaningful values of the predictors.
 
 In this tutorial you will learn:
 
@@ -57,7 +57,7 @@ model_rep <- lm(women_percent ~ quota_f + electoral_f + years_c, data = ipu)
 
 ## From Model to Meaning: Choosing and Interpreting Predictions
 
-In Tutorials 15 and 16, you learned to estimate regression models, interpret their coefficients, test hypotheses, and assess model fit. That work produces a table of numbers --- and a good table is worth having. Each coefficient tells you the direction and size of a predictor's relationship with the outcome, holding everything else constant --- the [**effect**]{.important-text} of that predictor, in the statistical sense the term carries throughout these tutorials, without any claim that one variable causes the other. But a table of numbers does not always make that relationship easy to picture in substantively meaningful terms.
+Tutorials 15 and 16 estimate regression models, interpret their coefficients, test hypotheses, and assess model fit. That work produces a table of numbers --- and a good table is worth having. Each coefficient tells you the direction and size of a predictor's relationship with the outcome, holding everything else constant --- the [**effect**]{.important-text} of that predictor, in the statistical sense the term carries throughout these tutorials, without any claim that one variable causes the other. But a table of numbers does not always make that relationship easy to picture in substantively meaningful terms.
 
 Think about what you actually want to know. If you are studying what predicts voter turnout across counties, you might ask: how much higher is the predicted turnout in a wealthy county compared to a poor one, holding unemployment constant? What does the model predict for a county with average income and average unemployment --- as opposed to one with high income but also high unemployment? A coefficient tells you the direction and per-unit size of the income relationship, but it does not tell you how large that difference is across realistic values represented in your data, in units a reader can picture. That is what predictions are for.
 
@@ -95,7 +95,7 @@ Notice that all five components appear naturally in the prose without being labe
 
 ### The Workflow
 
-Everything in Tutorials 15 and 16 has been building toward this moment: you have estimated a model, interpreted its coefficients, tested the hypotheses, and assessed model fit. This tutorial does not replace that work. It extends it by translating selected parts of the fitted model into concrete comparisons that are easier to communicate.
+Everything in Tutorials 15 and 16 builds toward this moment: a model is estimated, its coefficients interpreted, its hypotheses tested, and its fit assessed. This tutorial does not replace that work. It extends it by translating selected parts of the fitted model into concrete comparisons that are easier to communicate.
 
 The workflow this tutorial follows has three steps. We begin with a **regression table** --- not because tables are exciting, but because the table documents the complete model. Every coefficient is there, with its standard error and its significance. Any reader who wants to verify the analysis or build on it starts here. The coefficient table establishes the estimated relationships, their uncertainty, and model fit. Predictions then translate selected parts of that table into comparisons across substantively meaningful values.
 
@@ -113,7 +113,7 @@ State legislatures vary dramatically in their partisan composition. What explain
 In a comparison of states, those with more liberal public opinion will have a higher proportion of Democratic state house seats than those with less liberal public opinion, after controlling for racial composition, poverty rate, and census region.
 :::
 
-The data frame **states** describes every U.S. state as of 2010. Two of the variables below are built in the tutorial's setup rather than shipped: **p.liberal** rescales **liberal** to a proportion, and **region_censusf** turns the numeric region code into a labeled factor. One state is dropped for missing data, leaving 49 of the 50 in the model below. It contains the following variables:
+The data frame **states** describes every U.S. state as of 2010. Two of the variables below are built in the tutorial's setup rather than shipped: **p.liberal** rescales **liberal** to a proportion, and **region_censusf** turns the numeric region code into a labeled factor. Every variable below is recorded for all 50 states except **hs_dem_prop_all**, which is missing for Nebraska --- its legislature is unicameral and officially nonpartisan, so there is no Democratic share of lower-house seats to record. That leaves 49 states in the model below. It contains the following variables:
 
 - **hs_dem_prop_all**: proportion of state house seats held by Democrats
 - **p.liberal**: proportion of state residents identifying as liberal
@@ -181,11 +181,10 @@ grade_this({
     fail("Call summary() on fit1 to display the results.")
   expected <- lm(hs_dem_prop_all ~ nonwhite + p.liberal + povrate + region_censusf,
                  data = states)
-  result_coef <- if (inherits(.result, "summary.lm")) {
-    setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
-  } else {
-    coef(.result)
+  if (!inherits(.result, "summary.lm")) {
+    fail("The last line should display the summary. Save the model, then call `summary()` on it so the summary is what prints.")
   }
+  result_coef <- setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
   if (is.null(result_coef))
     fail("Make sure you display the results by calling summary() on fit1.")
   if (!isTRUE(all.equal(
@@ -193,7 +192,7 @@ grade_this({
     sort(as.numeric(coef(expected))),
     tolerance = 1e-6)))
     fail("Check your formula. The model should regress hs_dem_prop_all on nonwhite, p.liberal, povrate, and region_censusf using the states data frame.")
-  pass("Right. Only two predictors are significant at .05: p.liberal and the Northeast dummy. Keep that in mind as you interpret the predictions that follow.")
+  pass("Right. Only two predictors are significant at .05: p.liberal and the Northeast dummy.")
 })
 ```
 
@@ -276,7 +275,7 @@ grade_this({
   pos <- sapply(labels, function(l) regexpr(l, code_nc, fixed=TRUE)[1])
   if (!all(diff(pos) > 0))
     fail("The labels are out of order. Follow formula order: Proportion Non-White, Proportion Liberal, Poverty Rate, West, Midwest, Northeast.")
-  pass("Well done. The table gives your reader the complete picture; the predictions and plots that follow translate the coefficients into model-implied comparisons.")
+  pass("Well done. The table gives your reader the complete picture --- each coefficient with its uncertainty and its significance, in a layout built to be read rather than inspected.")
 })
 ```
 
@@ -299,7 +298,7 @@ predict(yourmodel,
         ))
 ```
 
-The `levels =` argument is what makes the factor complete. Without it, R builds a one-level factor and `predict()` fails.
+The `levels =` argument gives the new factor the same set of levels as the variable the model was fitted on, which is the convention used throughout these tutorials.
 
 **Run and observe 3: Compute predicted Democratic seat share at two levels of p.liberal**
 
@@ -323,9 +322,9 @@ predict(fit1,
         ))
 ```
 
-**How this code works.** `predict()` takes the model object and a `newdata` argument --- a data frame describing the exact case you want to predict. Every predictor in the model must appear in `newdata`, named and typed exactly as in the formula. Here that means four variables: `p.liberal`, `nonwhite`, and `povrate` set to specific values, and `region_censusf`. Factor variables in R carry information about all their possible levels, not just the value you are supplying --- they are not simply character strings. The recommended way to specify a factor predictor in `newdata` is `factor("South", levels = levels(`states$region_censusf`))`, which creates a one-element factor with the correct level set explicitly attached. This makes the type unambiguous and protects against edge cases where R cannot determine the levels from context alone. The output is in the same units as the outcome variable: the proportion of Democratic house seats, on a 0-to-1 scale.
+**How this code works.** `predict()` takes the model object and a `newdata` argument --- a data frame describing the exact case you want to predict. Every predictor in the model must appear in `newdata`, named and typed exactly as in the formula. Here that means four variables: `p.liberal`, `nonwhite`, and `povrate` set to specific values, and `region_censusf`. Factor variables in R carry information about all their possible levels, not just the value you are supplying --- they are not simply character strings. The recommended way to specify a factor predictor in `newdata` is `factor("South", levels = levels(states$region_censusf))`, which creates a one-element factor with the correct level set explicitly attached. This makes the type unambiguous and protects against edge cases where R cannot determine the levels from context alone. The output is in the same units as the outcome variable: the proportion of Democratic house seats, on a 0-to-1 scale.
 
-The two predictions differ in exactly one way --- the value of `p.liberal`. Everything else is held constant. That difference is the liberalism slope made concrete. A second useful comparison is the regional gap: the West coefficient is also significant, so comparing an otherwise identical Southern and Western state gives you a concrete statement of what that coefficient means.
+The two predictions differ in exactly one way --- the value of `p.liberal`. Everything else is held constant. That difference is the liberalism slope made concrete. A second useful comparison is the regional gap: the Northeast coefficient is also significant, so comparing an otherwise identical Southern and Northeastern state gives you a concrete statement of what that coefficient means.
 
 **Apply 4: Interpret the difference**
 
@@ -364,7 +363,7 @@ Run the code below and examine the output --- the direction of the line, the sha
 
 **Run and observe 5: Produce a prediction plot for state liberalism**
 
-```{r exercise-predplot-liberal-tryit, exercise=TRUE, exercise.cap="Run and observe 5"}
+```{r exercise-predplot-liberal-tryit, exercise=TRUE, exercise.cap="Run and observe 5", fig.alt="Predicted proportion of Democratic House seats against the proportion of liberal residents, with the observed states plotted as individual points behind the line. The horizontal axis runs from 0.0 to about 0.6 and the vertical axis from about 0.25 to above 1.00. A straight line rises from left to right with a shaded band that widens toward both ends of the range."}
 library(sjPlot)
 plot_model(fit1,
            type = "pred",
@@ -384,7 +383,7 @@ Notice what this plot is doing: it is sweeping across the full range of **p.libe
 
 The five questions below walk through each component of the interpretation framework. The prediction plot is reproduced here for reference.
 
-```{r fit1-predplot-ref, echo=FALSE, message=FALSE}
+```{r fit1-predplot-ref, echo=FALSE, message=FALSE, fig.alt="Predicted proportion of Democratic House seats against the proportion of liberal residents. The horizontal axis runs from 0.0 to about 0.6 and the vertical axis from about 0.25 to above 1.00. A straight line rises from left to right, with a shaded band that widens toward both ends."}
 plot_model(fit1,
            type = "pred",
            terms = "p.liberal",
@@ -488,7 +487,7 @@ A coefficient and p-value tell you the relationship is statistically significant
 ```{r quiz-liberal-hypothesis, echo=FALSE}
 question("Look at the **p.liberal** coefficient and its p-value in your output. What does the prediction plot add to that conclusion?",
   correct = "Right. The plot adds substantive magnitude to what the p-value can only confirm as non-zero.",
-  answer("The plot shows how large the difference is, not just that it is nonzero",
+  answer("The plot shows the size of the difference, not only its existence",
          correct = TRUE,
          message = "A significant p-value tells you the relationship is statistically distinguishable from zero. The plot tells you what it looks like in the units and range that matter --- about 9 percentage points between a less liberal and a more liberal state across a realistic range."),
   answer("The plot adds nothing the p-value has not already established",
@@ -509,9 +508,9 @@ The `predict()` calls showed a regional gap. Seeing all four regions at once mak
 
 **Practice 11: Produce a prediction plot for census region**
 
-Produce the plot and examine it carefully before answering the interpretation question that follows. Use the title \"Predicted Democratic House Seat Share by Census Region\", the x-axis label \"Census Region\", the y-axis label \"Proportion of Democratic House Seats\", and the caption "Predictions are for states with average poverty rate, proportion liberal, and proportion non-white.\" Three hints are available. Click \"Submit Answer" to check your work.
+Produce the plot and examine it carefully before answering the interpretation question that follows. Use the title \"Predicted Democratic House Seat Share by Census Region\", the x-axis label \"Census Region\", the y-axis label \"Proportion of Democratic House Seats\", and the caption "Predictions are for states with average poverty rate, proportion liberal, and proportion non-white.\" Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-region, exercise=TRUE, exercise.cap="Practice 11"}
+```{r exercise-predplot-region, exercise=TRUE, exercise.cap="Practice 11", fig.alt="Four predicted proportions of Democratic House seats, one for each census region, each drawn as a point with a vertical confidence interval. The categories are labeled South, West, Midwest and Northeast, and the vertical axis spans roughly 0.45 to 0.75."}
 ___(fit1,
     ___ = "pred",
     ___ = "region_censusf",
@@ -604,7 +603,7 @@ Setting `terms` to a vector of two variable names produces this plot: the first 
 
 Produce the plot and notice whether the four lines are parallel --- that parallelism is a finding about the model, not just a visual feature. Use the title \"Predicted Democratic House Seat Share by Liberalism and Region\", the x-axis label \"Proportion Liberal\", the y-axis label \"Proportion of Democratic House Seats\", and the caption \"Predictions are for states with average poverty rate and proportion non-white.\" `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Census Region", caption = "...")` to set both. Four hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-twovar, exercise=TRUE, exercise.cap="Apply 13"}
+```{r exercise-predplot-twovar, exercise=TRUE, exercise.cap="Apply 13", fig.alt="Four straight lines, one per census region, showing the predicted proportion of Democratic House seats against the proportion of liberal residents. Each rises from left to right across a horizontal axis running from 0.0 to about 0.6, each with its own shaded band, and a legend names the four regions."}
 ___(fit1,
     ___ = "pred",
     ___ = c("p.liberal", "region_censusf"),
@@ -641,10 +640,10 @@ ___(fit1,
 
 ```{r exercise-predplot-twovar-hint-4}
 # Hint 4 of 4
-# Your call should be plot_model(fit1, type = "pred",
-# terms = c("p.liberal", "region_censusf"), with the prescribed
-# title, axis labels, and a labs(color = "Census Region", caption = "...")
-# layer with the prescribed caption.
+# The whole call is one plot_model() with four arguments -- the model,
+# type, terms, axis.title -- followed by a labs() layer chained with +.
+# terms takes both variable names in a character vector, the continuous
+# one first. Everything else is the prescribed strings above, typed exactly.
 ```
 
 ```{r exercise-predplot-twovar-check}
@@ -699,7 +698,7 @@ question("Look at the two-variable plot. Which statement best describes what the
 )
 ```
 
-The four lines are parallel. That is not a coincidence --- it is what a model without an interaction produces. Because there is no interaction term between **p.liberal** and **region_censusf** in this model, the slope of liberalism is mathematically identical in every region. The vertical distances between lines are the region coefficients: the Northeast line runs consistently above the others, and South, West, and Midwest cluster closely together. Parallel lines tell you that the x-axis predictor has the same estimated slope in every group.
+The four lines are parallel. That is not a coincidence --- [**parallel lines**]{.important-text} are what a model without an interaction produces. Because there is no interaction term between **p.liberal** and **region_censusf** in this model, the slope of liberalism is mathematically identical in every region. The vertical distances between lines are the region coefficients: the Northeast line runs consistently above the others, and South, West, and Midwest cluster closely together. Parallel lines tell you that the x-axis predictor has the same estimated slope in every group.
 
 ### What We Learned About Ideology, Region, and Democratic Representation
 
@@ -800,7 +799,7 @@ grade_this({
   pos_years <- regexpr("Years Since First Woman", cov_str, fixed = TRUE)[1]
   if (!all(diff(c(pos_quota, pos_prop, pos_mixed, pos_years)) > 0))
     fail("The labels are out of order. They should follow formula order: Gender Quota, Proportional System, Mixed System, Years Since First Woman.")
-  pass("Right. The coefficient values and significance levels in this table will anchor your interpretation of the predictions that follow.")
+  pass("Right.")
 })
 ```
 
@@ -839,7 +838,7 @@ predict(model_rep,
 # For each blank in Call 1: quota_f takes the level name for a
 # country without a quota, electoral_f takes the level name for
 # plurality systems, and years_c takes the value that puts a
-# centred variable at its mean.
+# centered variable at its mean.
 ```
 
 ```{r exercise-predict-rep-hint-3}
@@ -902,7 +901,7 @@ question("Your two predicted values show the representation gap between a plural
 
 `predict()` answered one specific what-if. `plot_model()` shows how predicted representation differs across the full range of **years_c** --- the same tool you used for **p.liberal** in Example 1, now applied to a different model and predictor.
 
-A `plot_model()` call has four parts, and they always appear in the same order. The model object comes first. `type = "pred"` asks for predicted values rather than coefficients. `terms` names the predictor to sweep across the x-axis --- one name for a single line, or a vector of two when a second variable should produce separate lines. Everything after that is labelling: `title` and `axis.title` belong inside the call, while the legend title and caption are added afterwards with a `labs()` layer joined by `+`.
+A `plot_model()` call has four parts, and they always appear in the same order. The model object comes first. `type = "pred"` asks for predicted values rather than coefficients. `terms` names the predictor to sweep across the x-axis --- one name for a single line, or a vector of two when a second variable should produce separate lines. Everything after that is labeling: `title` and `axis.title` belong inside the call, while the legend title and caption are added afterwards with a `labs()` layer joined by `+`.
 
 **Example code:**
 
@@ -921,7 +920,7 @@ plot_model(yourmodel,
 
 Write the complete `plot_model()` call from scratch, using **model_rep** as the model object. Use the title \"Predicted Women's Representation by Length of Parliamentary History\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", and the caption \"Predictions are for plurality/majority countries with no gender quota.\" Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-years, exercise=TRUE, exercise.cap="Practice 18"}
+```{r exercise-predplot-years, exercise=TRUE, exercise.cap="Practice 18", fig.alt="Predicted percent women against years since the first woman entered parliament, centered so that zero is the average. The horizontal axis runs from about -60 to 60 and the vertical axis from about 10 to 30. A straight line rises from left to right, with a shaded band that widens toward both ends."}
 
 ```
 
@@ -943,12 +942,10 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 
 ```{r exercise-predplot-years-hint-3}
 # Hint 3 of 3
-# Your call should be plot_model(model_rep, type = "pred",
-# terms = "years_c", with title = "Predicted Women's Representation
-# by Length of Parliamentary History", axis.title = c("Years Since
-# First Woman (centered)", "Predicted Percent Women"), and a
-# labs(caption = "...") layer. The prescribed caption is:
-# "Predictions are for plurality/majority countries with no gender quota."
+# One plot_model() call with the model, type, terms, title and
+# axis.title, then a labs() layer chained with + for the caption.
+# The centered variable is the one to name in terms. Every string
+# comes from the prescribed list above and must be typed exactly.
 ```
 
 ```{r exercise-predplot-years-check}
@@ -1016,9 +1013,9 @@ The two `predict()` calls showed the representation gap between a plurality and 
 
 **Practice 20: Produce a prediction plot for electoral system**
 
-Write the complete `plot_model()` call from scratch, using **model_rep** as the model object. Use the title \"Predicted Women's Representation by Electoral System\", the x-axis label \"Electoral System\", the y-axis label \"Predicted Percent Women\", and the caption "Predictions are for countries with no gender quota and average parliamentary history.\" Three hints are available. Click \"Submit Answer" to check your work.
+Write the complete `plot_model()` call from scratch, using **model_rep** as the model object. Use the title \"Predicted Women's Representation by Electoral System\", the x-axis label \"Electoral System\", the y-axis label \"Predicted Percent Women\", and the caption "Predictions are for countries with no gender quota and average parliamentary history.\" Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-electoral, exercise=TRUE, exercise.cap="Practice 20"}
+```{r exercise-predplot-electoral, exercise=TRUE, exercise.cap="Practice 20", fig.alt="Three predicted percentages of women, one for each electoral system, each drawn as a point with a vertical confidence interval. The categories are labeled Plurality/Majority, Proportional and Mixed, and the vertical axis spans roughly 15 to 30."}
 
 ```
 
@@ -1043,12 +1040,10 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 
 ```{r exercise-predplot-electoral-hint-3}
 # Hint 3 of 3
-# Your call should be plot_model(model_rep, type = "pred",
-# terms = "electoral_f", with title = "Predicted Women's
-# Representation by Electoral System", axis.title = c("Electoral
-# System", "Predicted Percent Women"), and a labs(caption = "...")
-# layer. The prescribed caption is: "Predictions are for countries
-# with no gender quota and average parliamentary history."
+# One plot_model() call with the model, type, terms, title and
+# axis.title, then a labs() layer chained with + for the caption.
+# terms names the factor, so the plot shows one predicted value per
+# category. Every string comes from the prescribed list above.
 ```
 
 ```{r exercise-predplot-electoral-check}
@@ -1122,7 +1117,7 @@ plot_model(model_rep, type = "pred", terms = "years_c",
 
 The plot below shows predicted representation across the range of **years_c**, this time conditioning on countries with a gender quota rather than the default No quota. Run the code and compare the line to the no-quota version you produced above before answering.
 
-```{r exercise-predplot-years-quota, exercise=TRUE, exercise.cap="Run and observe 22"}
+```{r exercise-predplot-years-quota, exercise=TRUE, exercise.cap="Run and observe 22", fig.alt="The same relationship between predicted percent women and centered years since the first woman entered parliament, for countries with a gender quota. The horizontal axis runs from about -60 to 60 and the vertical axis from about 15 to 35, and a straight line rises from left to right with a widening shaded band."}
 plot_model(model_rep,
            type = "pred",
            terms = "years_c",
@@ -1161,7 +1156,7 @@ The single-variable plots show parliamentary history and electoral system separa
 
 Write the complete `plot_model()` call from scratch, using **model_rep** as the model object. Put **years_c** on the x-axis and use **electoral_f** to produce separate lines. Use the title \"Predicted Women's Representation by History and Electoral System\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", and the caption \"Predictions are for countries with no gender quota.\" `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Electoral System", caption = "...")` to set both. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-twovar-rep, exercise=TRUE, exercise.cap="Apply 24"}
+```{r exercise-predplot-twovar-rep, exercise=TRUE, exercise.cap="Apply 24", fig.alt="Three straight lines, one per electoral system, showing predicted percent women against centered years since the first woman entered parliament. Each rises from left to right across a horizontal axis running from about -60 to 60, each with its own shaded band, and a legend names the three systems."}
 
 ```
 
@@ -1177,18 +1172,18 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 ```{r exercise-predplot-twovar-rep-hint-2}
 # Hint 2 of 3
 # The function is plot_model(). The model object is model_rep.
-# Set type = "pred" and terms = c("years_c", "electoral_f").
+# Set type = "pred", and give terms both variable names in a
+# character vector rather than one name.
 # axis.title takes a character vector: c("x label", "y label").
 # Chain labs(color = "Electoral System", caption = "...") after with +.
 ```
 
 ```{r exercise-predplot-twovar-rep-hint-3}
 # Hint 3 of 3
-# Your call should be plot_model(model_rep, type = "pred",
-# terms = c("years_c", "electoral_f"), with the prescribed title,
-# axis labels, and a labs(color = "Electoral System", caption = "...")
-# layer. The prescribed caption is:
-# "Predictions are for countries with no gender quota."
+# One plot_model() call, then a labs() layer chained with + that sets
+# both the legend title (color =) and the caption. terms takes both
+# variable names in a character vector, the continuous one first.
+# Every string comes from the prescribed list above.
 ```
 
 ```{r exercise-predplot-twovar-rep-check}
@@ -1339,7 +1334,7 @@ Predicted values translate the model's estimated associations into concrete [**m
 
 The key things to carry forward:
 
-1. **Predictions extend the regression analysis you learned in Tutorials 15 and 16.** After estimating the model, interpreting its coefficients, testing the hypotheses, and assessing fit, use the workflow **table → specific predictions → plot**. The table documents the full model. The `predict()` calls translate selected coefficients into concrete comparisons in the units of the outcome --- each one an [**expected outcome**]{.important-text}, the average predicted for cases with that profile rather than the value any single case will have. The plot shows how predicted outcomes change across the full range of the predictor, with uncertainty visible as a shaded band.
+1. **Predictions extend the regression analysis of Tutorials 15 and 16.** After estimating the model, interpreting its coefficients, testing the hypotheses, and assessing fit, use the workflow **table → specific predictions → plot**. The table documents the full model. The `predict()` calls translate selected coefficients into concrete comparisons in the units of the outcome --- each one an [**expected outcome**]{.important-text}, the average predicted for cases with that profile rather than the value any single case will have. The plot shows how predicted outcomes change across the full range of the predictor, with uncertainty visible as a shaded band.
 
 2. **`predict()` requires a `newdata` data frame with every predictor named and typed exactly as in the model.** For factor variables, the recommended approach is `factor("level", levels = levels(data$variable))` --- this explicitly attaches the full level set and avoids edge cases where R cannot determine the levels from context. The output is in the units of the outcome variable.
 

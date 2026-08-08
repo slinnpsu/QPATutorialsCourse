@@ -15,14 +15,14 @@ description: >
 
 Interaction coefficients show whether a relationship changes across values or categories of another predictor, but they do not always make the resulting pattern easy to see. How much does a predicted outcome differ across realistic cases? Where do group differences widen, narrow, or reverse? Which parts of the pattern are estimated most precisely? Predicted values and plots turn the interaction into comparisons that can be interpreted directly.
 
-This tutorial shows how to calculate and visualize predictions from interaction models. It builds on Tutorial 18, where you learned to interpret interaction coefficients and conditional slopes; here, you will use those results to show what the model predicts across substantively meaningful combinations of the predictors.
+This tutorial shows how to calculate and visualize predictions from interaction models. It builds on Tutorial 18, which covers interpreting interaction coefficients and conditional slopes; here, you will use those results to show what the model predicts across substantively meaningful combinations of the predictors.
 
 In this tutorial you will learn:
 
 * How to choose a prediction strategy appropriate to the type of interaction in your model --- when both interacting predictors are interval variables versus when one is categorical
 * How to use `predict()` to calculate model-implied outcomes at strategically chosen combinations of the interacting predictors
 * How to use `plot_model()` from the [sjPlot]{.package-name} package to visualize conditional relationships for both interval × interval and categorical × interval interactions
-* How to interpret non-parallel prediction lines, including changing predicted differences and group gaps across values of the interacting predictors
+* How to interpret non-parallel prediction lines, including changing predicted differences, group gaps, crossings, and the uncertainty around predicted outcomes shown by the confidence bands
 
 ```{r setup, include=FALSE}
 library(learnr)
@@ -58,9 +58,9 @@ model_rep_int <- lm(women_percent ~ quota_f + electoral_f * years_c, data = ipu)
 
 ## The Prediction Strategy for Interaction Models
 
-In Tutorial 17, every time you produced a prediction plot, you made a choice: which predictor goes on the x-axis, and what values do the others take? For an additive model, the second choice was mostly a communication decision. You might show predictions for Southern states at average poverty and proportion non-white, or for Western states at the same values --- the held values shifted the line up or down, but the steepness of the line never changed. The association between the x-axis predictor and the outcome was the same regardless of which baseline you chose. That is the defining feature of an additive model: one set of estimated associations, visible from any angle.
+Every prediction plot involves a choice: which predictor goes on the x-axis, and what values do the others take? Tutorial 17 makes that choice for additive models. For an additive model, the second choice was mostly a communication decision. Predictions for Southern states at average poverty and proportion non-white, or for Western states at the same values, differ in where the line sits but not in how steep it is. The association between the x-axis predictor and the outcome is the same regardless of the baseline. That is the defining feature of an additive model: one set of estimated associations, visible from any angle.
 
-Tutorial 18 changed that. When two variables interact, the estimated association between one of them and the outcome genuinely differs depending on the value of the other. It is not that the line shifts up or down --- the line itself is steeper or shallower. Choosing held values is no longer just a communication decision; it is a substantive one. A prediction plot at low wage growth shows a different association between mortality risk and Clinton's vote than a plot at high wage growth --- not because you chose a different baseline, but because the model says the association is actually different there.
+Interaction models change that. When two variables interact, the estimated association between one of them and the outcome genuinely differs depending on the value of the other. It is not that the line shifts up or down --- the line itself is steeper or shallower. Choosing held values is no longer just a communication decision; it is a substantive one. A prediction plot at low wage growth shows a different association between mortality risk and Clinton's vote than a plot at high wage growth --- not because the baseline differs, but because the model says the association differs there.
 
 That is the new challenge. To communicate what an interaction model implies, you cannot just vary one predictor and plot the result. You need to show how the [**predicted difference**]{.important-text} --- the model-implied change in the outcome when one predictor moves from low to high --- itself changes as the other interacting variable changes. The right way to do that depends on what kinds of variables are interacting.
 
@@ -125,11 +125,11 @@ To override any default held value, use the `condition` argument, introduced in 
 
 ## Example 1: Mortality Risk, Wage Growth, and Clinton's Vote
 
-Does the estimated association between county-level mortality risk and Clinton's vote depend on local economic conditions? In Tutorial 18 Example 1 you estimated exactly that: an interaction between two interval variables --- **mortality_risk_25_45** and **wage_growth** --- predicting Clinton's share of the two-party vote (**dem2p_percent**). The model is available here as **model_int**.
+Does the estimated association between county-level mortality risk and Clinton's vote depend on local economic conditions? Tutorial 18's first example estimates exactly that: an interaction between two interval variables --- **mortality_risk_25_45** and **wage_growth** --- predicting Clinton's share of the two-party vote (**dem2p_percent**). The model is available here as **model_int**.
 
-The theoretical argument from Tutorial 18: in counties where wages are growing, residents may see economic opportunity as available to those willing to work and attribute poor health outcomes to individual choices --- weakening the connection between community health and political backlash. In counties where wages are stagnant or declining, those same health outcomes may feel more like a structural failure --- producing a stronger political response against the incumbent party's candidate. If this reasoning is right, the estimated association between mortality risk and Clinton's vote should be more negative where wage growth is lower, and less negative where wage growth is higher.
+The theoretical argument from Tutorial 18: in counties where wages are growing, residents may see economic opportunity as available to those willing to work and attribute poor health outcomes to individual choices --- weakening the connection between community health and political backlash. In counties where wages are stagnant or declining, those same health outcomes may feel more like a structural failure --- producing a stronger political response against the incumbent party's candidate. If this reasoning is right, the estimated association between mortality risk and Clinton's vote should be more negative where wage growth is lower, and less negative where wage growth is higher. Tutorial 18 found the opposite; the plots below show what that reversal looks like.
 
-The data frame **counties** describes every U.S. county as of 2016. Of its 3,112 counties, **dem2p_percent** has no missing values, **mortality_risk_25_45** is missing for 1, and **wage_growth** for 2. It contains:
+The data frame **counties** describes every U.S. county as of 2016. Of its 3,112 counties, **dem2p_percent** has no missing values, **mortality_risk_25_45** is missing for 1, and **wage_growth** for 2. The four demographic controls are each missing for one county except **Black_percent**, which is missing for two. It contains:
 
 - **dem2p_percent**: Clinton's percent of the two-party vote
 - **mortality_risk_25_45**: the estimated percentage risk that a person who has reached age 25 will die before reaching age 45
@@ -137,7 +137,7 @@ The data frame **counties** describes every U.S. county as of 2016. Of its 3,112
 - **college_grad_percent**, **hispanic_percent**, **white_percent**, **Black_percent**: control variables
 
 ::: {.hypothesis}
-In a comparison of counties, the estimated association between mortality risk and Clinton's two-party vote varies with the level of wage growth.
+In a comparison of counties, the negative association between mortality risk and Hillary Clinton's percent of the two-party vote is stronger where wage growth is lower.
 :::
 
 The model output is reproduced below. Before reading on, locate the interaction coefficient (`mortality_risk_25_45:wage_growth`) and recall the two rules from Tutorial 18 for computing conditional slopes from it.
@@ -156,14 +156,14 @@ stargazer(model_int,
                                "Mortality Risk x Wage Growth"))
 ```
 
-**Reading the predicted differences from Tutorial 18.** In Tutorial 18 you computed the predicted change in Clinton's vote for a one-unit increase in mortality risk at specific wage growth values:
+**Reading the predicted differences from Tutorial 18.** Tutorial 18 computes the predicted change in Clinton's vote for a one-unit increase in mortality risk at specific wage growth values:
 
 - The mortality risk association **when wage growth = 0**: −2.494 (the main effect)
 - The interaction coefficient: −0.139 (how much the mortality risk association changes per unit of wage growth)
 - At any specific wage growth value: association = −2.494 + (−0.139) × wage_growth
 - At the mean wage growth (≈ 4.3): −2.494 + (−0.139)(4.3) ≈ **−3.09**
-- At low wage growth (≈ −4.7, 25th percentile): −2.494 + (−0.139)(−4.7) ≈ **−1.84**
-- At high wage growth (≈ 12.7, 75th percentile): −2.494 + (−0.139)(12.7) ≈ **−4.26**
+- At low wage growth (≈ −0.35, one standard deviation below the mean): −2.494 + (−0.139)(−0.35) ≈ **−2.45**
+- At high wage growth (≈ 9.0, one standard deviation above the mean): −2.494 + (−0.139)(9.0) ≈ **−3.74**
 
 These are per-unit figures from the coefficient table. In Tutorial 18, these conditional slopes described how sharply Clinton's predicted vote changes with mortality risk at different wage growth values. Here, we translate those slopes into predicted vote shares and predicted differences for realistic county profiles.
 
@@ -247,7 +247,7 @@ After calculating the changing predicted difference numerically, the plot makes 
 
 Fill in the blanks to produce the three-line interaction plot, using **model_int** as the model object. The bracket notation `"wage_growth [meansd]"` tells `plot_model()` to show lines at the mean minus 1 SD, mean, and mean plus 1 SD of wage growth. Use `"Wage Growth (%)"` as the color legend label. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-int, exercise=TRUE, exercise.cap="Practice 3"}
+```{r exercise-predplot-int, exercise=TRUE, exercise.cap="Practice 3", fig.alt="Predicted Clinton two-party vote against mortality risk, with one line for each of three wage-growth values. The horizontal axis runs from 0 to 10 and the vertical axis from about 10 to 50. All three lines fall from left to right, each with a shaded band, and a legend gives the three wage-growth values."}
 library(sjPlot)
 ___(model_int,
     type = "pred",
@@ -291,16 +291,16 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
   if (!grepl("plot_model\\s*\\(", code_nc))
-    fail("Use plot_model() to produce the prediction plot.")
+    fail("Use `plot_model()` to produce the prediction plot.")
   if (!grepl("wage_growth", code_nc))
-    fail("Include wage_growth as the grouping variable in terms.")
+    fail("Include **wage_growth** as the grouping variable in terms.")
   if (!grepl("\\[meansd\\]", code_nc))
-    fail("Use bracket notation [meansd] with wage_growth to show lines at mean ± 1 SD.")
+    fail("Use bracket notation [meansd] with **wage_growth** to show lines at mean ± 1 SD.")
   if (!grepl("labs\\s*\\(", code_nc))
-    fail("Add a labs() layer with color = and caption = arguments.")
+    fail("Add a `labs()` layer with color = and caption = arguments.")
   if (!grepl("Wage Growth", code_nc, fixed = TRUE))
     fail("Use labs(color = \"Wage Growth (%)\") to label the legend.")
-  pass("Well done. Look at the three lines --- are they parallel, and do they stay in the same order from one side to the other?")
+  pass("Well done. The plot draws one line per wage-growth value, with the controls held at their means as the caption states.")
 })
 ```
 
@@ -332,15 +332,15 @@ question("Which statement best describes how the predicted drop in Clinton's vot
 
 ```{r quiz-predplot-int-values, echo=FALSE}
 question("Using the mean wage growth line, approximately what is the predicted Clinton vote at mortality risk = 2.5 and at mortality risk = 7.5? What does the caption tell you is held constant?",
-  correct = "Right. About 38% at low mortality risk and 27% at high --- an 11-point drop. All controls at their means.",
-  answer("At mortality risk 2.5 the predicted vote is about 38% and at 7.5 about 27% --- a drop of roughly 11 points",
+  correct = "Right. About 35% at low mortality risk and about 20% at high --- a drop of roughly 15 points. All controls at their means.",
+  answer("At mortality risk 2.5 the predicted vote is about 35% and at 7.5 about 20% --- a drop of roughly 15 points",
          correct = TRUE,
-         message = "Reading from the blue (mean wage growth) line: at mortality risk 2.5 the predicted vote is near 38%, and at 7.5 it is near 27%. The 11-point drop across a realistic range of mortality risk makes the predicted difference concrete. The caption confirms that college graduation rate, Hispanic, white, and Black percentages are all held at their means."),
+         message = "Reading from the blue (mean wage growth) line: at mortality risk 2.5 the predicted vote is near 35%, and at 7.5 it is near 20%. The 15-point drop across a realistic range of mortality risk makes the predicted difference concrete. The caption confirms that college graduation rate, Hispanic, white, and Black percentages are all held at their means."),
   answer("The plot does not show specific values --- only the direction of the relationship can be read from it",
          message = "The y-axis has a numerical scale and the lines are continuous --- you can read approximate predicted values at any mortality risk level by finding the x-axis value, tracing up to the line, and reading the y-axis. Specific predicted values are one of the five required components of a complete interpretation."),
   answer("At mortality risk 2.5 the predicted vote is approximately 47% and at 7.5 approximately 20% --- a drop of about 27 percentage points; the caption states all control variables are held at their means",
-         message = "Check the y-axis scale more carefully at those two x-axis positions for the mean wage growth line. The line sits closer to 38% at the low end and 27% at the high end --- a drop of about 11 points, not 27."),
-  answer("The predicted vote is approximately 35% at both values --- the mean wage growth line is essentially flat",
+         message = "Check the y-axis scale more carefully at those two x-axis positions for the mean wage growth line. The line sits closer to 35% at the low end and 20% at the high end --- a drop of about 15 points, not 27."),
+  answer("The predicted vote is approximately 30% at both values --- the mean wage growth line is essentially flat",
          message = "All three lines slope downward --- none is flat. Trace the mean wage growth line (blue) from mortality risk 2.5 to 7.5 and read the y-axis values at each point."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -359,7 +359,7 @@ question("Look at the confidence bands in the plot. Where are the expected vote 
   answer("The bands are equally wide across the full mortality risk range, so the uncertainty in the predicted values is the same at every point",
          message = "Look at the left and right ends of the plot. The bands are visibly narrower at low mortality risk and wider at high mortality risk --- confidence bands for prediction plots are typically narrower where data are denser and wider where data are sparser."),
   answer("The bands are widest at low mortality risk where the lines are most separated, confirming the interaction is most reliable at the high end of the scale",
-         message = "This reverses what the plot shows. The bands are narrowest at low mortality risk --- where the lines are most separated --- and widest at high mortality risk where the lines converge. Look at the shaded regions at the far left and far right of the plot."),
+         message = "This reverses what the plot shows. The bands are narrowest at low mortality risk --- where the lines are most separated --- and widest at high mortality risk, past the crossing point, where the lines sit close together in reversed order. Look at the shaded regions at the far left and far right of the plot."),
   answer("The bands tell you only about overall model fit --- wider bands mean lower R-squared and narrower bands mean higher R-squared",
          message = "Confidence bands in a prediction plot reflect uncertainty around the expected outcome at each specific predictor profile, not overall model fit. R-squared is a single number summarizing overall fit; the bands vary across the x-axis depending on data density and the covariance structure of the estimates."),
   allow_retry = TRUE,
@@ -375,12 +375,12 @@ The interaction plot makes visible what the coefficient table only hints at: the
 Here is what a complete interpretation looks like, working through all six components from the Interpreting Interaction Plots section above:
 
 ::: {.research-example}
-*As mortality risk increases, predicted Clinton two-party vote share declines in all three wage growth groups, but the steepness of that decline differs. All control variables are held at their means throughout. At low mortality risk (≈ 2.5%), the three lines are clearly separated: counties at high wage growth (≈ 9%) are predicted to give Clinton about 42% of the two-party vote, while counties at low wage growth (≈ −0.35%) are predicted to give her about 38%. As mortality risk rises to approximately 7.5%, all three groups converge toward lower predicted values --- roughly 10--15% of the two-party vote --- and the confidence bands widen substantially, indicating greater uncertainty about the expected vote shares at high mortality risk. The fitted lines also converge there, so the model-implied differences among the wage-growth values become smaller. The overlap of the bands indicates that the expected outcomes are less distinctly estimated there, but it is not an exact significance test of the differences among the wage-growth lines. This is consistent with the hypothesis that the estimated association between mortality risk and Clinton's vote varies with wage growth --- counties with stronger economic growth show a steeper predicted decline in Clinton's vote as mortality risk increases.*
+*As mortality risk increases, predicted Clinton two-party vote share declines in all three wage growth groups, but the steepness of that decline differs. All control variables are held at their means throughout. At low mortality risk (≈ 2.5%), the three lines are clearly separated and ordered by wage growth: counties at high wage growth (≈ 9%) are predicted to give Clinton about 37% of the two-party vote, counties at the mean (≈ 4.3%) about 35%, and counties at low wage growth (≈ −0.35%) about 33%. As mortality risk rises to approximately 7.5%, all three fall to around 18 to 21% --- and the order reverses. The high-wage-growth line, highest at low mortality risk, is now the lowest; the low-wage-growth line is now the highest. That reversal is what the interaction amounts to: the lines are not merely converging on a common value, they are crossing, because the mortality-risk slope is steeper where wage growth is stronger. The confidence bands also widen substantially, indicating greater uncertainty about the expected vote shares at high mortality risk. The overlap of the bands indicates that the expected outcomes are less distinctly estimated there, but it is not an exact significance test of the differences among the wage-growth lines. The interaction is statistically significant, but it runs against the argument that motivated it: the predicted decline is steepest where wage growth is strongest, not weakest. One possibility is that rising wages sharpen the contrast between apparent prosperity and persistent poor health; another is that county wage growth is an average, so high mortality alongside rising wages may mark places where the gains are unevenly shared. Distinguishing those would require evidence this model does not contain.*
 :::
 
 ## Example 2: Political Rights, Trade Openness, and Environmental Performance
 
-Does the estimated association between international trade and environmental performance depend on a country's political context? In Tutorial 18 Example 2 you estimated exactly that: a categorical × interval interaction between trade openness (**ipi_tradeopen**) and political rights status (**rights_f**), predicting environmental performance (**epi_epi**). The model is available here as **model_env**.
+Does the estimated association between international trade and environmental performance depend on a country's political context? Tutorial 18's second example estimates exactly that: a categorical × interval interaction between trade openness (**ipi_tradeopen**) and political rights status (**rights_f**), predicting environmental performance (**epi_epi**). The model is available here as **model_env**.
 
 The theoretical argument from Tutorial 18: in countries with many political rights, civil society, free media, and political competition give citizens tools to hold governments and firms accountable for environmental outcomes regardless of trade levels. In countries with few political rights, those domestic accountability mechanisms are weak or absent. International economic integration may serve as one of the few external pressures that can improve environmental behavior --- making the trade-environment association stronger where domestic accountability is limited.
 
@@ -408,7 +408,7 @@ stargazer(model_env,
                                "Many Rights x Trade Openness"))
 ```
 
-**Reading the conditional slopes from the table.** In Tutorial 18 you computed:
+**Reading the conditional slopes from the table.** Tutorial 18 computes:
 
 - **Few Rights slope** (reference group, main effect only): approximately **4.75** per unit of trade openness
 - **Many Rights slope** (main effect + interaction): 4.75 + (−4.63) ≈ **0.12** per unit of trade openness
@@ -427,7 +427,7 @@ The first call has partial starter code with a blank to fill in; the remaining t
 
 **Practice 7: Compute four predicted values**
 
-Three hints are available. Click "Submit Answer" to check your work.
+Write the four `predict()` calls described above, using **model_env**. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predict-env, exercise=TRUE, exercise.cap="Practice 7"}
 # Comparison 1: Few Rights vs. Many Rights at average trade openness
@@ -472,7 +472,6 @@ predict(model_env, newdata = data.frame(
 # Comparison 2 values:
 #   Third call:  rights_f = "Few Rights", ipi_tradeopen = 6.9, hf_efiscore = mean(...)
 #   Fourth call: rights_f = "Few Rights", ipi_tradeopen = 9.4, hf_efiscore = mean(...)
-# In all four calls, hf_efiscore = mean(qog$hf_efiscore, na.rm = TRUE).
 ```
 
 ```{r exercise-predict-env-check}
@@ -480,34 +479,60 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
   if (!grepl("predict\\s*\\(", code_nc))
-    fail("Use predict() to obtain predicted values.")
+    fail("Use `predict()` to obtain predicted values.")
   if (!grepl("model_env", code_nc))
-    fail("Pass model_env as the model object.")
+    fail("Pass **model_env** as the model object.")
   if (!grepl("rights_f", code_nc))
-    fail("Include rights_f in your newdata data frame.")
+    fail("Include **rights_f** in your newdata data frame.")
   if (!grepl("ipi_tradeopen", code_nc))
-    fail("Include ipi_tradeopen in your newdata data frame.")
+    fail("Include **ipi_tradeopen** in your newdata data frame.")
   if (!grepl("hf_efiscore", code_nc))
-    fail("Include hf_efiscore in your newdata data frame.")
+    fail("Include **hf_efiscore** in your newdata data frame.")
   if (!grepl("Few Rights", code_nc, fixed = TRUE))
     fail("Include predictions for Few Rights countries.")
   if (!grepl("Many Rights", code_nc, fixed = TRUE))
     fail("Include a prediction for Many Rights countries (Comparison 1).")
-  n_calls <- lengths(regmatches(code_nc, gregexpr("predict\\s*\\(", code_nc)))
-  if (n_calls < 4)
-    fail("You need four predict() calls: two for Comparison 1 and two for Comparison 2.")
-  if (!grepl("6\\.9", code_nc))
-    fail("Comparison 2 should include ipi_tradeopen = 6.9 (the 25th percentile).")
-  if (!grepl("9\\.4", code_nc))
-    fail("Comparison 2 should include ipi_tradeopen = 9.4 (the 75th percentile).")
-  if (!grepl("mean\\s*\\(\\s*qog\\s*\\$\\s*hf_efiscore|60\\.26|60\\.3", code_nc))
-    fail("Hold hf_efiscore at its mean in all four calls.")
-  few_rights_pos  <- regexpr("Few Rights",  code_nc, fixed = TRUE)
-  many_rights_pos <- regexpr("Many Rights", code_nc, fixed = TRUE)
-  tradeopen_69_pos <- regexpr("6\\.9",  code_nc)
-  tradeopen_94_pos <- regexpr("9\\.4",  code_nc)
-  if (tradeopen_69_pos < many_rights_pos || tradeopen_94_pos < many_rights_pos)
-    fail("Comparison 2 calls should both use Few Rights. Check that ipi_tradeopen = 6.9 and 9.4 appear after the Many Rights call.")
+  # Parse the submission into top-level expressions so each call can be graded on
+  # its own. `.result` holds only the last one, and all four are being asked for.
+  exprs <- tryCatch(as.list(parse(text = code_nc)), error = function(e) NULL)
+  if (is.null(exprs))
+    fail("Your code could not be parsed. Check for a missing comma or bracket.")
+  is_pred <- function(x) {
+    if (is.call(x) && identical(deparse(x[[1]]), "<-") && length(x) == 3L) x <- x[[3]]
+    is.call(x) && identical(deparse(x[[1]]), "predict")
+  }
+  as_pred <- function(x) {
+    if (is.call(x) && identical(deparse(x[[1]]), "<-") && length(x) == 3L) x[[3]] else x
+  }
+  pcalls <- lapply(Filter(is_pred, exprs), as_pred)
+  if (length(pcalls) != 4)
+    fail(paste0("Write four `predict()` calls, one per predicted value: two for Comparison 1 and ",
+                "two for Comparison 2. Your code has ", length(pcalls), "."))
+
+  mn   <- mean(qog$hf_efiscore, na.rm = TRUE)
+  prof <- data.frame(
+    rights_f      = factor(c("Few Rights", "Many Rights", "Few Rights", "Few Rights"),
+                           levels = levels(qog$rights_f)),
+    ipi_tradeopen = c(7.77, 7.77, 6.9, 9.4),
+    hf_efiscore   = mn)
+  want <- as.numeric(predict(model_env, newdata = prof))
+
+  # Evaluate each call rather than matching its text, so 7.77 and
+  # mean(qog$ipi_tradeopen, na.rm = TRUE) are both accepted.
+  got <- suppressWarnings(vapply(pcalls, function(cl) {
+    v <- tryCatch(as.numeric(eval(cl))[1], error = function(e) NA_real_)
+    if (length(v) == 0L) NA_real_ else v
+  }, numeric(1)))
+  labels <- c("Few Rights at average trade openness",
+              "Many Rights at average trade openness",
+              "Few Rights at **ipi_tradeopen** 6.9",
+              "Few Rights at **ipi_tradeopen** 9.4")
+  for (i in seq_len(4)) {
+    if (is.na(got[i]) || abs(got[i] - want[i]) > 0.05)
+      fail(paste0("Call ", i, " does not give the predicted value for ", labels[i],
+                  ", with **hf_efiscore** held at its mean. Check the profile in that call."))
+  }
+
   pass("Right. Four predicted values, one for each combination of rights status and trade openness.")
 })
 ```
@@ -522,8 +547,8 @@ question("Your four predicted values show the interaction pattern concretely. Wh
          message = "Comparison 1 is a snapshot of the group difference at the mean --- it shows who leads and by how much at a typical trade level. Comparison 2 isolates the Few Rights slope across a realistic range of trade openness. Together they tell the story the interaction plot will show continuously."),
   answer("The two comparisons show the same pattern --- both Comparison 1 and Comparison 2 describe the group difference between Few Rights and Many Rights countries at different trade openness levels",
          message = "They answer different questions. Comparison 1 shows the predicted group difference at one trade openness value. Comparison 2 shows how much trade openness itself matters within the Few Rights group. Both are needed to characterize the full interaction pattern."),
-  answer("Comparison 1 is a formal significance test of whether the rights_f main effect is statistically significant, while Comparison 2 tests whether trade openness matters overall",
-         message = "Neither comparison is a significance test. Both are model-implied predicted differences at specific covariate values. The significance of the interaction was established in Tutorial 18 from the coefficient p-value."),
+  answer("Comparison 1 is a formal significance test of whether the **rights_f** main effect is statistically significant, while Comparison 2 tests whether trade openness matters overall",
+         message = "Neither comparison is a significance test. Both are model-implied predicted differences at specific covariate values. The statistical evidence for the interaction comes from the coefficient p-value."),
   answer("Many Rights countries are always predicted to outperform Few Rights countries on environmental performance regardless of the trade openness level",
          message = "Comparison 1 shows Few Rights countries are predicted to outperform Many Rights countries at mean trade openness. The advantage of political rights is largest at low trade openness; as trade rises, the steep Few Rights slope closes and reverses the gap."),
   allow_retry = TRUE,
@@ -538,7 +563,7 @@ Before looking at the full interaction, let's see the Few Rights predicted assoc
 
 **Run and observe 9: Few Rights predicted association**
 
-```{r exercise-predplot-trade, exercise=TRUE, exercise.cap="Run and observe 9"}
+```{r exercise-predplot-trade, exercise=TRUE, exercise.cap="Run and observe 9", fig.alt="Predicted environmental performance against trade openness. The horizontal axis runs from about 2 to 10 and the vertical axis from about 20 to 70. A straight line rises from left to right, with a shaded band that is widest at the left."}
 plot_model(model_env,
            type = "pred",
            terms = "ipi_tradeopen",
@@ -560,7 +585,7 @@ question("The prediction plot shows a steep upward line for Few Rights countries
   answer("The upward line means trade openness causes better environmental outcomes in Few Rights countries",
          message = "A positive estimated association is not evidence of causation. Trade openness may be correlated with other factors that also predict better environmental performance."),
   answer("This plot shows the trade openness association averaged across both rights groups, not just Few Rights",
-         message = "Because Few Rights is the reference category, plot_model() holds rights_f at Few Rights by default. This shows the Few Rights association only, not an average across both groups."),
+         message = "Because Few Rights is the reference category, `plot_model()` holds **rights_f** at Few Rights by default. This shows the Few Rights association only, not an average across both groups."),
   answer("The line would be identical for Many Rights countries because the model estimates one trade openness coefficient",
          message = "The interaction term creates a different estimated association for each group, which is why the two groups do not share a single slope."),
   allow_retry = TRUE,
@@ -575,7 +600,7 @@ There are two ways to display the interaction: categorical variable on the x-axi
 
 **Run and observe 11: Rights status on the x-axis**
 
-```{r exercise-predplot-int1, exercise=TRUE, exercise.cap="Run and observe 11"}
+```{r exercise-predplot-int1, exercise=TRUE, exercise.cap="Run and observe 11", fig.alt="Predicted environmental performance with political rights status on the horizontal axis, in two categories labeled Few Rights and Many Rights. At each category three predicted values are plotted as points with vertical confidence intervals, one for each of the three trade-openness values named in the legend. The vertical axis spans roughly 45 to 72."}
 plot_model(model_env,
            type = "pred",
            terms = c("rights_f", "ipi_tradeopen"),
@@ -584,6 +609,8 @@ plot_model(model_env,
                           "Environmental Performance Index")) +
   labs(caption = "Predictions are for countries with average economic freedom.")
 ```
+
+You may see a short message above the plot beginning `Ignoring unknown labels`, naming `linetype` and `shape`. It is not an error, and nothing in your code caused it. `plot_model()` does not know in advance which visual channel will distinguish the groups --- color, line type, or point shape --- so it prepares a legend label for all three. This plot puts a categorical variable on the x-axis, so it draws points with intervals rather than lines; `linetype` and `shape` therefore go unused, and recent versions of [ggplot2]{.package-name} report labels supplied for aesthetics a plot does not use. Whether the message appears at all depends on your [ggplot2]{.package-name} version.
 
 **Apply 12: Evaluate this orientation**
 
@@ -611,9 +638,9 @@ With **ipi_tradeopen** on the x-axis and **rights_f** producing separate lines, 
 
 **Practice 13: Produce the interaction plot**
 
-Write the complete `plot_model()` call from scratch, using **model_env** as the model object. Use the title \"Predicted Environmental Performance by Trade Openness and Rights Status\", the x-axis label \"Trade Openness (1-10)\", the y-axis label \"Environmental Performance Index\", and the caption \"Predictions are for countries with average economic freedom.\" `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Rights Status", caption = "...")` to set both. Four hints are available. Click "Submit Answer" to check your work.
+Write the complete `plot_model()` call from scratch, using **model_env** as the model object. Use the title \"Predicted Environmental Performance\\nby Trade Openness and Rights Status\" --- the `\n` breaks it across two lines so it is not cut off at the width of the plot, the x-axis label \"Trade Openness (1-10)\", the y-axis label \"Environmental Performance Index\", and the caption \"Predictions are for countries with average economic freedom.\" `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Rights Status", caption = "...")` to set both. Four hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-int2, exercise=TRUE, exercise.cap="Practice 13"}
+```{r exercise-predplot-int2, exercise=TRUE, exercise.cap="Practice 13", fig.alt="Predicted environmental performance against trade openness, with one line for each rights status. The horizontal axis runs from about 2 to 10 and the vertical axis from about 20 to 70. Each line has a shaded band, and a legend names the two categories, Few Rights and Many Rights."}
 
 ```
 
@@ -622,20 +649,23 @@ Write the complete `plot_model()` call from scratch, using **model_env** as the 
 # This is a two-variable prediction plot --- the same structure introduced
 # in Tutorial 17. The interval variable (ipi_tradeopen) goes on the x-axis
 # and the categorical variable (rights_f) produces separate colored lines.
-# ipi_tradeopen should come first in terms = c(...).
+# The interval variable is the one that goes first.
 ```
 
 ```{r exercise-predplot-int2-hint-2}
 # Hint 2 of 4
 # Use plot_model() with type = "pred".
-# terms = c("ipi_tradeopen", "rights_f") --- no bracket notation needed
-# here because rights_f is a two-category factor, not an interval variable.
+# Give terms both variable names in a character vector, interval first.
+# No bracket notation is needed here, because the second variable is a
+# two-category factor rather than an interval variable.
 # Chain labs(color = "Rights Status", caption = "...") after with +.
 ```
 
 ```{r exercise-predplot-int2-hint-3}
 # Hint 3 of 4
-# Prescribed title: "Predicted Environmental Performance by Trade Openness and Rights Status"
+# Prescribed title: "Predicted Environmental Performance\\nby Trade Openness and Rights Status"
+# The \\n is part of the string -- it breaks the title across two lines
+# so it is not cut off at the width of the plot.
 # Prescribed x-axis label: "Trade Openness (1-10)"
 # Prescribed y-axis label: "Environmental Performance Index"
 # Prescribed legend title (color =): "Rights Status"
@@ -644,9 +674,10 @@ Write the complete `plot_model()` call from scratch, using **model_env** as the 
 
 ```{r exercise-predplot-int2-hint-4}
 # Hint 4 of 4
-# Your call should be plot_model(model_env, type = "pred",
-# terms = c("ipi_tradeopen", "rights_f"), with the prescribed title,
-# axis labels, and labs(color = "Rights Status", caption = "...").
+# One plot_model() call with the model, type, terms, title and
+# axis.title, then a labs() layer chained with + that sets both the
+# legend title (color =) and the caption. Every string comes from the
+# prescribed list above and must be typed exactly.
 ```
 
 ```{r exercise-predplot-int2-check}
@@ -654,19 +685,23 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
   if (!grepl("plot_model\\s*\\(", code_nc))
-    fail("Use plot_model() to produce the prediction plot.")
+    fail("Use `plot_model()` to produce the prediction plot.")
   if (!grepl("model_env", code_nc))
-    fail("Pass model_env as the model object.")
+    fail("Pass **model_env** as the model object.")
   if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
     fail("Set type = \"pred\".")
   if (!grepl("ipi_tradeopen", code_nc))
-    fail("Include ipi_tradeopen in terms (as the first variable --- x-axis).")
+    fail("Include **ipi_tradeopen** in terms (as the first variable --- x-axis).")
   if (!grepl("rights_f", code_nc))
-    fail("Include rights_f in terms (as the second variable --- separate lines).")
+    fail("Include **rights_f** in terms (as the second variable --- separate lines).")
   if (regexpr("ipi_tradeopen", code_nc) > regexpr("rights_f", code_nc))
-    fail("ipi_tradeopen should come first in terms (x-axis), and rights_f second. Check the order inside c(...).")
-  if (!grepl("Predicted Environmental Performance by Trade Openness and Rights Status", code_nc, fixed = TRUE))
-    fail("Use the prescribed title.")
+    fail("**ipi_tradeopen** should come first in terms (x-axis), and **rights_f** second. Check the order inside c(...).")
+  if (!grepl("Predicted Environmental Performance\\nby Trade Openness and Rights Status", code_nc, fixed = TRUE)) {
+    if (grepl("Predicted Environmental Performance by Trade Openness and Rights Status", code_nc, fixed = TRUE)) {
+      fail("The title is right but it needs the line break. Type `\\n` where the prescribed title has it --- without it the title is wider than the plot and gets cut off.")
+    }
+    fail("Use the prescribed title, including the `\\n` that breaks it across two lines.")
+  }
   if (!grepl("axis\\.title\\s*=", code_nc))
     fail("Include the axis.title = argument.")
   if (!grepl("Trade Openness \\(1-10\\)|Trade Openness \\(1\u201310\\)", code_nc))
@@ -674,12 +709,36 @@ grade_this({
   if (!grepl("Environmental Performance Index", code_nc, fixed = TRUE))
     fail("Use \"Environmental Performance Index\" as the y-axis label.")
   if (!grepl("labs\\s*\\(", code_nc))
-    fail("Add a labs() layer with color = and caption = arguments.")
+    fail("Add a `labs()` layer with color = and caption = arguments.")
   if (!grepl("Rights Status", code_nc, fixed = TRUE))
     fail("Use labs(color = \"Rights Status\") to set the legend title.")
   if (!grepl("Predictions are for countries with average economic freedom.", code_nc, fixed = TRUE))
     fail("Use the prescribed caption ending with a period.")
-  pass("Well done. Look carefully at the two lines --- especially their slopes and whether they are parallel --- before answering.")
+
+  # The checks above find the required pieces somewhere in the submission. This
+  # one establishes that they belong to the plot actually produced: the built
+  # plot's own labels and data are read off `.result`.
+  if (!inherits(.result, "ggplot"))
+    fail("Your last line should produce the plot itself, so `plot_model()` is what prints.")
+  bl <- tryCatch(ggplot2::ggplot_build(.result), error = function(e) NULL)
+  if (is.null(bl))
+    fail("The plot could not be built. Check that every argument is inside the `plot_model()` call.")
+  lb <- .result$labels
+  chk <- function(field, want, what) {
+    got <- lb[[field]]
+    if (is.null(got) || !identical(gsub("\\s+", " ", as.character(got)),
+                                   gsub("\\s+", " ", want)))
+      fail(paste0("The plot's ", what, " is not the prescribed one. Check that it is set inside this plot rather than elsewhere in your code."))
+  }
+  chk("title", "Predicted Environmental Performance\nby Trade Openness and Rights Status", "title")
+  chk("x", "Trade Openness (1-10)", "x-axis label")
+  chk("y", "Environmental Performance Index", "y-axis label")
+  chk("colour", "Rights Status", "legend title")
+  chk("caption", "Predictions are for countries with average economic freedom.", "caption")
+  if (length(unique(bl$data[[1]]$group)) != nlevels(qog$rights_f))
+    fail("The plot should draw one line per rights category. Check that **rights_f** is the second variable in `terms`.")
+
+  pass("Well done. Your plot shows the predicted relationship across trade openness separately for the two rights categories, with economic freedom held at its mean.")
 })
 ```
 
@@ -721,9 +780,11 @@ Here is what a complete interpretation looks like, working through all six compo
 
 ## Example 3: Electoral Systems, Parliamentary History, and Women's Representation
 
-Tutorial 18's third example found that the relationship between how long a parliament has been seating women and its representation today depends on the electoral system. The three conditional slopes were 0.194 under plurality rules, 0.091 under proportional rules, and -0.038 under mixed rules. Those are three numbers in a table. What they mean is easiest to see as three lines.
+Tutorial 18's third example finds that the relationship between how long a parliament has been seating women and its representation today depends on the electoral system. The three conditional slopes were 0.194 under plurality rules, 0.091 under proportional rules, and -0.038 under mixed rules. Those are three numbers in a table. What they mean is easiest to see as three lines.
 
-Example 1 already showed you a crossing: the three wage-growth lines meet at about 5% mortality risk and swap order. But there the conditional slopes all had the same sign, so every line still fell --- what changed was which fell fastest. Here one slope is positive and another negative, so the mixed line runs the opposite way from the other two and is crossed by both. A crossing produced by slopes of opposite sign is a stronger claim than one produced by slopes of the same sign that happen to meet.
+Example 1 already showed you a crossing: the three wage-growth lines meet at about 5% mortality risk and swap order. But there the conditional slopes all had the same sign, so every line still fell --- what changed was which fell fastest. Here one slope is positive and another negative, so the mixed line runs the opposite way from the other two and is crossed by both. A crossing produced by slopes of opposite sign is a qualitatively different pattern from one produced by slopes of the same sign that happen to meet --- not better supported, but describing something different about the world.
+
+The data frame **ipu** describes 193 national parliaments. **women_percent** is missing for 8 of them and **gender_quota** for one; **electoral_system** leaves 15 countries unclassified into the three families used here, and **years_since_first_woman** --- the source of the centred **years_c** --- is recorded for all 193.
 
 The model is **model_rep_int**, already estimated:
 
@@ -770,14 +831,36 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
   if (!grepl("No quota", code_nc, fixed = TRUE))
-    fail("Hold quota_f at \"No quota\".")
+    fail("Hold **quota_f** at \"No quota\".")
   if (!grepl("-40", code_nc) || !grepl("40", code_nc))
     fail("The three history values are -40, 0 and 40 --- forty years below the average, at it, and forty above.")
   if (is.null(.result) || !is.data.frame(.result))
     fail("Your last line should display the data frame of predictions.")
   if (nrow(.result) != 9)
     fail("The result should have nine rows: three electoral systems at each of three history values.")
-  pass("Right. Read down the Mixed column and then the Plurality column --- they move in opposite directions.")
+
+  want <- expand.grid(electoral_f = levels(ipu$electoral_f),
+                      years_c     = c(-40, 0, 40),
+                      quota_f     = factor("No quota", levels = levels(ipu$quota_f)))
+  want$predicted <- as.numeric(predict(model_rep_int, newdata = want))
+  got <- .result
+  key <- function(d) {
+    cols <- c("electoral_f", "years_c")
+    if (!all(cols %in% names(d))) return(NULL)
+    paste(as.character(d$electoral_f), round(as.numeric(d$years_c), 6))
+  }
+  if (is.null(key(got)))
+    fail("The frame needs an **electoral_f** column and a **years_c** column, one row per combination.")
+  if (!setequal(key(got), key(want)))
+    fail("The nine rows are not the nine combinations asked for: each of the three levels of **electoral_f** at **years_c** of -40, 0 and 40.")
+  num <- vapply(got, function(cl) is.numeric(cl) && !all(cl %in% c(-40, 0, 40)), logical(1))
+  if (!any(num))
+    fail("The frame has no column of predicted values. Add the predictions from **model_rep_int** to the grid.")
+  ord <- match(key(want), key(got))
+  pr  <- as.numeric(got[[which(num)[1]]])[ord]
+  if (!isTRUE(all.equal(pr, want$predicted, tolerance = 1e-4)))
+    fail("The predicted values do not match **model_rep_int** at those profiles. Check that **quota_f** is held at \"No quota\" and that the model is **model_rep_int**.")
+  pass("Right. The grid holds quota status fixed and varies electoral system and centred history, so every row is a country profile the model can predict for.")
 })
 ```
 
@@ -789,13 +872,13 @@ Read the nine values by electoral system rather than by row. Under plurality rul
 
 Write the complete `plot_model()` call from scratch, using **model_rep_int**. Put **years_c** on the x-axis and use **electoral_f** to produce the three lines. Use the title \"Predicted Women's Representation by History and Electoral System\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", the legend title \"Electoral System\", and the caption \"Predictions are for countries with no gender quota.\" Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-ipu, exercise=TRUE, exercise.cap="Practice 16"}
+```{r exercise-predplot-ipu, exercise=TRUE, exercise.cap="Practice 16", fig.alt="Predicted percent women against centered years since the first woman entered parliament, with one line for each electoral system. The horizontal axis runs from about -60 to 60 and the vertical axis from 0 to about 40. Each line has a shaded band, and a legend names the three systems."}
 
 ```
 
 ```{r exercise-predplot-ipu-hint-1}
 # Hint 1 of 3
-# This is the same two-variable structure you used in Tutorial 17.
+# This is the same two-variable structure as in Tutorial 17.
 # The terms argument takes a character vector of two names: the
 # x-axis variable first, then the grouping variable that produces
 # separate lines.
@@ -803,7 +886,8 @@ Write the complete `plot_model()` call from scratch, using **model_rep_int**. Pu
 
 ```{r exercise-predplot-ipu-hint-2}
 # Hint 2 of 3
-# Set type = "pred" and terms = c("years_c", "electoral_f").
+# Set type = "pred", and give terms both variable names in a character
+# vector rather than one name.
 # axis.title takes a character vector: c("x label", "y label").
 # Chain a labs() layer after the call with + to set the legend
 # title and the caption.
@@ -822,17 +906,17 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
   if (!grepl("plot_model\\s*\\(", code_nc))
-    fail("Use plot_model() to produce the plot.")
+    fail("Use `plot_model()` to produce the plot.")
   if (!grepl("model_rep_int", code_nc))
-    fail("Pass model_rep_int as the model object --- the interaction model, not the additive one.")
+    fail("Pass **model_rep_int** as the model object --- the interaction model, not the additive one.")
   if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
     fail("Set type = \"pred\".")
   if (!grepl("years_c", code_nc) || !grepl("electoral_f", code_nc))
-    fail("Include both years_c and electoral_f in terms.")
+    fail("Include both **years_c** and **electoral_f** in terms.")
   yc <- regexpr("years_c", code_nc, fixed = TRUE)[1]
   ef <- regexpr("electoral_f", code_nc, fixed = TRUE)[1]
   if (yc > ef)
-    fail("years_c should come first in terms (x-axis) and electoral_f second (separate lines).")
+    fail("**years_c** should come first in terms (x-axis) and **electoral_f** second (separate lines).")
   if (!grepl("Years Since First Woman \\(centered\\)", code_nc))
     fail("Use \"Years Since First Woman (centered)\" as the x-axis label.")
   if (!grepl("Predicted Percent Women", code_nc, fixed = TRUE))
@@ -841,7 +925,28 @@ grade_this({
     fail("Use labs(color = \"Electoral System\") to set the legend title.")
   if (!grepl("Predictions are for countries with no gender quota.", code_nc, fixed = TRUE))
     fail("Use the prescribed caption: \"Predictions are for countries with no gender quota.\"")
-  pass("Well done. Three lines, three different slopes --- and the mixed line is crossed by both of the others.")
+
+  # The checks above find the required pieces somewhere in the submission. This
+  # one establishes that they belong to the plot actually produced: the built
+  # plot's own labels and data are read off `.result`.
+  if (!inherits(.result, "ggplot"))
+    fail("Your last line should produce the plot itself, so `plot_model()` is what prints.")
+  bl <- tryCatch(ggplot2::ggplot_build(.result), error = function(e) NULL)
+  if (is.null(bl))
+    fail("The plot could not be built. Check that every argument is inside the `plot_model()` call.")
+  lb <- .result$labels
+  chk <- function(field, want, what) {
+    got <- lb[[field]]
+    if (is.null(got) || !identical(gsub("\\s+", " ", as.character(got)),
+                                   gsub("\\s+", " ", want)))
+      fail(paste0("The plot's ", what, " is not the prescribed one. Check that it is set inside this plot rather than elsewhere in your code."))
+  }
+  chk("colour", "Electoral System", "legend title")
+  chk("caption", "Predictions are for countries with no gender quota.", "caption")
+  if (length(unique(bl$data[[1]]$group)) != nlevels(ipu$electoral_f))
+    fail("The plot should draw one line per electoral system. Check that **electoral_f** is the second variable in `terms`.")
+
+  pass("Well done. One line per electoral system, each with its own slope, and quota status held at the value the caption names.")
 })
 ```
 
@@ -851,7 +956,7 @@ grade_this({
 
 **Run and observe 17: The same plot for quota countries**
 
-```{r exercise-predplot-ipu-quota, exercise=TRUE, exercise.cap="Run and observe 17"}
+```{r exercise-predplot-ipu-quota, exercise=TRUE, exercise.cap="Run and observe 17", fig.alt="The same three electoral-system lines for countries with a gender quota. The horizontal axis runs from about -60 to 60 and the vertical axis from about 10 to 45, with a shaded band around each line and a legend naming the three systems."}
 plot_model(model_rep_int,
            type = "pred",
            terms = c("years_c", "electoral_f"),
@@ -940,7 +1045,7 @@ question("What does the `[meansd]` notation produce, and how should the three li
          message = "The legend labels are the GDP per capita values at which the three lines are drawn. Each line then shows the full foreign aid relationship at that GDP level."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: what does the bracket notation tell plot_model() to do with the second variable in terms = ?"
+  try_again = "Hint: what does the bracket notation tell `plot_model()` to do with the second variable in terms = ?"
 )
 ```
 
@@ -968,7 +1073,7 @@ question("How would you correct this claim?",
 
 ## The Takeaways
 
-Across Tutorials 17 and 19 you applied `predict()` and `plot_model()` to additive and interaction models. The tools are identical; what changes is what they reveal.
+The same two tools, `predict()` and `plot_model()`, work for additive and interaction models alike. The tools are identical; what changes is what they reveal.
 
 1. **The workflow is: table → specific predictions → plot.** The `predict()` calls give you concrete numbers before you see the full picture. The plot shows how predicted outcomes change across the full range of the predictor, with uncertainty visible as a shaded band.
 
@@ -976,13 +1081,15 @@ Across Tutorials 17 and 19 you applied `predict()` and `plot_model()` to additiv
 
 3. **`plot_model(type = "pred")` sweeps across the full range of the x-axis predictor.** Variable names in `terms` are always quoted strings. Always add `labs(caption = "...")` to state the held values. Use `condition = list(variable_name = value)` to override defaults --- note that variable names in `condition` are unquoted, and values are numbers or quoted strings depending on the predictor type.
 
-4. **For interval × interval interactions:** choose two or three meaningful values of one variable and for each, compute predicted values at a low and high value of the other variable. The within-pair difference is the model-implied predicted difference at that level of the other variable. Comparing those differences across chosen values shows how the interaction changes the relationship. In the plot, use `terms = c("x_axis_var", "other_var [meansd]")` to show three lines automatically at mean ± 1 SD. Non-parallel lines make the changing predicted difference directly visible.
+4. **For interval × interval interactions:** choose two or three meaningful values of one variable and for each, compute the [**predicted difference**]{.important-text} between a low and a high value of the other variable. The within-pair difference is the model-implied predicted difference at that level of the other variable. Comparing those differences across chosen values shows how the interaction changes the relationship. In the plot, use `terms = c("x_axis_var", "other_var [meansd]")` to show three lines automatically at mean ± 1 SD. Non-parallel lines make the changing predicted difference directly visible.
 
-5. **For categorical × interval interactions:** compare across categories at a representative value of the interval predictor, and compare across the range of the interval predictor within each category. In the plot, put the interval variable on the x-axis and use the categorical variable to produce colored lines --- one per category, however many there are. Non-parallel lines make the changing predicted differences directly visible. Use `labs(color = "Label")` to rename the color legend.
+5. **For categorical × interval interactions:** the [**predicted comparison**]{.important-text} runs two ways --- across categories at a representative value of the interval predictor, and across the range of the interval predictor within each category. In the plot, put the interval variable on the x-axis and use the categorical variable to produce colored lines --- one per category, however many there are. Non-parallel lines make the changing predicted differences directly visible. Use `labs(color = "Label")` to rename the color legend.
 
 6. **Non-parallel fitted lines appear whenever an interaction term is in the model**, whether or not the interaction is statistically significant. The plot shows the estimated pattern; the coefficient test indicates how strongly the data support a nonzero interaction. A predictor that is in the model but **not** part of the interaction behaves differently: changing its held value with `condition` shifts every line by the same amount and changes none of their slopes.
 
-7. **A complete interpretation of an interaction plot covers:** the pattern for each group or line (direction and steepness), the held values, specific predicted values and their differences, the confidence bands, and the connection to the hypothesis. When the fitted lines cross, check where. A crossing inside the observed range of the x-axis variable means the ordering of the groups actually reverses within the data --- a substantive finding. A crossing that would occur only beyond the observed range is an extrapolation rather than a finding. Either way it is a feature of the point estimates, and the confidence bands indicate how firmly it is established.
+7. **A complete interpretation of an interaction plot covers:** the pattern for each group or line (direction and steepness), the held values, specific predicted values and their differences, the confidence bands, and the connection to the hypothesis. When the fitted lines cross, check where. A crossing inside the observed range of the x-axis variable means the ordering of the groups actually reverses within the data --- a substantive finding. A crossing that would occur only beyond the observed range is an extrapolation rather than a finding. Either way it is a feature of the point estimates, and the confidence bands show how uncertain the predicted outcomes are near the crossing --- they are not a test of it. Whether the interaction itself is supported comes from the coefficient test, or the joint test when a factor contributes several interaction terms.
+
+Tutorial 20 changes the outcome. Everything so far has predicted a quantity --- a vote share, a percentage, an index score --- with a straight line. When the outcome is binary, whether a country ratified a treaty or a respondent turned out to vote, that line no longer works, and logistic regression takes its place.
 
 ## Submit Your Work
 

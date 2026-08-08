@@ -23,7 +23,8 @@ In this tutorial you will learn:
 * How to understand what interaction coefficients and conditional slopes mean, for both interval × interval and categorical × interval interactions
 * How to include an interaction term in a regression formula using the `*` operator in `lm()`
 * How to compute and interpret the conditional slope of one predictor at meaningful values of another, and how to read the model in both directions
-* How to test an interaction as a whole with a joint F-test comparing the additive and interaction models
+* How to assess the statistical evidence for an interaction --- the test on a single interaction coefficient, and, when a factor contributes several interaction terms, a joint F-test comparing the additive and interaction models
+* How to prepare a categorical predictor for an interaction, choosing the reference category so the comparison the hypothesis names appears in the output
 
 ```{r setup, include=FALSE}
 library(learnr)
@@ -55,9 +56,9 @@ model_rep_int <- lm(women_percent ~ quota_f + electoral_f * years_c, data = ipu)
 
 Consider a simple question: does income predict voter turnout? The answer from an additive model is a single estimated slope that applies equally at every unemployment level. But you might reasonably expect the income-turnout relationship to look different when unemployment is high than when it is low. When unemployment is high, even relatively wealthy people may feel economically anxious --- narrowing the gap in turnout between high- and low-income residents. When unemployment is low, the association between income and turnout may be stronger --- income may be a better signal of who has the resources and motivation to vote. In an additive model with income entered as an interval predictor, the answer is a single slope --- an estimated income association that applies equally at every unemployment level. If the estimated income association changes depending on the level of unemployment, the relationship is conditional, and that single-slope model may miss what is actually happening.
 
-More formally: if the estimated association of $X_1$ with $Y$ differs based on the value of $X_2$, the relationship is [**conditional**]{.important-text} or [**interactive**]{.important-text}. $X_2$ conditions the association of $X_1$ --- and because the relationship is symmetric, $X_1$ conditions the association of $X_2$ at the same time.
+More formally: if the estimated association of $X_1$ with $Y$ differs based on the value of $X_2$, the relationship is [**conditional**]{.important-text}, or equivalently interactive. $X_2$ conditions the association of $X_1$ --- and because the relationship is symmetric, $X_1$ conditions the association of $X_2$ at the same time.
 
-```{r diagram-conditional-t18, echo=FALSE, out.width="70%", fig.align="center"}
+```{r diagram-conditional-t18, echo=FALSE, out.width="55%", fig.align="center", fig.alt="A path diagram with three boxes. A box labeled X1, explanatory variable, at the upper left has an arrow to a box labeled Y, outcome variable, at the right. A box labeled X2, conditioning variable, at the lower left has an arrow meeting that path, annotated 'changes the effect of X1'."}
 knitr::include_graphics("images/conditional.png")
 ```
 
@@ -89,17 +90,17 @@ In both interaction types the logic is the same: begin with a baseline slope and
 
 Suppose the slope of $X_1$ changes as $X_2$ increases. The interaction coefficient tells us how much that slope changes for each one-unit increase in $X_2$, while the conditional-slope formula gives the slope of $X_1$ at any particular value of $X_2$.
 
-For a model with two interval predictors and an interaction term:
+For an [**interval × interval**]{.important-text} model --- two interval predictors and an interaction term:
 
 $$Y = \hat{\alpha} + \hat{\beta}_1 X_1 + \hat{\beta}_2 X_2 + \hat{\beta}_3 X_1 X_2 + \ldots + \varepsilon$$
 
 the coefficients are interpreted as follows:
 
-1. $\hat{\beta}_1$ is the slope of $X_1$ [**when $X_2 = 0$**]{.important-text}.
-2. $\hat{\beta}_2$ is the slope of $X_2$ [**when $X_1 = 0$**]{.important-text}.
+1. $\hat{\beta}_1$ is the slope of $X_1$ **when $X_2 = 0$**.
+2. $\hat{\beta}_2$ is the slope of $X_2$ **when $X_1 = 0$**.
 3. $\hat{\beta}_3$ is the estimated change in the slope of $X_1$ for a one-unit increase in $X_2$ --- and equivalently, the estimated change in the slope of $X_2$ for a one-unit increase in $X_1$.
-4. The [**conditional slope of $X_1$**]{.important-text} at any given value of $X_2$ is: $\hat{\beta}_1 + \hat{\beta}_3 X_2$.
-5. The [**conditional slope of $X_2$**]{.important-text} at any given value of $X_1$ is: $\hat{\beta}_2 + \hat{\beta}_3 X_1$.
+4. The **conditional slope of $X_1$** at any given value of $X_2$ is: $\hat{\beta}_1 + \hat{\beta}_3 X_2$.
+5. The **conditional slope of $X_2$** at any given value of $X_1$ is: $\hat{\beta}_2 + \hat{\beta}_3 X_1$.
 
 In most applications, begin with the conditional-slope formula for whichever predictor your research question is primarily about --- but remember that the interaction is symmetric and the model can be read in either direction. Rule 1 is the special case of Rule 4 when $X_2 = 0$: the slope of $X_1$ at that value is simply $\hat{\beta}_1$. Whether zero is a substantively meaningful value depends on the observed range of each predictor.
 
@@ -107,12 +108,12 @@ In most applications, begin with the conditional-slope formula for whichever pre
 
 When one predictor is categorical and the other is interval, the same baseline-plus-adjustment logic applies --- but now the adjustment is determined by category membership rather than a numerical value.
 
-For a model with a binary categorical variable $X_1$ (coded 0 for the reference category, 1 for the other) and an interval variable $X_2$:
+For a [**categorical × interval**]{.important-text} model --- a binary categorical variable $X_1$ (coded 0 for the reference category, 1 for the other) and an interval variable $X_2$:
 
 $$Y = \hat{\alpha} + \hat{\beta}_1 X_1 + \hat{\beta}_2 X_2 + \hat{\beta}_3 X_1 X_2 + \ldots + \varepsilon$$
 
-1. $\hat{\beta}_2$ is the slope of $X_2$ [**for the reference category**]{.important-text}.
-2. $\hat{\beta}_2 + \hat{\beta}_3$ is the slope of $X_2$ [**for the non-reference category**]{.important-text}. This is the step most often missed: the coefficient on $X_2$ gives the reference-category slope; you must add the interaction coefficient to get the non-reference-category slope.
+1. $\hat{\beta}_2$ is the slope of $X_2$ **for the reference category**.
+2. $\hat{\beta}_2 + \hat{\beta}_3$ is the slope of $X_2$ **for the non-reference category**. This is the step most often missed: the coefficient on $X_2$ gives the reference-category slope; you must add the interaction coefficient to get the non-reference-category slope.
 3. $\hat{\beta}_3$ is the difference between the two slopes --- how much steeper or shallower the non-reference slope is compared to the reference slope.
 4. $\hat{\beta}_1$ is the gap between the two categories **when $X_2 = 0$.** Whether that is substantively meaningful depends on the scale and observed range of $X_2$.
 
@@ -168,12 +169,12 @@ The data frame **counties** describes every U.S. county as of 2016. Of its 3,112
 - **mortality_risk_25_45**: the estimated percentage risk that a person who has reached age 25 will die before reaching age 45
 - **wage_growth**: recent wage growth (percent)
 
-Several demographic variables serve as controls: **college_grad_percent**, **hispanic_percent**, **white_percent**, and **Black_percent**.
+Several demographic variables serve as controls: **college_grad_percent**, **hispanic_percent**, **white_percent**, and **Black_percent**. Each is missing for one county except **Black_percent**, which is missing for two.
 
-We have reason to expect the relationship to be conditional, but not a sufficiently strong theoretical basis for predicting which direction the interaction takes. We therefore state a nondirectional hypothesis.
+That reasoning gives a direction, so the hypothesis states one. It is one plausible expectation rather than the only one the situation admits --- which is what makes stating it worthwhile. A directional hypothesis makes the more specific prediction: the relationship can vary as expected, fail to vary clearly, or vary in the opposite direction.
 
 ::: {.hypothesis}
-In a comparison of counties, the estimated association between mortality risk and Hillary Clinton's percent of the two-party vote varies with the level of wage growth.
+In a comparison of counties, the negative association between mortality risk and Hillary Clinton's percent of the two-party vote is stronger where wage growth is lower.
 :::
 
 ### Estimate the Regression
@@ -220,17 +221,17 @@ From rule 1: the coefficient on **mortality_risk_25_45** (-2.494) is the slope o
 **Apply 3: Interpret the constituent coefficients**
 
 ```{r quiz-interpret-maineffects, echo=FALSE}
-question("Which statements correctly describe what the coefficients on mortality_risk_25_45 and wage_growth tell us in this model? Select all that apply.",
+question("Which statements correctly describe what the coefficients on **mortality_risk_25_45** and **wage_growth** tell us in this model? Select all that apply.",
   correct = "Right. Both main-effect coefficients are anchor points --- the slope of each variable when the other equals zero.",
-  answer("The coefficient on mortality_risk_25_45 (-2.494) is the slope of mortality risk when wage growth equals zero",
+  answer("The coefficient on **mortality_risk_25_45** (-2.494) is the slope of mortality risk when wage growth equals zero",
          correct = TRUE,
          message = "In a county with flat wages, each additional percentage point of mortality risk predicts about 2.5 fewer percentage points of Clinton's vote. Wage growth of zero is within the observed range and is substantively interpretable as flat wages --- but the mean is 4.3, so it is not a typical county. The conditional slope formula gives the slope at any specific value of wage growth."),
-  answer("The coefficient on wage_growth (0.753) is the slope of wage growth when mortality risk equals zero",
+  answer("The coefficient on **wage_growth** (0.753) is the slope of wage growth when mortality risk equals zero",
          correct = TRUE,
-         message = "Mortality risk ranges from about 1.1 to 8.4 in this dataset --- it is never zero. The coefficient on wage_growth is a mathematical anchor point, not a substantively meaningful prediction for any real county. The conditional slope formula is more useful."),
-  answer("The coefficient on mortality_risk_25_45 is the average slope of mortality risk across all counties in the sample",
+         message = "Mortality risk ranges from about 1.1 to 8.4 in this dataset --- it is never zero. The coefficient on **wage_growth** is a mathematical anchor point, not a substantively meaningful prediction for any real county. The conditional slope formula is more useful."),
+  answer("The coefficient on **mortality_risk_25_45** is the average slope of mortality risk across all counties in the sample",
          message = "In an interaction model, there is no single average slope --- the slope differs across counties depending on their wage growth level. The main-effect coefficient is the slope only when wage growth equals zero."),
-  answer("The coefficient on wage_growth represents the direct effect of wage growth after removing the effect of mortality risk",
+  answer("The coefficient on **wage_growth** represents the direct effect of wage growth after removing the effect of mortality risk",
          message = "In an interaction model, the main-effect coefficient on wage growth is its slope when mortality risk equals zero --- not an average or a direct association across all mortality-risk levels. The interaction term means the slope changes with mortality risk."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -246,9 +247,9 @@ $$\text{Conditional slope of mortality risk} = -2.494 + (-0.139)(\text{wage grow
 
 | Wage growth | Calculation | Conditional slope of mortality risk |
 |:------------|:------------|------------------------------------:|
-| −4.7 (25th percentile) | $-2.494 + (-0.139)(-4.7)$ | $-1.84$ |
-| 4.3 (mean) | $-2.494 + (-0.139)(4.3)$ | $-3.09$ |
-| 12.7 (75th percentile) | $-2.494 + (-0.139)(12.7)$ | $-4.26$ |
+| −4.7 (25th percentile) | $-2.494 + (-0.139)(-4.7)$ | -1.84 |
+| 4.3 (mean) | $-2.494 + (-0.139)(4.3)$ | -3.09 |
+| 12.7 (75th percentile) | $-2.494 + (-0.139)(12.7)$ | -4.26 |
 
 The slope becomes more negative as wage growth increases. Mortality risk is more strongly associated with lower Clinton support in high-wage-growth counties than in low-wage-growth counties.
 
@@ -287,7 +288,11 @@ The conditional slope of wage growth at a given level of mortality risk is $0.75
 The paragraph below is a write-up --- the way this result would be reported in a paper rather than worked through in a tutorial. Each example in this tutorial ends with one.
 
 ::: {.research-example}
-The interaction term is statistically significant (p = .004). The negative interaction coefficient indicates that the mortality-risk slope becomes more negative as wage growth increases. Thus, higher mortality risk predicts a larger drop in Clinton support in counties with greater wage growth. Why this pattern occurs is a separate question that the regression cannot answer. Poor health outcomes may carry different political meaning under different economic conditions, but testing that explanation would require additional evidence.
+The interaction term is statistically significant (p = .004), so the association does depend on wage growth. But it depends on it in the opposite direction from the one the hypothesis predicted. The negative interaction coefficient means the mortality-risk slope becomes more negative as wage growth rises: higher mortality risk predicts a larger drop in Clinton support in counties with *stronger* economic growth, not weaker.
+
+The estimates run the other way. We expected economic hardship to amplify the political weight of poor health; instead the mortality association is strongest where wages are growing. Two explanations are worth considering. County wage growth is an average, so rising wages do not mean every resident is doing better --- high mortality alongside rising wages may identify places where the gains are concentrated and others are being left behind. Alternatively, growth may sharpen rather than soften the contrast: where the local economy is visibly improving, persistent poor health is more anomalous, and that dissonance may make it more politically salient.
+
+Neither explanation is something this model tested. Both were suggested by the result rather than specified in advance, which is exactly why neither can be treated as supported by it --- they are candidate accounts that would need different evidence and a fresh test. What the regression shows is a statistically significant interaction that runs opposite to the argument that motivated it. That is a finding, and the useful response is a new question rather than a rewritten hypothesis.
 :::
 
 ## Applying the Same Logic to a Categorical × Interval Interaction
@@ -301,7 +306,7 @@ The reference category uses the interval predictor's main-effect coefficient as 
 Does the estimated association between international trade and environmental performance depend on a country's political context? In countries with well-developed political rights, civil society organizations, free media, and political competition give citizens tools to hold governments and firms accountable for environmental outcomes --- regardless of how open the economy is to trade. Citizens can organize, advocate, and vote in ways that impose costs on environmentally destructive behavior. In countries where political rights are limited, those domestic accountability mechanisms are weak or absent. International economic integration may then serve as one of the few external pressures that can improve environmental behavior: firms seeking access to global markets face reputational and regulatory expectations from trading partners that domestic politics cannot enforce. If this argument is right, the estimated association between trade openness and environmental performance should be stronger in countries with fewer political rights, where trade exposure substitutes for missing domestic accountability.
 
 ::: {.hypothesis}
-In a comparison of countries, the estimated association between trade openness and environmental performance varies with the level of political rights.
+In a comparison of countries, the positive association between trade openness and environmental performance is stronger among countries with fewer political rights than among countries with more.
 :::
 
 The data frame **qog** is the January 2020 cross-section of the Quality of Government Basic Dataset, in which each variable takes its most recent available observation as of that release --- so they are not all measured in the same year. It contains **epi_epi**, the Environmental Performance Index, scaled 0 to 100 and observed from 27.4 to 87.4, where higher values indicate better performance. The predictors are:
@@ -314,16 +319,18 @@ Missingness reduces the effective sample to 116 of the 194 countries. **ipi_trad
 
 ### Create the Factor Variable
 
-Tutorial 16 introduced `factor()` and `levels()` for creating named factor variables --- the same approach applies here. The variable **rights** is coded 0 (few political rights) and 1 (many political rights). We could wrap it in `factor()` directly inside the `lm()` formula --- Tutorial 16 also showed this approach --- but that produces output rows labeled `factor(rights)1` and `factor(rights)1:ipi_tradeopen`. Those are hard to track when you need to combine two rows to find the non-reference slope. Creating a named factor first means the output will show `rights_fMany Rights` and `rights_fMany Rights:ipi_tradeopen`, making the connection between them much clearer.
+Tutorial 16 introduced `factor()` and `levels()` for creating named factor variables --- the same approach applies here. The variable **rights** is coded 0 (few political rights) and 1 (many political rights). It is built in this tutorial's setup from **fh_pr**, the Freedom House political rights rating, which is recorded for all 194 countries --- so **rights** has no missing values either. We could wrap it in `factor()` directly inside the `lm()` formula --- Tutorial 16 also showed this approach --- but that produces output rows labeled `factor(rights)1` and `factor(rights)1:ipi_tradeopen`. Those are hard to track when you need to combine two rows to find the non-reference slope. Creating a named factor first means the output will show `rights_fMany Rights` and `rights_fMany Rights:ipi_tradeopen`, making the connection between them much clearer.
 
 **Few Rights** becomes the reference category because it is coded 0 and therefore appears first in the factor levels --- and as you saw in the Understanding Interaction Coefficients section above, the reference category's slope on **ipi_tradeopen** appears directly as $\hat{\beta}_2$ in the output. Use `levels()` to confirm this before estimating the model.
 
 **Practice 5: Create rights_f and check its levels**
 
-**rights** is already coded 0 for countries with limited political rights and 1 for countries with broad political rights. Fill in the blanks to turn it into a labeled factor called **rights_f**, using the labels \"Few Rights\" and \"Many Rights\", then add a line displaying its levels so you can see which category R will treat as the reference. Three hints are available. Click "Submit Answer" to check your work.
+**rights** is already coded 0 for countries with limited political rights and 1 for countries with broad political rights. Complete the code to turn it into a labeled factor called **rights_f**, using the labels \"Few Rights\" and \"Many Rights\", then add a line displaying its levels so you can see which category R will treat as the reference. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-factor-rights, exercise=TRUE, exercise.cap="Practice 5"}
-qog$rights_f <- ___(qog$rights, labels = c("___", "___"))
+qog$rights_f <- ___
+
+levels(qog$rights_f)
 
 ```
 
@@ -354,18 +361,21 @@ qog$rights_f <- ___(qog$rights, labels = c("___", "___"))
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
-  if (!grepl("factor\\s*\\(", code_nc))
-    fail("Use factor() to convert rights into a labeled factor.")
+  if (!grepl("qog\\$rights_f\\s*(<-|=)\\s*factor\\s*\\(\\s*(x\\s*=\\s*)?qog\\$rights\\b", code_nc))
+    fail("Build and assign in one step: `qog$rights_f` on the left, `factor()` applied to `qog$rights` on the right.")
   if (!grepl("labels\\s*=", code_nc))
-    fail("Pass a labels argument to factor(), or the categories will print as 0 and 1.")
+    fail("Pass a labels argument to `factor()`, or the categories will print as 0 and 1.")
   if (!grepl("Few Rights", code_nc, fixed = TRUE) || !grepl("Many Rights", code_nc, fixed = TRUE))
     fail("Use the two labels exactly as written: \"Few Rights\" and \"Many Rights\".")
   if (!grepl("levels\\s*\\(", code_nc))
-    fail("Add a line calling levels() on your new factor, so you can see the reference category.")
+    fail("Add a line calling `levels()` on your new factor, so you can see the reference category.")
   if (is.null(.result))
-    fail("Your code did not produce a result. Make sure the last line calls levels().")
+    fail("Your code did not produce a result. Make sure the last line calls `levels()`.")
   if (!identical(as.character(.result), c("Few Rights", "Many Rights")))
     fail("The levels are not in the expected order. Labels are assigned from the smallest code upward, so the label for 0 comes first.")
+  built <- factor(qog$rights, labels = c("Few Rights", "Many Rights"))
+  if (!identical(as.character(qog$rights_f), as.character(built)))
+    fail("`qog$rights_f` does not match `qog$rights` case for case. Build it from that variable rather than constructing the categories another way.")
   pass("Correct. \"Few Rights\" is listed first, so it is the reference category.")
 })
 ```
@@ -378,10 +388,10 @@ grade_this({
 
 The model uses **epi_epi** as the outcome, **rights_f** and **ipi_tradeopen** as the interacting predictors, and **hf_efiscore** as a control.
 
-Fill in the blanks to estimate the model, assigning it to **model_env**, then display the results. Two hints are available. Click "Submit Answer" to check your work.
+Complete the code to estimate the model, assigning it to **model_env**, then display the results. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-regression-env-interaction, exercise=TRUE, exercise.cap="Practice 6"}
-model_env <- lm(___ ~ rights_f * ___ + ___, data = qog)
+model_env <- ___
 summary(model_env)
 ```
 
@@ -405,40 +415,39 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
   if (!grepl("lm\\s*\\(", code_no_comments)) {
-    fail("Use lm() to estimate the regression.")
+    fail("Use `lm()` to estimate the regression.")
   }
   if (!grepl("model_env\\s*(<-|=)", code_no_comments)) {
-    fail("Assign your model to an object called model_env.")
+    fail("Assign your model to an object called **model_env**.")
   }
   if (!grepl("epi_epi\\s*~", code_no_comments)) {
-    fail("The outcome variable should be epi_epi --- environmental performance is what we are trying to explain.")
+    fail("The outcome variable should be **epi_epi** --- environmental performance is what we are trying to explain.")
   }
   if (!grepl("rights_f\\s*\\*\\s*ipi_tradeopen|ipi_tradeopen\\s*\\*\\s*rights_f", code_no_comments)) {
-    fail("Use * between rights_f and ipi_tradeopen to include both the main effects and the interaction term.")
+    fail("Use `rights_f * ipi_tradeopen` to include both constituent terms and the interaction term.")
   }
   if (!grepl("hf_efiscore", code_no_comments)) {
-    fail("Include hf_efiscore as a control variable.")
+    fail("Include **hf_efiscore** as a control variable.")
   }
   if (!grepl("data\\s*=\\s*qog", code_no_comments)) {
-    fail("Set data = qog so R knows where to find the variables.")
+    fail("Set `data = qog` so R knows where to find the variables.")
   }
   if (!grepl("summary\\s*\\(", code_no_comments)) {
-    fail("Call summary() on your saved model object to display the results.")
+    fail("Call `summary()` on your saved model object to display the results.")
   }
   expected <- lm(epi_epi ~ rights_f * ipi_tradeopen + hf_efiscore, data = qog)
-  result_coef <- if (inherits(.result, "summary.lm")) {
-    setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
-  } else {
-    coef(.result)
+  if (!inherits(.result, "summary.lm")) {
+    fail("The last line should display the summary. Save the model, then call `summary()` on it so the summary is what prints.")
   }
+  result_coef <- setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
   if (is.null(result_coef)) {
-    fail("Make sure you display the results by calling summary() on your model object.")
+    fail("Make sure you display the results by calling `summary()` on your model object.")
   }
   if (!isTRUE(all.equal(
     sort(as.numeric(result_coef)),
     sort(as.numeric(coef(expected))),
     tolerance = 1e-6))) {
-    fail("Check your formula. The model should regress epi_epi on rights_f * ipi_tradeopen + hf_efiscore using the qog data.")
+    fail("Check your formula. The model should regress **epi_epi** on `rights_f * ipi_tradeopen + hf_efiscore` using the **qog** data.")
   }
   pass("Correct! Your output carries an interaction row alongside the two constituent terms. That extra row is the whole difference between this model and the additive one.")
 })
@@ -451,20 +460,20 @@ With the model estimated, the first task is to identify the slope of trade openn
 **Practice 7: Compute the slope of trade openness for Many Rights countries**
 
 ```{r quiz-env-slopes, echo=FALSE}
-question("Using the coefficients in your output, what is the slope of ipi_tradeopen for countries with Many Rights?",
+question("Using the coefficients in your output, what is the slope of **ipi_tradeopen** for countries with Many Rights?",
   correct = "Right. The two slopes are strikingly different.",
   answer("About 0.12 --- the estimated trade-openness slope is close to zero in Many Rights countries",
          correct = TRUE,
          message = "For Few Rights countries the slope is 4.750: each additional point of trade openness predicts about 4.75 more points on the EPI. For Many Rights countries the slope is 4.750 + (-4.629) = 0.121 --- close to zero. The two estimated slopes differ substantially."),
-  answer("About 4.750 --- the ipi_tradeopen coefficient is the slope for all countries regardless of rights status",
-         message = "In an interaction model, the ipi_tradeopen coefficient is the slope only for the reference category (Few Rights). To find the Many Rights slope, add the interaction coefficient to that value."),
+  answer("About 4.750 --- the **ipi_tradeopen** coefficient is the slope for all countries regardless of **rights** status",
+         message = "In an interaction model, the **ipi_tradeopen** coefficient is the slope only for the reference category (Few Rights). To find the Many Rights slope, add the interaction coefficient to that value."),
   answer("About -4.629 --- the interaction coefficient is the slope for Many Rights countries",
          message = "The interaction coefficient is the difference between the two slopes, not the Many Rights slope itself. Add the interaction coefficient to the Few Rights slope: 4.750 + (-4.629) = 0.121."),
-  answer("About 9.38 --- the Many Rights slope is the sum of the ipi_tradeopen and interaction coefficients added to the Few Rights reference-category slope",
-         message = "The Many Rights slope on ipi_tradeopen is simply the ipi_tradeopen coefficient plus the interaction coefficient: 4.750 + (-4.629) = 0.121. The rights_fMany Rights coefficient is the intercept gap between groups when trade openness is zero --- it is not part of the slope calculation."),
+  answer("About 9.38 --- the Many Rights slope is the sum of the **ipi_tradeopen** and interaction coefficients added to the Few Rights reference-category slope",
+         message = "The Many Rights slope on **ipi_tradeopen** is simply the **ipi_tradeopen** coefficient plus the interaction coefficient: 4.750 + (-4.629) = 0.121. The rights_fMany Rights coefficient is the intercept gap between groups when trade openness is zero --- it is not part of the slope calculation."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Few Rights slope = ipi_tradeopen coefficient directly. Many Rights slope = ipi_tradeopen coefficient + interaction coefficient."
+  try_again = "Hint: Few Rights slope = **ipi_tradeopen** coefficient directly. Many Rights slope = **ipi_tradeopen** coefficient + interaction coefficient."
 )
 ```
 
@@ -474,7 +483,7 @@ Now that you have both slopes, the interaction coefficient has a clear interpret
 
 | Political rights category | Trade openness slope |
 |:--------------------------|---------------------:|
-| Few Rights (reference) | $4.750$ |
+| Few Rights (reference) | 4.750 |
 | Many Rights | $4.750 + (-4.629) = 0.121$ |
 
 The interaction coefficient also tells you the direction and size of that difference. A large negative value means the Many Rights slope is substantially smaller (less positive or more negative) than the Few Rights slope. Here the near-cancellation is the key finding: the interaction coefficient (-4.629) is almost equal in magnitude to the Few Rights reference-category slope (4.750), which is why the resulting Many Rights slope is close to zero.
@@ -488,10 +497,10 @@ question("The interaction coefficient in the row labeled **rights_fMany Rights**
          correct = TRUE,
          message = "The Few Rights slope is 4.750 and the Many Rights slope is 0.121 --- a difference of -4.629. The interaction coefficient measures that difference directly. Trade openness has a relatively large estimated slope in Few Rights countries and a slope close to zero in Many Rights countries."),
   answer("This coefficient is the slope of trade openness for Many Rights countries, controlling for economic freedom",
-         message = "The interaction coefficient is the difference between the two slopes, not the Many Rights slope itself. The Many Rights slope is the ipi_tradeopen coefficient plus the interaction coefficient: 4.750 + (-4.629) = 0.121."),
+         message = "The interaction coefficient is the difference between the two slopes, not the Many Rights slope itself. The Many Rights slope is the **ipi_tradeopen** coefficient plus the interaction coefficient: 4.750 + (-4.629) = 0.121."),
   answer("This coefficient means trade openness reduces environmental performance by 4.629 points for Many Rights countries",
          message = "The interaction coefficient is not a slope for any group. It is the difference between the Many Rights slope and the Few Rights slope. The Many Rights slope itself is 4.750 + (-4.629) = 0.121 --- positive but nearly zero, not negative."),
-  answer("This coefficient is the combined effect of having both many political rights and high trade openness, compared to having neither",
+  answer("This coefficient is the combined effect of having both many political **rights** and high trade openness, compared to having neither",
          message = "The interaction term is not a combined effect. The main-effect coefficients describe the relevant slope or category difference at the model's reference condition; the interaction term tells us how much the trade openness slope differs between the two groups."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -506,17 +515,17 @@ The **rights_fMany Rights** coefficient (29.226) is the gap between Many Rights 
 **Apply 9: Interpret the conditional relationship at observed trade levels**
 
 ```{r quiz-env-interpretation, echo=FALSE}
-question("Based on the model's point estimates, at low trade openness (ipi_tradeopen = 2), Many Rights countries are predicted to have a higher EPI score than Few Rights countries. At high trade openness (ipi_tradeopen = 8), Few Rights countries are predicted to have a higher EPI score. Which statement correctly describes why the predicted gap between the two groups changes as trade openness increases?",
+question("Based on the model's point estimates, at low trade openness (**ipi_tradeopen** = 2), Many Rights countries are predicted to have a higher EPI score than Few Rights countries. At high trade openness (**ipi_tradeopen** = 8), Few Rights countries are predicted to have a higher EPI score. Which statement correctly describes why the predicted gap between the two groups changes as trade openness increases?",
   correct = "Right: the changing gap follows directly from the different slopes.",
   answer("The trade-openness slope is substantially larger for Few Rights countries, so the gap between the groups narrows and eventually reverses",
          correct = TRUE,
-         message = "This is the conditional pattern the interaction captures. The predicted EPI score rises more steeply with trade openness for Few Rights countries (4.75 points per unit) than for Many Rights countries (0.12 points per unit), so the gap between them changes as trade openness increases. The model does not establish why trade openness has different estimated associations across the two political-rights categories."),
+         message = "This is the conditional pattern the interaction captures. The predicted EPI score rises more steeply with trade openness for Few Rights countries (4.75 points per unit) than for Many Rights countries (0.12 points per unit), so the gap between them changes as trade openness increases. The model does not establish why trade openness has different estimated associations across the two political-**rights** categories."),
   answer("Many Rights countries always have higher predicted EPI scores regardless of trade openness",
          message = "At high trade openness, Few Rights countries are predicted to have a higher EPI score. The gap between the groups changes direction across the observed range."),
   answer("The interaction term is too small to be meaningful even though it is statistically significant",
-         message = "The interaction coefficient (-4.629) is actually large relative to the Few Rights reference-category slope on ipi_tradeopen (4.750) --- it nearly cancels the slope for Many Rights countries. A small p-value and a large estimated difference go together here."),
+         message = "The interaction coefficient (-4.629) is actually large relative to the Few Rights reference-category slope on **ipi_tradeopen** (4.750) --- it nearly cancels the slope for Many Rights countries. A small p-value and a large estimated difference go together here."),
   answer("Trade openness has the same positive estimated association with environmental performance in both Few Rights and Many Rights countries --- the interaction term just adjusts the magnitude slightly",
-         message = "The interaction coefficient (-4.629) nearly equals the Few Rights reference-category slope on ipi_tradeopen (4.750) in magnitude, so the resulting Many Rights slope is close to zero. This is not a small adjustment."),
+         message = "The interaction coefficient (-4.629) nearly equals the Few Rights reference-category slope on **ipi_tradeopen** (4.750) in magnitude, so the resulting Many Rights slope is close to zero. This is not a small adjustment."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: compare the two slopes and think about what different slopes imply for how the predicted gap between the groups changes as trade openness rises."
@@ -528,13 +537,13 @@ question("Based on the model's point estimates, at low trade openness (ipi_trade
 ```{r quiz-env-hypothesistest, echo=FALSE}
 question("Based on the t-statistic and p-value for the interaction term **rights_fMany Rights**:**ipi_tradeopen** in your output, what conclusion do we draw?",
   correct = "Right. We reject the null hypothesis that the two groups' slopes are equal.",
-  answer("We reject the null hypothesis that the trade openness slope is the same for Few Rights and Many Rights countries",
+  answer("We reject the null that the trade openness slope is the same in both **rights** groups",
          correct = TRUE,
          message = "The t-statistic is -4.533 and the p-value is 1.48e-05 --- strong evidence against equal slopes. The data provide strong evidence that the trade openness slope differs substantially between the two groups."),
   answer("We fail to reject the null hypothesis --- the interaction is not statistically significant",
          message = "Look at the t-statistic and p-value in the **rights_fMany Rights**:**ipi_tradeopen** row. A p-value well below 0.05 means we reject the null hypothesis."),
-  answer("The significant interaction proves that political rights cause trade openness to have less association with environmental performance",
-         message = "The small p-value indicates that a slope difference this large would be unlikely under the null hypothesis of equal slopes. It does not establish causation --- countries with many rights may differ from those with few rights in other ways that also affect how trade relates to environmental outcomes."),
+  answer("The significant interaction proves that political **rights** cause trade openness to have less association with environmental performance",
+         message = "The small p-value indicates that a slope difference this large would be unlikely under the null hypothesis of equal slopes. It does not establish causation --- countries with many **rights** may differ from those with few **rights** in other ways that also affect how trade relates to environmental outcomes."),
   answer("A p-value this small means there is essentially zero probability the null hypothesis is true",
          message = "The p-value gives the probability of observing a difference in slopes this large if the null were true --- not the probability that the null is true. A very small p-value means the data would be highly surprising under the null, not that the null is certainly false."),
   allow_retry = TRUE,
@@ -559,7 +568,7 @@ question("Look at the Multiple R-squared, Adjusted R-squared, and the residual s
          correct = TRUE,
          message = "Given that the EPI ranges from about 27 to 87, an 8.6-point typical error means the model captures broad patterns but leaves substantial country-specific variation unexplained."),
   answer("The Adjusted R-squared of 0.599 tells us the interaction term explains 59.9% of the variation in environmental performance",
-         message = "The Adjusted R-squared reflects the combined explanatory power of all predictors in this interaction model --- rights_f, ipi_tradeopen, their interaction, and hf_efiscore --- not the interaction term alone."),
+         message = "The Adjusted R-squared reflects the combined explanatory power of all predictors in this interaction model --- **rights_f**, **ipi_tradeopen**, their interaction, and **hf_efiscore** --- not the interaction term alone."),
   answer("Because the Adjusted R-squared is only 0.599, this interaction model does not fit the data well enough to draw conclusions",
          message = "The interaction p-value directly tests whether the two estimated slopes differ, whereas R-squared summarizes the model's overall explanatory fit. They answer different questions --- a significant coefficient can coexist with weak overall fit."),
   allow_retry = TRUE,
@@ -643,19 +652,41 @@ grade_this({
   if (n_lm < 2)
     fail("Estimate both models --- the additive one and the interaction one.")
   if (!grepl("model_rep_additive\\s*(<-|=)", code_nc))
-    fail("Assign the additive model to model_rep_additive.")
+    fail("Assign the additive model to **model_rep_additive**.")
   if (!grepl("model_rep_int\\s*(<-|=)", code_nc))
-    fail("Assign the interaction model to model_rep_int.")
+    fail("Assign the interaction model to **model_rep_int**.")
   if (!grepl("women_percent\\s*~", code_nc))
-    fail("women_percent is the outcome in both models.")
+    fail("**women_percent** is the outcome in both models.")
   if (!grepl("electoral_f\\s*\\*\\s*years_c|years_c\\s*\\*\\s*electoral_f", code_nc))
-    fail("The interaction model joins electoral_f and years_c with *, not +.")
+    fail("The interaction model joins **electoral_f** and **years_c** with *, not +.")
   if (!grepl("quota_f", code_nc))
-    fail("quota_f is a control in both models.")
+    fail("**quota_f** is a control in both models.")
   if (!grepl("data\\s*=\\s*ipu", code_nc))
-    fail("Set data = ipu in both calls.")
+    fail("Set `data = ipu` in both calls.")
   if (!grepl("summary\\s*\\(", code_nc))
-    fail("Display the interaction model with summary().")
+    fail("Display the interaction model with `summary()`.")
+
+  if (!inherits(.result, "summary.lm"))
+    fail("The last line should display the interaction model. Call `summary(model_rep_int)` so the summary is what prints.")
+  want_add <- lm(women_percent ~ quota_f + electoral_f + years_c, data = ipu)
+  want_int <- lm(women_percent ~ quota_f + electoral_f * years_c, data = ipu)
+  est <- function(m) {
+    cf <- coef(m)
+    if (is.matrix(cf)) setNames(cf[, "Estimate"], rownames(cf)) else cf
+  }
+  same <- function(a, b) {
+    ca <- est(a); cb <- est(b)
+    setequal(names(ca), names(cb)) &&
+      isTRUE(all.equal(as.numeric(ca[order(names(ca))]),
+                       as.numeric(cb[order(names(cb))]), tolerance = 1e-6))
+  }
+  if (!same(model_rep_additive, want_add))
+    fail("**model_rep_additive** is not the additive model. Regress **women_percent** on **quota_f**, **electoral_f** and **years_c** joined with `+`, using the **ipu** data.")
+  if (!same(model_rep_int, want_int))
+    fail("**model_rep_int** is not the interaction model. It is the additive model with **electoral_f** and **years_c** joined by `*` instead of `+`.")
+  if (!same(.result, want_int))
+    fail("The summary displayed is not **model_rep_int**. Call `summary(model_rep_int)` on the last line.")
+
   pass("Correct. The additive model constrains the history slope to be the same in every electoral system; the interaction model lets it vary.")
 })
 ```
@@ -669,20 +700,20 @@ Applying the categorical × interval rules to three groups:
 **Practice 13: Identify the three history slopes**
 
 ```{r quiz-ipu-slopes, echo=FALSE}
-question("Using the coefficients in your output, which statement correctly identifies the three conditional slopes of years_c?",
+question("Using the coefficients in your output, which statement correctly identifies the three conditional slopes of **years_c**?",
   correct = "Right. The Plurality slope is the reference-category slope; the other two add the relevant interaction coefficient.",
-  answer("Plurality: the years_c coefficient; Proportional and Mixed: that coefficient plus their own interaction term",
+  answer("Plurality: the **years_c** coefficient; Proportional and Mixed: that coefficient plus their own interaction term",
          correct = TRUE,
-         message = "This is the three-category extension of the rule you applied in Example 2. The Plurality slope is the baseline (the coefficient on years_c). Each other category's slope adds that category's interaction coefficient. Compute all three before interpreting the pattern."),
-  answer("All three slopes equal the coefficient on years_c because the interaction coefficients adjust the intercepts, not the slopes",
-         message = "In an interaction model, the interaction coefficients adjust the slopes, not the intercepts. The coefficient on years_c is the Plurality slope only; the other categories have different slopes."),
-  answer("Plurality: the interaction coefficient for Proportional; Proportional: the coefficient on years_c; Mixed: the interaction coefficient for Mixed",
-         message = "The coefficient on years_c is always the reference category's slope (Plurality here). The interaction coefficients are differences from that baseline, not the slopes themselves for other categories."),
-  answer("Each electoral system's slope equals its interaction coefficient with years_c",
+         message = "This is the three-category extension of the rule you applied in Example 2. The Plurality slope is the baseline (the coefficient on **years_c**). Each other category's slope adds that category's interaction coefficient. Compute all three before interpreting the pattern."),
+  answer("All three slopes equal the coefficient on **years_c** because the interaction coefficients adjust the intercepts, not the slopes",
+         message = "In an interaction model, the interaction coefficients adjust the slopes, not the intercepts. The coefficient on **years_c** is the Plurality slope only; the other categories have different slopes."),
+  answer("Plurality: the interaction coefficient for Proportional; Proportional: the coefficient on **years_c**; Mixed: the interaction coefficient for Mixed",
+         message = "The coefficient on **years_c** is always the reference category's slope (Plurality here). The interaction coefficients are differences from that baseline, not the slopes themselves for other categories."),
+  answer("Each electoral system's slope equals its interaction coefficient with **years_c**",
          message = "The interaction coefficients are differences between each non-reference slope and the Plurality slope --- not the non-reference slopes themselves. Add the interaction coefficient to the Plurality slope to get each other category's slope."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: use the same rule as Example 2 --- the reference category (Plurality/Majority) uses the coefficient on years_c directly; add the interaction coefficient for each other category."
+  try_again = "Hint: use the same rule as Example 2 --- the reference category (Plurality/Majority) uses the coefficient on **years_c** directly; add the interaction coefficient for each other category."
 )
 ```
 
@@ -693,7 +724,7 @@ Read the three slopes carefully, because the variable runs backwards in time. A 
 **Apply 14: Interpret the interaction coefficients**
 
 ```{r quiz-ipu-interaction, echo=FALSE}
-question("Your output gives a years_c coefficient of 0.194, a Proportional interaction coefficient of -0.102, and a Mixed interaction coefficient of -0.232. Which statement correctly describes the three conditional slopes and what they mean?",
+question("Your output gives a **years_c** coefficient of 0.194, a Proportional interaction coefficient of -0.102, and a Mixed interaction coefficient of -0.232. Which statement correctly describes the three conditional slopes and what they mean?",
   correct = "Right: Plurality 0.194, Proportional 0.091, Mixed -0.038 --- and the Mixed slope runs the other way.",
   answer("Plurality: 0.194; Proportional: 0.194 + (-0.102) = 0.091; Mixed: 0.194 + (-0.232) = -0.038",
          correct = TRUE,
@@ -702,11 +733,11 @@ question("Your output gives a years_c coefficient of 0.194, a Proportional inter
          message = "The interaction coefficients are differences from the Plurality slope, not the slopes themselves. The Proportional slope is 0.194 + (-0.102) = 0.091, and the Mixed slope is 0.194 + (-0.232) = -0.038."),
   answer("Plurality: 0.194; Proportional: 0.194 - (-0.102) = 0.296; Mixed: 0.194 - (-0.232) = 0.426",
          message = "Add the interaction coefficients, do not subtract them. The Proportional slope is 0.194 + (-0.102) = 0.091; the Mixed slope is 0.194 + (-0.232) = -0.038."),
-  answer("All three slopes are positive, since both interaction coefficients are smaller in absolute value than the years_c coefficient",
-         message = "Check the Mixed calculation: 0.194 + (-0.232) = -0.038, which is negative. The Mixed interaction coefficient is larger in absolute value than the years_c coefficient, so it flips the sign of that slope."),
+  answer("All three slopes are positive, since both interaction coefficients are smaller in absolute value than the **years_c** coefficient",
+         message = "Check the Mixed calculation: 0.194 + (-0.232) = -0.038, which is negative. The Mixed interaction coefficient is larger in absolute value than the **years_c** coefficient, so it flips the sign of that slope."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Plurality slope = coefficient on years_c. Each other slope = Plurality slope + that category's interaction coefficient. Then check the sign of each."
+  try_again = "Hint: Plurality slope = coefficient on **years_c**. Each other slope = Plurality slope + that category's interaction coefficient. Then check the sign of each."
 )
 ```
 
@@ -715,12 +746,12 @@ question("Your output gives a years_c coefficient of 0.194, a Proportional inter
 With two interaction terms, individual p-values test whether each non-reference slope differs from the Plurality slope. But they do not jointly test whether the history slope varies across all three electoral systems simultaneously. The joint F-test compares the additive and interaction models.
 
 ::: {.caution}
-**A note on the threshold.** An interaction term is estimated from differences between subgroups, so it carries less information than a main effect and is correspondingly harder to detect. Here the subgroups are 65 plurality systems, 77 proportional, and 36 mixed --- and the smallest of those carries the comparison the test depends on most. We will therefore evaluate this interaction at $\alpha = .10$ rather than the $\alpha = .05$ used elsewhere in the course. That choice is made here, before the test is run, and for the reason just given. Tutorial 11 explains why .05 is a convention rather than a rule.
+**A note on power.** An interaction term is estimated from differences between subgroups, so it carries less information than a main effect and is correspondingly harder to detect. Here the subgroups are 65 plurality systems, 77 proportional, and 36 mixed. That matters for what a null result means: failing to reject tells you the data could not distinguish the slopes, not that the slopes are equal. It is not a reason to move the threshold. A lower bar does not recover power --- it just accepts more false positives in exchange, and the threshold stays at $\alpha = .05$ here as everywhere else in the course.
 :::
 
 **Practice 15: Joint F-test for the history × electoral system interaction**
 
-Write the call that compares the two models you just estimated. Two hints are available. Click "Submit Answer" to check your work.
+Write the call that compares the two models you just estimated: **model_rep_additive** and **model_rep_int**. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-ipu-anova, exercise=TRUE, exercise.cap="Practice 15"}
 
@@ -745,15 +776,21 @@ grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
   if (!grepl("anova\\s*\\(", code_nc))
-    fail("Use anova() to compare the two models.")
+    fail("Use `anova()` to compare the two models.")
   if (!grepl("model_rep_additive", code_nc))
-    fail("Include model_rep_additive as the first argument.")
+    fail("Include **model_rep_additive** as the first argument.")
   if (!grepl("model_rep_int", code_nc))
-    fail("Include model_rep_int as the second argument.")
-  pos_add <- regexpr("model_rep_additive", code_nc)[1]
-  pos_int <- regexpr("model_rep_int", code_nc)[1]
-  if (pos_add > pos_int)
-    fail("Put the additive model first. anova() treats the first model as the restricted one, and reversing them reverses the sign of the reported change.")
+    fail("Include **model_rep_int** as the second argument.")
+  if (!grepl("anova\\s*\\(\\s*model_rep_additive\\s*,\\s*model_rep_int\\s*\\)", code_nc)) {
+    if (grepl("anova\\s*\\(\\s*model_rep_int\\s*,\\s*model_rep_additive\\s*\\)", code_nc))
+      fail("Put the additive model first. `anova()` treats the first model as the restricted one, and reversing them reverses the sign of the reported change.")
+    fail("Pass both models to one `anova()` call, additive first: `anova(model_rep_additive, model_rep_int)`.")
+  }
+  if (is.null(.result))
+    fail("Your code did not produce a result. The `anova()` call should be the last line.")
+  want <- anova(model_rep_additive, model_rep_int)
+  if (!isTRUE(all.equal(as.numeric(want$F[2]), as.numeric(.result$F[2]), tolerance = 1e-6)))
+    fail("The comparison does not match the expected one. Check that both objects are the models you fitted in Practice 12.")
   pass("Correct. The F-statistic tests the two interaction terms together, which is a different question from either individual p-value.")
 })
 ```
@@ -766,14 +803,14 @@ The F-statistic tests whether the two interaction terms together add significant
 
 ```{r quiz-ipu-evidence, echo=FALSE}
 question("The joint F-test gives F = 2.49 with p = .086. The Proportional interaction coefficient has p = .224 and the Mixed interaction coefficient has p = .027. Which statement best describes what the data tell us?",
-  correct = "Right. The interaction is supported at the .10 level, but the contrast the hypothesis is about is not the one the data distinguish.",
-  answer("The joint test supports the interaction at .10, but only the Mixed comparison is distinguishable from the Plurality slope",
+  correct = "Right. The joint test does not clear .05, and the one contrast that does is not the contrast the hypothesis is about.",
+  answer("The joint test does not clear .05, and the one contrast that does is not the one the hypothesis names",
          correct = TRUE,
-         message = "This is the honest reading. The overall pattern runs the way the institutional argument predicts, and the joint test supports treating the slopes as unequal. But the specific claim --- that history matters more under plurality rules than under proportional ones --- is the comparison with the weakest evidence. The strong evidence concerns mixed systems, which the argument says little about."),
-  answer("The interaction is confirmed, and the hypothesis is supported, because the joint F-test clears the .10 threshold",
-         message = "The joint test tells us the slopes are not all equal. It does not tell us which pair differs. Here the Proportional-versus-Plurality contrast --- the one the hypothesis names --- has p = .224, so the joint result is being carried by a comparison the hypothesis did not make."),
-  answer("The interaction should be rejected because the joint test does not clear .05",
-         message = "The threshold for this model was set at .10 before the test was run, and for a stated reason: interaction terms are estimated from subgroup differences and are harder to detect. Moving the goalposts after seeing the p-value would be the problem; choosing them in advance is not."),
+         message = "This is the honest reading, and it shows why the two kinds of test answer different questions. The joint test at p = .086 does not let us reject equal slopes at .05. Yet the Mixed coefficient at p = .027 does clear it --- a single contrast can be statistically distinguishable even when the two interaction terms are not jointly distinguishable. The joint F-test evaluates both interaction terms simultaneously, whereas each coefficient test evaluates one specific contrast. And the contrast the hypothesis actually names, Proportional versus Plurality, has p = .224."),
+  answer("The interaction is confirmed and the hypothesis supported, because one interaction coefficient is significant",
+         message = "A significant coefficient tells you that one slope differs from the reference slope. It does not confirm the hypothesis, which names the Proportional-versus-Plurality contrast --- and that one has p = .224. The significant contrast is the Mixed one, which the argument did not predict."),
+  answer("The slopes are equal across electoral systems, because the joint test does not clear .05",
+         message = "Failing to reject is not the same as establishing equality. The joint test says the data cannot distinguish the three slopes at .05. With only 36 countries in the smallest group the interaction estimates are less precise, so failing to reject does not establish that the slopes are equal. The estimates themselves --- 0.194, 0.091 and -0.038 --- are not identical; the question is whether the evidence is strong enough to distinguish those differences from sampling variation."),
   answer("Because the Mixed interaction coefficient is significant, mixed systems must have the strongest relationship between history and representation",
          message = "Significance says the Mixed slope differs from the Plurality slope, not that it is larger. The Mixed slope is -0.038, the weakest of the three in magnitude --- and it points in the opposite direction. What is significant is the difference, not the strength."),
   allow_retry = TRUE,
@@ -785,16 +822,13 @@ question("The joint F-test gives F = 2.49 with p = .086. The Proportional intera
 ### What We Learned About History, Electoral Systems, and Representation
 
 ::: {.research-example}
-The interaction is supported at the .10 level: the joint test gives $F = 2.49$, $p = .086$, and the model's $R^2$ rises from .307 to .327. Under plurality rules, for each year earlier that a parliament first seated a woman, it is predicted to seat 0.194 percentage points more women today. Under proportional rules that figure is 0.091 --- less than half. Under mixed rules it is -0.038, essentially nothing.
+The joint test does not clear .05: F = 2.49, p = .086, though the model's R-squared rises from .307 to .327. Under plurality rules, for each year earlier that a parliament first seated a woman, it is predicted to seat 0.194 percentage points more women today. Under proportional rules that figure is 0.091 --- less than half. Under mixed rules it is -0.038, essentially nothing.
 
-The institutional argument anticipated the first two. What it did not anticipate is that the only contrast the data distinguish clearly is the one it says least about. Plurality against proportional --- the comparison the theory is built on --- gives $p = .224$. Plurality against mixed gives $p = .027$. So the pattern points the way the theory predicts while the evidence for the specific claim is weak, and the evidence that *is* strong concerns a category the theory treats as a residual.
+The institutional argument anticipated the first two. What it did not anticipate is that the only contrast the data distinguish clearly is the one it says least about. Plurality against proportional --- the comparison the theory is built on --- gives p = .224. Plurality against mixed gives p = .027. So the pattern points the way the theory predicts while the evidence for the specific claim is weak, and the evidence that *is* strong concerns a category the theory treats as a residual. Whether the mixed and plurality slopes running in opposite directions produces a visible reversal inside the range of the data --- and where --- is a question about predicted values across the whole scale rather than about coefficients, and Tutorial 19 takes it up.
 
-The crossing points make this concrete, once translated. Zero on the centered scale is a parliament that first seated a woman around 1966. The mixed and plurality lines cross at a parliament whose first woman arrived around 1941. Where the first woman arrived *later* than that, mixed systems are predicted to seat more women than plurality systems; where she arrived *earlier*, plurality systems are predicted to seat more --- and the data run well back past 1941, to first women arriving in 1907. The proportional and plurality lines would cross at a parliament whose first woman arrived around 1895, earlier than any country in the file. So across the whole observed range, proportional systems stay ahead; it is only the mixed comparison that actually reverses.
-
-The two lines are not converging on a common value. Under plurality rules, the longer ago a parliament seated its first woman, the more women it is predicted to seat today. Under mixed rules the prediction runs the other way: the longer ago the first woman arrived, the *fewer* women are predicted now. The two are moving in opposite directions, which is what makes the crossing a reversal rather than a meeting point.
 :::
 
-That last paragraph is worth noticing as a piece of writing. A model can support a hypothesis in its overall shape while leaving its central comparison unresolved, and saying so is more useful than reporting only the parts that worked.
+That last paragraph is worth noticing as a piece of writing. The point estimates can follow the pattern a hypothesis predicts while the evidence for its central comparison remains weak, and saying so is more useful than reporting only the parts that worked.
 
 
 ## Check Your Understanding
@@ -829,9 +863,7 @@ question("Which statements correctly interpret this equation? Select all that ap
 
 **Apply 18: Compute a conditional slope**
 
-Use the same fitted equation: $\hat{Y} = 4.2 + 2.8 \, X_1 + 0.6 \, X_2 - 0.9 \, X_1 X_2$.
-
-Education ranges from 8 to 16 years in the sample. The conditional slope of unemployment at a given level of education is $-1.8 + 0.4(\text{education})$.
+A different study models voter turnout in a district as a function of the district's unemployment rate, the average years of education among its residents, and the interaction of the two. Education ranges from 8 to 16 years across the districts in the sample, and the conditional slope of unemployment at a given level of education works out to $-1.8 + 0.4(\text{education})$.
 
 ```{r quiz-cyu-condslope, echo=FALSE}
 question("Using the formula $-1.8 + 0.4(\\text{education})$, what are the conditional slopes at education = 8 and at education = 16?",
@@ -854,17 +886,17 @@ question("Using the formula $-1.8 + 0.4(\\text{education})$, what are the condit
 **Apply 19: Decide when an interaction is warranted**
 
 ```{r quiz-cyu-judgment, echo=FALSE}
-question("A researcher estimates a model with two predictors and finds both are statistically significant. A colleague suggests adding an interaction term. Which of the following is the strongest reason to do so?",
+question("A researcher estimates a model with two predictors and finds both are statistically significant. A colleague suggests adding an interaction term. Which of the following most directly supplies an expectation about the form the interaction should take?",
   correct = "Right: theory is the primary justification for specifying an interaction.",
-  answer("The researcher has a theoretical reason to expect that the estimated association of one predictor depends on the level of the other",
+  answer("Theory gives a reason to expect one predictor's association to depend on the other",
          correct = TRUE,
          message = "A substantive expectation that one slope varies with another predictor is the strongest justification. Exploratory interactions can also be examined, but they should be identified as exploratory rather than selected only because they improve fit or produce a small p-value."),
   answer("The adjusted R-squared of the additive model is low, suggesting the model is missing something",
          message = "A low R-squared might mean any number of things --- an omitted variable, a nonlinear relationship, measurement error --- most of which an interaction term would not fix. Low R-squared alone is not a reason to add an interaction."),
   answer("One predictor is statistically significant and the other is not, suggesting their estimated associations may depend on each other",
          message = "A difference in significance between two predictors does not imply that their estimated associations are conditional on each other. Significance depends on effect size, sample size, and standard error --- none of which tell you whether a slope varies across values of another variable. That requires a theoretical expectation."),
-  answer("An interaction between these two predictors was statistically significant in a previous study using a similar dataset",
-         message = "A prior result in a comparable study is a legitimate reason to test whether the interaction replicates. In this question, however, a clear substantive expectation about why one slope should vary with the other predictor provides the strongest general justification --- it grounds the interaction in theory rather than only in precedent."),
+  answer("An interaction between these two predictors was statistically significant in a previous study, though that study offers no account of why",
+         message = "A prior result is a legitimate reason to test whether an interaction replicates, and that is worth doing. But a finding without an account of why tells you nothing about the form to expect --- which slope should be larger, and where. Only a substantive expectation does that, and it is what lets you say in advance what would count as support."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: think about what distinguishes a principled reason to add an interaction term from a purely statistical one."
@@ -873,7 +905,7 @@ question("A researcher estimates a model with two predictors and finds both are 
 
 ## The Takeaways
 
-[**Conditional relationships**]{.important-text} arise when the estimated association of one predictor with the outcome changes across values or categories of another. Estimating them requires adding a term multiplying the two predictors together, created with the `*` operator in R.
+[**Conditional**]{.important-text} relationships arise when the estimated association of one predictor with the outcome changes across values or categories of another. Estimating them requires adding a term multiplying the two predictors together, created with the `*` operator in R.
 
 ::: {.tip}
 **Always include the constituent terms alongside the interaction.** The `*` operator handles this automatically --- `X1 * X2` expands to `X1 + X2 + X1:X2`. Retaining both constituent terms allows the interaction coefficient to represent how a slope changes across values of the other predictor. If you omit a constituent term, the coefficients will no longer have the interpretations described in this tutorial.
@@ -892,7 +924,7 @@ For [**interval × interval**]{.important-text} interactions, each main-effect c
 
 For [**categorical × interval**]{.important-text} interactions, the interval main-effect coefficient is the slope for the *reference category*. Every non-reference category's slope is that coefficient plus the relevant interaction coefficient. Always compute all slopes before interpreting. For a factor with more than two categories, use both a joint F-test and the individual interaction coefficients: the joint test evaluates whether the slopes are all equal across groups; the individual coefficients evaluate specific contrasts with the reference category.
 
-[**A significant interaction does not always produce a large improvement in fit**]{.important-text}, as Example 1 showed. Assess evidence that slopes differ using the test of the interaction coefficient --- or a joint F-test when the interaction contributes multiple coefficients --- rather than judging the interaction from the size of the $R^2$ change alone. And [**an interaction predicted by theory may not be clearly supported by the available evidence**]{.important-text}, as Example 3 showed --- report uncertainty honestly rather than forcing a yes-or-no conclusion.
+**A significant interaction does not always produce a large improvement in fit**, as Example 1 showed. Assess evidence that slopes differ using the test of the interaction coefficient --- or a joint F-test when the interaction contributes multiple coefficients --- rather than judging the interaction from the size of the $R^2$ change alone. And **an interaction predicted by theory may not be clearly supported by the available evidence**, as Example 3 showed --- report uncertainty honestly rather than forcing a yes-or-no conclusion.
 
 Tutorial 19 introduces prediction plots that visualize these conditional associations across the full observed range of the predictors. After working through three examples numerically, you now have the foundation to read those plots meaningfully.
 
