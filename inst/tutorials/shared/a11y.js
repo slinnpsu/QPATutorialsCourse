@@ -102,6 +102,48 @@
   }
 
   /* ------------------------------
+     MathJax Sizing
+
+     MathJax 2.7 sizes math by measuring the ex-height of the surrounding
+     font at typeset time. learnr sections are display:none until the student
+     reaches them, so math typeset inside a hidden section measures against an
+     element with no layout and renders inflated -- which is why the same
+     equation looked one size on a fresh load and another after progress was
+     restored.
+
+     matchFontHeight:false stops the measuring altogether. Math is then drawn
+     at a fixed scale, identical in every section on every load. The trade is
+     that the size no longer adapts to context, so `scale` sets it once; 120
+     matches the 16px body text in a11y.css. Change both together if the body
+     font size changes.
+     ------------------------------ */
+
+  function configureMathJax() {
+    if (!window.MathJax || !window.MathJax.Hub || !window.MathJax.Hub.Config) {
+      return false;
+    }
+    window.MathJax.Hub.Config({
+      "HTML-CSS":   { matchFontHeight: false, scale: 120 },
+      "CommonHTML": { matchFontHeight: false, scale: 120 },
+      "SVG":        { matchFontHeight: false, scale: 120 }
+    });
+    // Rerender, not Typeset: Typeset skips math that has already been
+    // processed, so anything drawn before this ran would keep the old size.
+    window.MathJax.Hub.Queue(["Rerender", window.MathJax.Hub]);
+    return true;
+  }
+
+  function startMathJaxConfigPolling() {
+    if (configureMathJax()) return;      // MathJax already present
+    var tries = 0;
+    var iv = setInterval(function () {
+      if (configureMathJax() || ++tries > 100) clearInterval(iv);
+    }, 100);
+  }
+
+  safe(startMathJaxConfigPolling);
+
+  /* ------------------------------
      MathJax Re-typeset
      ------------------------------ */
 

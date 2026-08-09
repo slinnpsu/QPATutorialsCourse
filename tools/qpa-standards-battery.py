@@ -118,6 +118,29 @@ def run(f):
                 md=sum(dis)/len(dis)
                 if cor[0]/md>1.25 and cor[0]-md>=5: bad(4,f"{n}: answer {cor[0]/md:.2f}x mean distractor (+{cor[0]-md:.0f} words)")
     # ---- 5
+    # An unclosed ::: div swallows everything after it into the callout box --
+    # the render looks plausible, so only a screenshot catches it. I shipped an
+    # unclosed .caution in T4 on 9 Aug and she found it by eye.
+    _open = [n for n, _l in enumerate(L, 1) if re.match(r'^::: *\{\.', _l)]
+    _close = [n for n, _l in enumerate(L, 1) if re.match(r'^::: *$', _l)]
+    if len(_open) != len(_close):
+        bad(5, f"{len(_open)} div fences opened but {len(_close)} closed -- "
+               f"an unclosed ::: swallows the text after it")
+
+    # R rejects any backslash escape it does not know, and the whole chunk then
+    # fails to parse. The battery does not run R, so this is a text-level stand-in
+    # for check-chunks.R -- it is what caught nothing when T13 shipped a bare \\$
+    # inside a question() string. A literal backslash-dollar in rendered markdown
+    # needs \\\\$ in the .Rmd source.
+    _VALID = set('ntr\\"\'0xuUabfv`')
+    for _m in re.finditer(r'^```\{r ([^\n},]+)[^\n}]*\}\n(.*?)^```', t, re.S | re.M):
+        _base = t[:_m.start()].count('\n') + 1
+        for _o, _line in enumerate(_m.group(2).split('\n')):
+            for _e in re.finditer(r'(?<!\\)\\(.)', _line):
+                if _e.group(1) not in _VALID:
+                    bad(5, f"invalid R escape \\{_e.group(1)} at line {_base+_o+1} "
+                           f"in chunk {_m.group(1)} -- the chunk will not parse")
+
     # curly quotes only matter where they could be copied into code: inside a code
     # span, a chunk, or a prescribed string. An apostrophe in "let's" is harmless.
     _cq=False; _in=False
@@ -139,7 +162,10 @@ def run(f):
                 if _p[_k].count('(')!=_p[_k].count(')'):
                     bad(5,f"unbalanced code span, line {_n}: `{_p[_k][:40]}`")
     if '****' in t: bad(5,"**** present")
-    if re.search(r'\[(?!\*\*)[^\]]{1,45}\]\{\.important-text\}',t): bad(5,"span without bold inside")
+    # .important-text is font-weight 700 in a11y.css, so ** inside the span is
+    # redundant -- and inside a callout box it also recolours the term via the
+    # .tip/.caution/.important-note strong rules. The span carries its own weight.
+    if re.search(r'\[\*\*[^\]]{1,45}\*\*\]\{\.important-text\}',t): bad(5,"redundant ** inside an .important-text span")
     for i,l in enumerate(L,1):
         if '\u2014' in l and 'aria-label' not in l: bad(5,f"literal em dash outside aria-label, line {i}")
     if re.search(r'`(sjPlot|pscl|stargazer|ggplot2)`',t): bad(5,"package name in backticks")
