@@ -1,4 +1,21 @@
-# QPATutorialsCourse — Review Standards (v18)
+# QPATutorialsCourse — Review Standards (v18.2)
+
+**New in v18.2**, from the T1--T6 Takeaways rebuild of 9 August 2026. §6 gains
+six rules for the Takeaways and §8 gains two on overstatement. The one REVERSAL:
+**motivation now comes before the infographic**, replacing the 8 August rule that
+the infographic opens the Takeaways. T1--T6 have been brought into line;
+**T7, T8, T9, T12, T13 and T14 have not.**
+
+**New in v18.1**, from the T1--T9 pass of 9 August 2026. Two §5 changes to the
+key-term scheme, both of which the corpus has already been brought into line
+with for T1--T9 and T11:
+- **No `**` inside an `.important-text` span** — `a11y.css` already sets the
+  weight, so it was redundant markup. This REVERSES the v18 rule.
+- **A reminder is not a redefinition** — a tutorial that spans a term it did
+  not introduce gets one sentence or one clause, and names the source.
+Also settled: `let's` STAYS (inclusive, not authorial), while authorial `we`
+goes; and `scale_x_discrete()`/`scale_fill_discrete()` labels take the
+order-proof named form, with graders matching by name rather than position.
 
 **New in v18**, from the full external-review pass over all 21 tutorials on
 8 August 2026. Most entries are corrections to rules that were being applied
@@ -690,10 +707,30 @@ backticks are fine everywhere.
   ``Set `fill = "steelblue"` inside `geom_bar()`.`` Nothing in this document
   had ever stated the rule for grader strings, so there was nothing for the
   corpus to be consistent with.
-- `[**term**]{.important-text}` for a term at the point where the sentence
-  defines it. Bold goes *inside* the span. Position in the sentence is
+- `[term]{.important-text}` for a term at the point where the sentence
+  defines it. Position in the sentence is
   irrelevant and so is count — if one sentence defines four terms it gets four
   highlights.
+- **NO `**` INSIDE THE SPAN. Reversed 9 August 2026; this REPLACES the earlier
+  "bold goes *inside* the span" rule.** `a11y.css` already sets the weight on
+  `.important-text`, so the asterisks change nothing in the rendering and only
+  make the source harder to read and to sweep. Write `[term]{.important-text}`,
+  not `[**term**]{.important-text}`. Applied 9 Aug to T1 (22), T2 (16), T3 (24),
+  T4 (26), T5 (20), T6 (36), T7 (12), T8 (12), T9 (14) and T11 (26); the other
+  eleven files still carry it. Inside a callout class, dropping the `**` also
+  drops the term's colour, because that rule keys off `strong` -- she reviewed a
+  render and accepted it.
+- **A REMINDER IS NOT A REDEFINITION. New 9 August 2026.** Where a tutorial
+  spans a term it did not introduce, the prose that follows runs to ONE sentence
+  or one clause, and it NAMES where the term came from. Full treatment --
+  definition, examples, practice -- belongs only where the term is introduced.
+  The test is whether this tutorial EXTENDS the term: T5 extends shape with
+  *direction across the scale*, T6 extends dispersion with range, variance and
+  standard deviation, so both earn their reminders. A term merely mentioned in
+  passing gets a cross-reference and no span. Found 9 Aug in T5, whose
+  Dispersion section restated T4's whole argument in five sentences with no
+  attribution, and whose Shape paragraph opened "The same four labels apply
+  here" with no antecedent anywhere in T5.
 - **One span per term, at the section that develops it.** A term is defined
   once. If a framework section previews several terms and each then gets its own
   section, the preview uses plain **bold** and the spans go where each concept is
@@ -712,8 +749,8 @@ backticks are fine everywhere.
   what prompted breaking it up in the first place.
 - **Reserve the highlight for prose terms, not code.** Where the concept
   matters, highlight the name and leave the symbol in backticks:
-  the [**dollar-sign operator**]{.important-text} `$`, the
-  [**equality operator**]{.important-text} `==`. No span in the corpus contains
+  the [dollar-sign operator]{.important-text} `$`, the
+  [equality operator]{.important-text} `==`. No span in the corpus contains
   backticks.
 - Names used as examples of *syntax* rather than references to an object stay
   in backticks — e.g. showing that `my.first.object` and `my_first_object` are
@@ -772,7 +809,7 @@ backticks are fine everywhere.
   `.caution` by whether the warning is complete.
 - **SPAN WHERE THE TUTORIAL DOES THE TEACHING. Revised 3 August 2026; this
   REPLACES the earlier "first tutorial in the sequence wins" rule.** A term gets
-  `[**term**]{.important-text}` in ANY tutorial that defines or develops it, and
+  `[term]{.important-text}` in ANY tutorial that defines or develops it, and
   plain **bold** where the tutorial merely uses a term the reader is assumed to
   bring. **Her reasoning: students return to a single tutorial in other semesters
   and other courses, so a tutorial has to stand alone.** The same argument she
@@ -1029,18 +1066,63 @@ backticks are fine everywhere.
   Takeaways that makes them DIFFERENT TERMS rather than the same term in
   different grammatical number --- `percentile` against `percentiles` is NOT a
   defect, and forcing agreement makes the prose worse (T1 defines one
-  [**function**]{.important-text} in the body and opens its recap
-  "[**Functions**]{.important-text} are what make R powerful", which is right
+  [function]{.important-text} in the body and opens its recap
+  "[Functions]{.important-text} are what make R powerful", which is right
   both times). Narrowed 4 August 2026, after the check flagged three such pairs
   in T1 and none anywhere else in T1--T6; a term taught and
   spanned but never re-marked in the Takeaways; and a term spanned twice within
   one tutorial.
-- **WHERE A TUTORIAL HAS A TAKEAWAYS INFOGRAPHIC, THE INFOGRAPHIC OPENS THE
-  TAKEAWAYS.** Clarified 8 August 2026: the rule below describes the
-  accumulating table, and naming T3's standalone levels table beside it left it
-  ambiguous whether "opens" applied to both. It applies to both. T3's table was
-  sixteen lines into its Takeaways and has been moved to the top. T1 and T2 are
-  the only exceptions, because they have no infographic at all.
+- **MOTIVATION, THEN GRAPHIC, THEN DETAIL. Reversed 9 August 2026; this
+  REPLACES the 8 August rule that the infographic opens the Takeaways.** A short
+  motivating paragraph comes FIRST, the infographic follows, and the detail
+  comes after. **Her account of how the 8 August rule went wrong: the
+  infographics had been the very LAST thing in the Takeaways, standardizing them
+  was read too literally, and moving them to the very FIRST thing was a bad
+  idea.** Opening on the table also forces the sentence beside it to point
+  BACKWARD at something the reader has already scrolled past, and it left T3
+  with three stub paragraphs of setup before anything substantive. Applied
+  9 Aug to T3, T4, T5 and T6. **T7, T8, T9, T12, T13 and T14 still open with the
+  infographic and need the same reorder.** T1 and T2 have no infographic.
+- **THE SENTENCE BESIDE AN INFOGRAPHIC MUST SAY SOMETHING THE TABLE CANNOT.**
+  Her words: "I do not want an administrative table sentence!!" **The test: if
+  the sentence could be written by looking at the table, cut it** --- every
+  table already carries a `<caption>`. Three legitimate forms, one per position
+  in a sequence: a table that STARTS a sequence says what it is FOR ("Every tool
+  in the tutorials that follow is chosen by which row of the table below a
+  variable falls in"); a table that EXTENDS one says what CHANGED and what is
+  next; the LAST says what changed and that the set is complete. Killed on
+  9 Aug: "The table summarizes the three levels … and provides examples",
+  "The table brings together the tools for describing nominal, ordinal, and
+  interval variables", and two instances of "everything that follows explains
+  why the entries differ and how to produce them in R".
+- **EVERY TAKEAWAYS PARAGRAPH NAMES ITS SUBJECT AT THE FRONT.** The subject is
+  usually the `.important-text` term; where there is no term to lead with, a
+  short **bolded topic phrase** does the job --- a PHRASE, not a sentence, since
+  a bolded sentence reads as emphasis and lands the eye on whatever clause it
+  ends with. T2 is the model. **The failure mode this prevents:** keying the
+  bullets to the tutorial's conceptual dimensions and then letting everything
+  that fits no dimension pool into an unheaded paragraph at the end.
+- **THE TAKEAWAYS LEADS USE THE SAME LANGUAGE AS THE TABLE OF CONTENTS.** Not
+  every lead has to be a section heading --- her words: "I don't want literally
+  every heading in the Takeaways, I want the language consistent in the
+  takeaways with what is in the TOC, so we teach visualizing, not building
+  anything." The tutorials teach **Visualizing a nominal / ordinal / interval
+  variable**, so the Takeaways say that too. **Do not invent a competing verb.**
+  Killed 9 Aug: **Building the plots**, **Building the bar plot** (twice), and
+  **Building the frequency and proportion table**, which became **Computing**
+  to match T6's **Computing the summaries**. Leads that name a task with no
+  section of its own --- **Ordering the categories**, **Turning counts into
+  proportions**, **Choosing a format** --- are fine as they are.
+  **No rule is so fixed that keeping it makes no sense.**
+- **Bullets when the content is genuinely enumerable --- a list of functions, a
+  set of plot types --- and prose otherwise.** Not written in stone; a tutorial
+  whose content suits something else may use it, but the sections must stay
+  recognizable as Takeaways across all 21.
+- **`library()` INSTRUCTIONS BELONG IN T1 ONLY.** Name the package that holds a
+  function anywhere it helps --- `[dplyr]{.package-name}`, `[ggplot2]{.package-name}`,
+  base R --- but no loading instructions outside T1, which is where they are
+  taught. Stripped 9 Aug from T4, T5 and T6; **T9 still carries a full
+  paragraph.**
 - **The Takeaways open with an HTML infographic table that accumulates across
   the sequence.** One data column in the first tutorial, headed generically;
   at the second, that column is RENAMED to its case and a second added. Cells
@@ -1234,6 +1316,31 @@ ONWARD --- BUT §10 EXTENDS IT TO EVERY TUTORIAL, INCLUDING WHEN THE COUNT IS
   the position that is wrong.
 
 ## 8. Language
+
+- **DO NOT OVERSTATE FREQUENCY, UNIVERSALITY, OR WHAT IS COMPUTABLE. New
+  9 August 2026, after eight instances surfaced in T1--T5 alone.** The claim is
+  never needed and is usually false. Three forms:
+  *Frequency* --- "You will reach for `nrow()` constantly", "you will use it
+  constantly", "one of the most common things". Say what the function is good
+  for instead.
+  *Universality* --- "Every analysis begins the same way", "Exploring a new data
+  set always begins with the same set of functions", "You will always start with
+  the `ggplot()` function". Scope it to the situation the paragraph is actually
+  about; often the paragraph's own last sentence already does.
+  *Computability* --- "there is no way to compute a mean otherwise", "R cannot
+  compute a mean when some values are unknown", "declining to report a mean it
+  cannot compute from incomplete data". A mean of the observed cases is
+  perfectly computable; **`mean()` simply does not discard missing values unless
+  told to.** Describe the function's behaviour, not the limits of arithmetic.
+  **A claim about frequency the tutorial cannot support is a claim to delete,
+  not to hedge.**
+- **A qualifier the corpus has already sharpened must be carried over when the
+  point is restated.** "The **substantive** proportions sum to less than 1" ---
+  without *substantive* the sentence says the `prop` column fails to sum to 1,
+  which is false when the `NA` group is included. The precise wording existed in
+  T4 and in T5's own Takeaways; a freshly drafted restatement in T5 dropped it.
+  **Grep for how the corpus already words a recurring point before writing it
+  again.**
 
 - outcome / explanatory / predictor. Not dependent / independent.
 - **The synonyms are named ONCE, at the definition in T7, and nowhere else.**
