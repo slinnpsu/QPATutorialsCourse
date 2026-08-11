@@ -141,6 +141,21 @@ def run(f):
                     bad(5, f"invalid R escape \\{_e.group(1)} at line {_base+_o+1} "
                            f"in chunk {_m.group(1)} -- the chunk will not parse")
 
+    # An over-escaped dollar in a grader regex can never match. "qog\\\\$var" in the
+    # .Rmd becomes the regex qog\\$var -- a literal backslash, then $ anchoring to
+    # end of string, then more characters. The check therefore always fails and the
+    # student is always told their correct answer is wrong. R parses it happily, so
+    # neither check-chunks.R nor the escape check above sees it. Found 11 Aug in two
+    # T9 correlation graders, both of which had been rejecting correct answers.
+    for _m in re.finditer(r'^```\{r ([^\n},]+-check)[^\n}]*\}\n(.*?)^```', t, re.S | re.M):
+        _base = t[:_m.start()].count('\n') + 1
+        for _o, _line in enumerate(_m.group(2).split('\n')):
+            for _s in re.finditer(r'"([^"\n]*)"', _line):
+                if re.search(r'\\\\\\\\\$.', _s.group(1)):
+                    bad(5, f"unsatisfiable regex at line {_base+_o+1} in chunk "
+                           f"{_m.group(1)} -- \\\\$ anchors to end of string, so this "
+                           f"grepl() can never match: {_s.group(1)[:44]}")
+
     # curly quotes only matter where they could be copied into code: inside a code
     # span, a chunk, or a prescribed string. An apostrophe in "let's" is harmless.
     _cq=False; _in=False

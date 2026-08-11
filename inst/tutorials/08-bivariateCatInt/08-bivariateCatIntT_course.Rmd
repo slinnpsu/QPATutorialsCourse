@@ -15,7 +15,7 @@ description: >
 
 News reports and political research frequently compare averages across groups: whether turnout is higher in one kind of community, whether citizens in different parties express different levels of trust, or whether economic outcomes differ across political systems. An average provides a useful starting point, but it cannot show whether the difference characterizes most cases, reflects substantial overlap between the groups, or is driven by a few unusual observations.
 
-Each section opens with a research question and a hypothesis, and asks whether the pattern matches what the hypothesis predicts. The statistics come from Tutorial 6, which introduces the mean, the standard deviation, the histogram and the box plot for a single interval variable.
+An average can be checked against the distribution it summarizes. You will compute the mean of an interval variable within each group, then look at the whole distribution group by group --- with faceted histograms and with grouped box plots --- to see what the means leave out. The statistics come from Tutorial 6, which introduces the mean, the standard deviation, the histogram and the box plot for a single interval variable.
 
 In this tutorial you will learn:
 
@@ -43,21 +43,25 @@ data("world", package = "QPATutorialsCourse")
 
 ## How Does an Interval Outcome Vary Across Groups?
 
-Many questions in political science ask whether some measurable quantity differs across political or social categories. Do counties with a Black racial majority cast a higher Democratic vote percentage than White-majority counties? Are full democracies wealthier on average than autocracies? Do militarized interstate disputes last longer when one side has nuclear weapons? In each case, the question has the same structure: take an interval variable --- Democratic vote percentage, GDP per capita, conflict duration --- and ask whether its distribution differs across categories of a second variable --- racial majority, regime type, nuclear status. That is [bivariate description]{.important-text}: examining two variables at a time to see whether the values of one differ systematically across the values of the other. This is one form of bivariate description, and it applies across every subfield of political science.
+Many questions in political science ask whether some measurable quantity differs across political or social categories. Do counties with a Black racial majority cast a higher Democratic vote percentage than White-majority counties? Are full democracies wealthier on average than autocracies? Do militarized interstate disputes last longer when one side has nuclear weapons? In each case, the question has the same structure: take an interval variable --- Democratic vote percentage, GDP per capita, conflict duration --- and ask whether its distribution differs across categories of a second variable --- racial majority, regime type, nuclear status. That is [bivariate description]{.important-text}: examining two variables at a time to see whether the values of one differ systematically across the values of the other. This is the second of three cases, sorted by the levels of measurement involved: Tutorial 7 took two categorical variables, and Tutorial 9 takes two interval ones. All three apply across every subfield of political science.
 
 There are two ways to examine this kind of relationship. The first is to compare [group means]{.important-text} --- the mean of the interval variable computed separately within each category of the explanatory variable. If democracies are wealthier than autocracies, the mean GDP per capita should be higher in the democratic category. A group mean gives a concise, single-number summary of the average value in each group. The second is to compare the full **distribution** of the interval variable across groups using histograms or box plots. A mean can hide important features of a distribution, which is why this tutorial turns to the full distribution later.
 
-Both approaches require setting up the relationship in the right direction: the interval variable is the outcome and the categorical variable defines the groups. The key is identifying which variable is the outcome. For example, asking whether mean wage growth differs between Trump-majority and Clinton-majority counties fits this tutorial because Trump-majority status is the categorical explanatory variable defining the groups and wage growth is the interval outcome being compared across them. A different question --- does wage growth predict the *probability* that a county supported Trump? --- has an interval explanatory variable and a binary categorical outcome, which requires a different tool. The distinction is not about which variables are involved but about which one is the outcome: when the outcome is interval and the explanatory variable is categorical, compare group means. When the outcome is categorical, a different approach is needed.
+Both approaches require setting up the relationship in the right direction: the interval variable is the outcome and the categorical variable defines the groups. The key is identifying which variable is the outcome. For example, asking whether mean wage growth differs between Trump-majority and Clinton-majority counties fits this tutorial because Trump-majority status is the categorical explanatory variable defining the groups and wage growth is the interval outcome being compared across them. A different question --- does wage growth predict the *probability* that a county supported Trump? --- has an interval explanatory variable and a binary categorical outcome, which requires a different tool. The distinction is not about which variables are involved but about which one is the outcome: when the outcome is interval and the explanatory variable is categorical, compare group means. When the outcome is categorical, a different approach is needed. Each example that follows opens with a research question and a hypothesis, and asks whether the pattern matches what the hypothesis predicts.
 
 ## Is College Attainment Lower in Rural Counties?
 
-Educational attainment shapes a great deal about a place: its labor market, its income levels, and the kinds of opportunities available to the people who live there. It is also one of the clearest lines along which American communities differ from one another. Is the share of college graduates actually lower in more rural counties?
+A bachelor's degree is one of the strongest predictors of a person's income, occupation and political attitudes in the United States, which makes the question of where graduates live more than a demographic curiosity. The share of a county's adults holding a degree shapes which employers will consider locating there, which public services it can afford, and whether its young people expect to build a life nearby or somewhere else. Over the past four decades that share has grown steadily more uneven across American communities rather than converging.
+
+The theoretical argument for why the unevenness should track the rural-urban divide turns on migration rather than schooling. Work that requires a degree --- in professional services, technology, research, health administration, finance --- clusters where firms, clients and universities sit close together, which in practice means metropolitan areas. A student who leaves a rural county to attend college therefore finds the jobs her degree qualifies her for somewhere other than home, and a graduate choosing where to settle finds little reason to move to a county that offers few of them. Repeated across cohorts, that sorting concentrates graduates in and around cities.
+
+It is worth being clear about what this argument does not say. It makes no claim about who is capable of earning a degree, and it does not predict that rural high schools send fewer students to college. It predicts only where graduates end up living --- which is exactly what a county-level measure of educational attainment captures, and all it captures.
+
+That argument leads to a testable hypothesis:
 
 ::: {.hypothesis}
 In a comparison of [counties], those that are [more rural] will have a [lower share of college graduates] than will those that are [more urban].
 :::
-
-The theoretical explanation is that rural areas tend to have fewer local jobs requiring a college degree and less access to higher education, so college graduates may be more likely to live in or move to urban areas.
 
 The data frame **counties** contains the ordinal variable **rural**, which takes the value 0 for urban counties, 1 for counties that are neither distinctly urban nor rural, and 2 for rural counties. It also contains the interval variable **prop_college_grad**, the proportion of a county's residents age 25 or older who have completed a bachelor's degree or higher. Every county has a recorded value of **rural**, while **prop_college_grad** is missing for 1 county, so any summary you compute from it describes the 3,111 counties with a recorded value rather than all 3,112 in the data. The hypothesis leads you to expect that the mean proportion of college graduates should be lowest in rural counties and highest in urban counties.
 
@@ -65,12 +69,12 @@ The data frame **counties** contains the ordinal variable **rural**, which takes
 
 Tutorial 5 uses `group_by()` and `summarise()` from [dplyr]{.package-name} to count the number of cases in each category. The same two-step structure works for any summary statistic --- here, in addition to `n()` to count, you also use `mean()` to calculate the group mean within each group. The logic is identical: `group_by()` defines the groups and `summarise()` computes statistics within each one. You will use this same structure throughout this tutorial.
 
-The run-and-observe below calculates the mean proportion of college graduates separately for urban, neither-urban-nor-rural, and rural counties. `freq = n()` counts the number of counties in each group, and `mean = mean(prop_college_grad)` calculates the mean within each group. Filtering **prop_college_grad** before grouping ensures `freq = n()` reflects the number of counties contributing to each mean --- without it, `n()` would count that missing county while `mean()` returned `NA` for its group. Filtering first is why `mean()` needs no `na.rm = TRUE` here: by the time it runs, there is nothing left to remove. **rural** needs no condition of its own. Filter the variables that have gaps, and only those. Load [dplyr]{.package-name} at the top with `library(dplyr)` --- once loaded, it is available for all subsequent exercises in this tutorial.
+The run-and-observe below calculates the mean proportion of college graduates separately for urban, neither-urban-nor-rural, and rural counties. `freq = n()` counts the number of counties in each group, and `mean = mean(prop_college_grad)` calculates the mean within each group. Filtering **prop_college_grad** before grouping ensures `freq = n()` reflects the number of counties contributing to each mean --- without it, `n()` would count that missing county while `mean()` returned `NA` for its group. Filtering first is why `mean()` needs no `na.rm = TRUE` here: by the time it runs, there is nothing left to remove. **rural** needs no condition of its own. Filter the variables that have gaps, and only those.
 
 **Run and observe 1: Calculate mean proportion of college graduates by rural**
 
 ```{r frequency-collegegrad-by-rural, exercise=TRUE, exercise.cap="Run and observe 1"}
-library(dplyr)
+library(dplyr)  # first use in this tutorial; it stays loaded from here on
 counties %>%
   filter(!is.na(prop_college_grad)) %>%
   group_by(rural) %>%
@@ -83,7 +87,6 @@ This output looks similar to the frequency tables from Tutorial 5 --- the rows n
 
 **Apply 2: Evaluate the rural/college-graduate hypothesis**
 
-Compare the three group means, then decide whether the pattern matches the hypothesis and whether it is a smooth decline or something more nuanced.
 
 ```{r quiz-collegegrad-rural-hypothesis, echo=FALSE}
 question("Based on the table you produced, which statement best describes what the pattern tells you about the hypothesis?",
@@ -105,13 +108,17 @@ question("Based on the table you produced, which statement best describes what t
 
 ## Is the Democratic Vote Percentage Related to a County's Racial Majority?
 
-Racial composition has been one of the most consistent factors associated with vote choice in recent American elections. In particular, Black Americans have historically voted for Democratic candidates over Republican candidates by wide margins. Was this true in the 2016 presidential election?
+In 2016 Hillary Clinton won 51.1% of the national two-party vote and lost the election --- an outcome that turned on where her votes were rather than how many of them there were. County results are where that geography becomes visible, and the racial composition of a county is one of the sharpest lines along which it runs.
+
+The theoretical argument points to the parties' positions rather than to the voters. Since the civil rights realignment of the 1960s the Democratic Party has been the one more closely identified with civil rights and voting rights enforcement, and Black Americans have supported its candidates by margins rarely seen for any group in any democracy --- routinely above eighty percent, and often above ninety. The 2016 campaign gave voters little reason to depart from that pattern: immigration, policing and racial grievance were unusually prominent, and both candidates made explicit appeals to racially distinct constituencies.
+
+Notice what changes from the last tutorial. Tutorial 7 asked whether a county gave Trump a majority --- a yes-or-no outcome, which is why a cross-tab could answer it. Here the outcome is the Democratic share of the two-party vote, measured as a percentage, so the question is not only which way a county leaned but by how much. Comparing group means is what lets you ask that.
+
+Stated as a hypothesis:
 
 ::: {.hypothesis}
 In a comparison of [counties], those with a [Black racial majority] will have a [higher mean Democratic vote percentage] than will those with a [White racial majority].
 :::
-
-The theoretical explanation is that the Democratic Party's policy positions on civil rights and voting rights have made it the party more closely associated with addressing the political concerns of Black voters, while the Republican Party has drawn disproportionate support from White voters over the same period.
 
 The data frame **counties** contains the nominal variable **racial_majority**, which takes the values "White Majority," "Black Majority," "Hispanic Majority," and "Other/No Majority," depending on which racial group makes up a majority of the county's population. It is stored as a character variable. It also contains the interval variable **dem2p_percent**, the Democratic candidate's share of the two-party presidential vote in the county in 2016, as a percentage. Neither variable has any missing values, so summaries computed from them describe all 3,112 counties.
 
@@ -203,11 +210,9 @@ grade_this({
 
 ### Is the Pattern Consistent with the Hypothesis?
 
-Your table lets you check the hypothesis directly.
 
 **Apply 4: Evaluate the racial-majority hypothesis**
 
-Compare the mean for Black Majority counties to the mean for White Majority counties in the table you just produced.
 
 ```{r quiz-racialmajority-dem2p-hypothesis, echo=FALSE}
 question("Based on the table you produced, which statement best describes what the pattern tells you about the hypothesis?",
@@ -230,13 +235,17 @@ question("Based on the table you produced, which statement best describes what t
 
 ## Is Democracy Associated with Economic Development?
 
-Democratic institutions are often credited with producing better economic outcomes, through stronger property rights, more accountable governance, and policies that respond to broad public demand rather than to a narrow elite. Do more democratic countries actually have higher GDP per capita?
+Whether democracy is good for growth is among the most argued-over questions in comparative politics, and it has been answered both ways by serious people. The optimistic case credits democratic institutions with secure property rights, accountable administration, and policy aimed at broad publics rather than narrow elites. The pessimistic case notes that several of the fastest-growing economies of the last half-century did their growing under authoritarian rule.
+
+The theoretical argument on the optimistic side runs through accountability. A leader who can be removed for poor economic performance has reason to protect contracts, invest in infrastructure and let markets function; a leader who cannot faces no such discipline and can extract from the economy rather than build it.
+
+One caution before you look. Wealthy societies are also more likely to become democracies and to remain so, which means a difference in average GDP between democracies and non-democracies is consistent with the causal arrow running either way, or with both. A comparison of group means cannot settle that. It can tell you whether the two travel together.
+
+If the accountability argument is right:
 
 ::: {.hypothesis}
 In a comparison of [countries], those that [are more democratic] will have [higher levels of economic development] than will those that are [less democratic].
 :::
-
-The theoretical explanation is that democratic accountability gives leaders an incentive to pursue broadly beneficial economic policy, since they can be removed from office if the economy performs poorly, while leaders in non-democratic systems face fewer such constraints.
 
 The data frame **world** contains the interval variable **gdppcap08**, GDP per capita in 2008 measured in US dollars. This example uses GDP per capita rather than total GDP because it accounts for country size --- China and the United States have large total GDPs partly because of their large populations, not necessarily because their citizens are more prosperous. Dividing by population gives a better sense of average living standards. The ordinal variable **dem_level4** records regime type on a four-category scale running from full democracy to authoritarian rule. It is stored as a factor whose values are abbreviated: `"Full Democ"`, `"Part Democ"`, `"Hybrid"`, `"Authoritarian"`. Every country has a recorded regime type, while **gdppcap08** is missing for 15 countries, so any summary you compute from it describes the 152 countries with a recorded value rather than all 167 in the data.
 
@@ -246,7 +255,7 @@ To evaluate the hypothesis you need the mean GDP per capita for each regime type
 
 **Apply 5: Calculate mean GDP by democracy level**
 
-Write the full pipeline from scratch using **gdppcap08** and **dem_level4** in the **world** data frame, naming the counts `freq` and the means `mean`. Try not to look at the hints. Two hints are available. Click "Submit Answer" to check your work.
+Write the full pipeline from scratch using **gdppcap08** and **dem_level4** in the **world** data frame, naming the counts **freq** and the means **mean**. Try not to look at the hints. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-gdp-by-democracy-level, exercise=TRUE, exercise.cap="Apply 5"}
 
@@ -344,7 +353,6 @@ grade_this({
 
 **Apply 6: Evaluate the democracy/GDP hypothesis**
 
-You have now seen two examples of evaluating a hypothesis using a table of means. Apply the same logic here --- look at the four group means you just produced and decide whether the pattern matches what the hypothesis predicts.
 
 ```{r quiz-gdp-hypothesis, echo=FALSE}
 question("Based on the table you produced, which statement best describes what the pattern tells you about the hypothesis?",
@@ -371,27 +379,23 @@ A table of means tells you whether groups differ on average, but it can hide a g
 
 To see these features, you use the same two tools introduced in Tutorial 6 for visualizing a single interval variable --- histograms and box plots --- but now broken down by categories of the explanatory variable, so that you can compare the full distribution across groups rather than just the average.
 
-You already have a table of means to test that against. In Apply 5 you calculated mean GDP per capita for each of the four regime types, and Apply 6 asked how well the pattern matched the hypothesis. This tutorial returns to those same four groups twice over --- the faceted histogram comes first, because it shows the full shape of each group, and the grouped box plot follows, because it says much the same thing in far less space. Each tool gets a section of its own, and you will use it before moving on to the next.
-
 ## Visualizing Distributions Across Categories: Faceted Histograms
 
 A [faceted histogram]{.important-text} draws one histogram per category, side by side, so you can see the shape of each group's distribution rather than only its average.
 
 Only one thing is new here, and it is the panels. Everything else you have done before. Two additions produce them: mapping the categorical variable to `fill`, which colors each group's bars differently, and adding `facet_wrap()`, which gives each group a panel of its own. Splitting a plot up this way is called [faceting]{.important-text}, and each panel is a [facet]{.important-text}.
 
+`facet_wrap()` does not take a bare variable name. It takes a **formula** --- a tilde followed by the variable that defines the panels, as in `facet_wrap(~dem_level4)`. A formula in R states a relationship between variables rather than a value to compute, and R functions that need to know which variable plays which role ask for one. Faceting needs only the grouping variable, so nothing appears to the left of the tilde. Later tutorials use two-sided formulas, where the variable on the left is the outcome and the one on the right explains it.
+
 When `fill` maps a variable to color, ggplot automatically adds a legend identifying which color corresponds to which category. In a faceted histogram, that legend is redundant --- the panel titles already identify which group each histogram shows. Adding `guides(fill = "none")` removes the legend and keeps the plot clean.
 
-Load [ggplot2]{.package-name} with `library(ggplot2)` before the first plot. Like any package it needs loading only once, at the top of your script, next to the `library(dplyr)` you added earlier for the `%>%` pipe. You do not repeat it before every plot. When a plot starts from a filtered data frame you need both packages; when no filter is needed, name the data frame in `ggplot()`'s `data` argument and there is no pipe at all.
-
-One thing to carry over from Apply 5: **gdppcap08** is missing for 15 countries, so it still needs a filter. Every country has a recorded **dem_level4**, so that one does not. It is worth knowing what happens if you forget. A missing number simply disappears from the plot, and ggplot prints a warning to tell you so. A missing category is different --- it gets a panel of its own, sitting there in plain sight.
+Filter missing values when leaving them in would change the answer, and not otherwise. Before a plot like this one it would not: **gdppcap08** is missing for 15 countries, and a missing number has no place on a continuous axis, so ggplot drops those rows itself and prints a message saying how many. Read that count and report it. Two cases are different. A missing *category* gets a panel of its own, sitting there in plain sight --- which is why Tutorials 4 and 5 filter before plotting proportions. And a table of means still needs its filter, so that `n()` and `mean()` describe the same countries.
 
 **Run and observe 7: The distribution of GDP per capita within each regime type**
 
 ```{r histogram-gdp-by-demlevel, exercise=TRUE, exercise.cap="Run and observe 7", fig.alt="Four histogram panels of GDP per capita, one per regime type. Full Democracy has a small clump at the low end, a gap, then most of its countries between about thirty-three and forty-seven thousand, with two further out at roughly fifty-seven and seventy-eight thousand. Part Democracy spreads across the lower range with a thin tail. Hybrid and Authoritarian both pile up against the left edge and thin out to the right, and one authoritarian country sits past eighty-five thousand with nothing near it."}
-library(ggplot2)
-world %>%
-  filter(!is.na(gdppcap08)) %>%
-  ggplot(mapping = aes(x = gdppcap08, fill = dem_level4)) +
+library(ggplot2)  # first use in this tutorial; it stays loaded from here on
+ggplot(data = world, mapping = aes(x = gdppcap08, fill = dem_level4)) +
   geom_histogram(bins = 30) +
   labs(title = "Distribution of GDP per Capita by Level of Democracy",
        x = "GDP per Capita, 2008 (US$)",
@@ -401,13 +405,13 @@ world %>%
   guides(fill = "none")
 ```
 
-Look at the four shapes. Not one of them is what a single number per group would have led you to expect. Hybrid and Authoritarian countries pile up against the left edge and thin out to the right --- most poor, a few much less so. Full Democracies look different again: a small clump at the low end, a gap, then the bulk of the group between roughly \$33,000 and \$47,000, with two countries further out still. And in the Authoritarian panel, one country sits past \$85,000 with nothing near it. A mean is one point along these axes. None of these four shapes is well described by a single point.
+R prints the message it promised: 15 rows removed, the 15 countries with no recorded GDP per capita. The panels below describe the rest. Look at the four shapes. Not one of them is what a single number per group would have led you to expect. Hybrid and Authoritarian countries pile up against the left edge and thin out to the right --- most poor, a few much less so. Full Democracies look different again: a small clump at the low end, a gap, then the bulk of the group between roughly \$33,000 and \$47,000, with two countries further out still. And in the Authoritarian panel, one country sits past \$85,000 with nothing near it. A mean is one point along these axes. None of these four shapes is well described by a single point.
 
 ## Does the Whole Distribution of Democratic Vote Percentage Differ by Racial Majority?
 
 Earlier you found that Black Majority counties have a much higher mean Democratic vote percentage than White Majority counties. A faceted histogram lets you see whether that gap reflects a shift in the whole distribution or something narrower.
 
-The variables are **dem2p_percent** and **racial_majority**, from the **counties** data frame, and neither has a missing value. Because **racial_majority** is stored as a character variable, ggplot treats it as discrete automatically and orders its categories alphabetically --- no `factor()` wrapper is needed. The tilde (`~`) before the variable name in `facet_wrap()` tells R which variable defines the panels --- the same syntax you will use in every `facet_wrap()` call. The panel titles here come straight from the values of **racial_majority**, which are already readable text.
+The variables are **dem2p_percent** and **racial_majority**, from the **counties** data frame, and neither has a missing value. Because **racial_majority** is stored as a character variable, ggplot treats it as discrete automatically and orders its categories alphabetically --- no `factor()` wrapper is needed. The panel titles here come straight from the values of **racial_majority**, which are already readable text.
 
 
 **Practice 8: Compare the distribution of Democratic vote percentage across racial majority categories**
@@ -594,16 +598,6 @@ grade_this({
     fail("Use the **counties** data frame.")
   }
 
-  # Check the filter on the variable that has missing values --- require !is.na() not is.na()
-  code_no_comments_lines <- paste(gsub("#[^\r\n]*", "", .user_code), collapse = "\n")
-  has_filter_grad <- grepl(
-    "!\\s*is\\.na\\s*\\(\\s*prop_college_grad\\s*\\)",
-    code_no_comments_lines
-  )
-  if (!has_filter_grad) {
-    fail("**prop_college_grad** has a missing value, so filter it out before plotting: `filter(!is.na(prop_college_grad))`.")
-  }
-
   # Check aesthetics from plot object
   get_aes_name <- function(plot, aes_name) {
     out <- character(0)
@@ -668,11 +662,11 @@ grade_this({
   }
 
   extra <- character(0)
-  if (grepl("!\\s*is\\.na\\s*\\(\\s*rural\\s*\\)", code_no_comments)) extra <- c(extra, "a filter")
+  if (grepl("!\\s*is\\.na\\s*\\(", code_no_comments)) extra <- c(extra, "a filter")
   if (grepl("na\\.rm", code_no_comments)) extra <- c(extra, "`na.rm = TRUE`")
   if (length(extra) > 0) {
     pass(paste0("Correct. You included ", paste(extra, collapse = " and "),
-                ", which does no harm --- but every county has a recorded **rural**, and filtering **prop_college_grad** already removed the missing value before the plot was drawn."))
+                ", which does no harm --- but a histogram has no bar to give a missing value, so ggplot drops those rows itself and tells you how many."))
   }
   pass("Nicely done. Because **rural** is stored as numbers you wrapped it in `factor()` for the fill, and `facet_wrap()` gave each rurality category a panel of its own.")
 })
@@ -689,9 +683,7 @@ facet_wrap(~rural, labeller = as_labeller(c("0" = "Urban",
 The names on the left must match the stored values; the text on the right supplies the panel titles. Because the matching is done by name, the entries do not have to appear in any particular order --- but each stored value has to be paired with the label that belongs to it. Here is the plot you just built with that one argument added.
 
 ```{r histogram-collegegrad-by-rural-labelled, echo=FALSE, message=FALSE, fig.alt="The same three faceted histograms of college graduation rates, now titled Urban, Neither Urban nor Rural, and Rural instead of 0, 1, and 2. All three are right-skewed and peak near a proportion of 0.2. The Neither Urban nor Rural panel is much the tallest, reaching about 270 counties; Urban peaks near 130 and has the longest tail to the right; Rural peaks near 110 with the shortest tail."}
-counties %>%
-  filter(!is.na(prop_college_grad)) %>%
-  ggplot(mapping = aes(x = prop_college_grad, fill = factor(rural))) +
+ggplot(data = counties, mapping = aes(x = prop_college_grad, fill = factor(rural))) +
   geom_histogram(bins = 30) +
   labs(title = "Distribution of College Graduation Rates by Rurality",
        x = "Proportion of College Graduates",
@@ -707,7 +699,6 @@ counties %>%
 
 **Apply 10: Interpret the rural histogram**
 
-The table of means already showed that urban counties have higher mean college graduation rates. Look at what the histogram adds --- focus on shape and spread, not just center.
 
 ```{r quiz-histogram-collegegrad-rural, echo=FALSE}
 question("The table of means told you urban counties have higher average college graduation rates. What does the histogram reveal that the means could not?",
@@ -731,18 +722,16 @@ question("The table of means told you urban counties have higher average college
 
 A [grouped box plot]{.important-text} says much the same thing in far less space. The box covers the middle 50% of cases, with a line inside it marking the median. The whiskers reach out to the most extreme values that are not flagged as outliers, and anything past them is drawn as its own point. Tutorial 6 introduces box plots for a single interval variable. Set several of them side by side and you can compare medians, spreads, and outliers across groups in one glance.
 
-The grouping variable goes on `x`, giving one box per category, and the interval variable goes on `y`. Mapping the grouping variable to `fill` as well colors each box; since the x-axis already labels them, `guides(fill = "none")` drops the legend for the same reason as before.
+The layer that draws the boxes is `geom_boxplot()`, in place of the `geom_histogram()` you used above. The grouping variable goes on `x`, giving one box per category, and the interval variable goes on `y`. Mapping the grouping variable to `fill` as well colors each box; since the x-axis already labels them, `guides(fill = "none")` drops the legend for the same reason as before.
 
 That is the second time a legend has been redundant, for two different reasons: in the histogram the panel titles already named the groups, and here the x-axis does. The general rule covers both --- whenever the fill variable is identified somewhere else in the plot, `guides(fill = "none")` takes the legend away.
 
-The `fill` aesthetic works in two ways. Set outside `aes()`, as `fill = "firebrick"`, it gives every element the same fixed color. Mapped inside `aes()` to a variable, as `fill = racial_majority`, it gives each group its own color. Here it is mapped to the grouping variable, so each category's box is visually distinct.
+The `fill` aesthetic works in two ways. Set outside `aes()`, as `fill = "firebrick"`, it gives every element the same fixed color. Mapped inside `aes()` to a variable, as `fill = dem_level4`, it gives each group its own color. Here it is mapped to the grouping variable, so each category's box is visually distinct.
 
 **Run and observe 11: The same four groups as box plots**
 
 ```{r boxplot-gdp-by-demlevel, exercise=TRUE, exercise.cap="Run and observe 11", fig.alt="Box plots of GDP per capita by regime type. Full Democracy has a high narrow box with two low outliers and two high ones. Part Democracy sits lower with a wider box. Hybrid has a very low narrow box. Authoritarian has a low box that contains Hybrid's entirely, with four separate points above it, the highest past eighty-five thousand. Part Democracy's box is the widest of the four."}
-world %>%
-  filter(!is.na(gdppcap08)) %>%
-  ggplot(mapping = aes(x = dem_level4, y = gdppcap08, fill = dem_level4)) +
+ggplot(data = world, mapping = aes(x = dem_level4, y = gdppcap08, fill = dem_level4)) +
   geom_boxplot() +
   labs(title = "Distribution of GDP per Capita by Level of Democracy",
        x = "Level of Democracy",
@@ -757,27 +746,27 @@ That has consequences for the hypothesis. On the means, Authoritarian regimes lo
 
 ## Do More Democratic Countries Have Higher Life Expectancy?
 
-Democratic governance is often linked not just to economic outcomes but to public health and well-being. Healthier populations may reflect stronger public institutions --- better sanitation, more reliable healthcare access, and governments more accountable for the basic welfare of their citizens. Does life expectancy actually differ by level of democracy?
+Life expectancy is built out of unglamorous things: clean water, childhood vaccination, roads that do not kill people, clinics that are open and staffed. Because these accumulate over decades and reach nearly everyone, average life expectancy is one of the better available measures of whether a state actually delivers to its population rather than to a favored part of it.
+
+The theoretical argument is the same accountability logic as in the previous example, applied to a different outcome --- and it fits this one more tightly. Public health goods benefit many people a little rather than a few people a great deal, which makes them easy for an unaccountable leader to skip and politically expensive for an elected one to neglect. GDP can be raised by enriching a narrow sector; life expectancy cannot.
+
+If that logic holds:
 
 ::: {.hypothesis}
 In a comparison of [countries], those that [are more democratic] will have a [higher life expectancy] than will those that are [less democratic].
 :::
 
-The theoretical explanation is that democratic accountability creates pressure on governments to invest in public goods like healthcare and sanitation, since leaders who fail to deliver these benefits can be removed from office, while leaders in less democratic systems face less pressure to do so.
-
-The data frame **world** contains the interval variable **lifeex_total**, life expectancy at birth, and the ordinal variable **dem_level4**, the same regime-type variable you used to compare GDP per capita. **lifeex_total** is missing for 2 countries, so any summary you compute from it describes the 165 countries with a recorded value rather than all 167 in the data. Because **dem_level4** is already stored as a factor, you do not need to wrap it in `factor()` when mapping it inside `aes()`. Every country has a recorded **dem_level4**, so only one of the two needs a filter condition.
+The data frame **world** contains the interval variable **lifeex_total**, life expectancy at birth, and the ordinal variable **dem_level4**, the same regime-type variable you used to compare GDP per capita. **lifeex_total** is missing for 2 countries, so any summary you compute from it describes the 165 countries with a recorded value rather than all 167 in the data. Because **dem_level4** is already stored as a factor, you do not need to wrap it in `factor()` when mapping it inside `aes()`.
 
 The stored values of **dem_level4** are abbreviated: `"Full Democ"`, `"Part Democ"`, `"Hybrid"`, `"Authoritarian"`. Use `scale_x_discrete()` after `labs()` to pair each stored value with a readable label: \"Full Democ\" with \"Full Democracy\", \"Part Democ\" with \"Partial Democracy\", and \"Hybrid\" and \"Authoritarian\" with themselves. This is the same named-vector idiom `as_labeller()` used for the facet titles earlier, and writing the pairs by name means the order you list them in does not matter.
 
 **Practice 12: Compare the distribution of life expectancy by democracy level**
 
-Fill in the filter condition and the three blanks in `aes()`, then add the two layers after `labs()`. Three hints are available. Click "Submit Answer" to check your work.
+Fill in the three blanks in `aes()`, then add the two layers after `labs()`. Three hints are available. Click "Submit Answer" to check your work.
 
 
 ```{r boxplot-lifeex-by-democracylevel, exercise=TRUE, exercise.cap="Practice 12", fig.alt="Box plots showing life expectancy at birth on the y-axis and democracy level on the x-axis, with separate boxes for Full Democracy, Partial Democracy, Hybrid, and Authoritarian regimes."}
-world %>%
-  filter(___) %>%
-  ggplot(mapping = aes(x = ___, y = ___, fill = ___)) +
+ggplot(data = world, mapping = aes(x = ___, y = ___, fill = ___)) +
   geom_boxplot() +
   labs(title = "Distribution of Life Expectancy by Level of Democracy",
        x = "Level of Democracy",
@@ -828,16 +817,6 @@ grade_this({
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string missing its quotation marks.")
-  }
-
-  # Check the filter on the variable that has missing values --- require !is.na() not is.na()
-  code_no_comments_lines <- paste(gsub("#[^\r\n]*", "", .user_code), collapse = "\n")
-  has_filter_life <- grepl(
-    "!\\s*is\\.na\\s*\\(\\s*lifeex_total\\s*\\)",
-    code_no_comments_lines
-  )
-  if (!has_filter_life) {
-    fail("**lifeex_total** is missing for 2 countries, so filter it out before plotting: `filter(!is.na(lifeex_total))`.")
   }
 
   if (!any(grepl("\\bworld\\b", .user_code))) {
@@ -897,11 +876,11 @@ grade_this({
   }
 
   extra <- character(0)
-  if (grepl("!\\s*is\\.na\\s*\\(\\s*dem_level4\\s*\\)", code_no_comments)) extra <- c(extra, "a filter")
+  if (grepl("!\\s*is\\.na\\s*\\(", code_no_comments)) extra <- c(extra, "a filter")
   if (grepl("na\\.rm", code_no_comments)) extra <- c(extra, "`na.rm = TRUE`")
   if (length(extra) > 0) {
     pass(paste0("Correct. You included ", paste(extra, collapse = " and "),
-                ", which does no harm --- but every country has a recorded **dem_level4**, and filtering **lifeex_total** already removed the missing values before the plot was drawn."))
+                ", which does no harm --- but a box plot has no place on its axis for a missing value, so ggplot drops those rows itself and tells you how many."))
   }
   pass("Correct. The categorical variable goes to both `x` and `fill`, the interval variable to `y`, and `scale_x_discrete()` replaces the abbreviated stored values with readable regime labels while preserving their order.")
 })
@@ -914,7 +893,7 @@ The hypothesis predicts a clean ordering from full democracy to authoritarian ru
 
 **Apply 13: Interpret the life expectancy box plot**
 
-The table of means already showed that full democracies have higher mean life expectancy. Remember that the line inside each box marks the **median**, not the mean, so the box plot does not display the group means from the earlier table --- but for roughly symmetric distributions the two will be close. Look at what the box plot adds beyond the means --- focus on spread, overlap, and outliers across the four groups.
+The line inside each box marks the **median**, not the mean, so the box plot does not display the group means from the earlier table --- though for roughly symmetric distributions the two will be close.
 
 ```{r quiz-boxplot-lifeex-democracylevel, echo=FALSE}
 question("The table of means told you full democracies have higher average life expectancy. What does the box plot reveal that the means could not?",
@@ -1067,7 +1046,6 @@ A box plot sacrifices that fine-grained shape for efficiency. It compactly summa
 
 **Apply 16: Choose the right visualization**
 
-Apply the rule of thumb to the scenario below before selecting an answer.
 
 ```{r quiz-histogram-vs-boxplot, echo=FALSE}
 question("A researcher wants to compare the distribution of household income across the 50 U.S. states. Which tool would be the better choice, and why?",
@@ -1093,7 +1071,6 @@ Now let's step back and practice the full workflow with new examples. You do not
 
 **Apply 17: Classify the research question**
 
-For each question, identify which variable is the outcome and which defines the groups, then decide whether that setup matches what this tutorial covers.
 
 ```{r question-forward-reverse, echo=FALSE}
 question("Which of the following research questions fits the pattern covered in this tutorial --- a categorical explanatory variable and an interval outcome --- rather than the reverse case?",
@@ -1113,13 +1090,15 @@ question("Which of the following research questions fits the pattern covered in 
 )
 ```
 
-Consider a researcher studying whether commute times differ by region. Denser populations and older transit infrastructure in the Northeast might make daily travel slower there than elsewhere.
+Commuting is the part of American infrastructure policy most people experience daily, and how long it takes depends less on distance than on the shape of the metropolitan area a trip happens in.
+
+The theoretical argument is about density and vintage together. The Northeast urbanized before the automobile, so its metropolitan areas run on street grids and rail corridors laid out for a different century, and they concentrate more people into that fixed capacity than newer regions do into theirs. Old infrastructure is also harder to widen than new infrastructure is to build.
+
+Which gives something to check:
 
 ::: {.hypothesis}
 In a comparison of [cities], those located in the [Northeast] will have [longer daily commute times] than will those located in [other regions of the country].
 :::
-
-The theoretical explanation is that the Northeast's older, denser metropolitan areas concentrate more people into the same road and transit capacity, so a typical trip takes longer than it would in a region built around newer and less congested infrastructure.
 
 The table below shows the mean daily commute time, in minutes, for a sample of cities in four regions.
 
@@ -1132,7 +1111,6 @@ The table below shows the mean daily commute time, in minutes, for a sample of c
 
 **Apply 18: Evaluate the commute-time hypothesis**
 
-Read the table above and compare the Northeast's mean to the other three regions before answering.
 
 ```{r question-commute-table, echo=FALSE}
 question("A researcher hypothesizes that cities in the Northeast have longer commute times than cities in the other three regions, due to denser populations and older transit infrastructure. Based on the table, which statement best describes the evidence for this hypothesis?",
@@ -1181,7 +1159,6 @@ ggplot(commute_df, aes(x = region, y = commute, fill = region)) +
 
 **Apply 19: Interpret the commute-time box plots**
 
-Think about what the table already told you, then identify what the box plot adds that the table could not.
 
 ```{r question-commute-boxplot, echo=FALSE}
 question("What does this plot tell you that the table of means alone could not?",
@@ -1245,7 +1222,7 @@ The direction of the setup matters: the interval variable is the outcome, and th
 
 **What a table of means hides** is the reason to go further. Two groups can have similar means and very different spreads, and a group's mean can sit well away from where most of its cases actually are --- comparing the mean against the median is the quickest check. A table reports one number per group; the distributions behind those numbers can differ in ways no single number records.
 
-**Visualizing distributions across categories** shows what the table leaves out, in one of two forms. A [faceted histogram]{.important-text} gives each category its own panel and shows the full shape of every group's distribution --- skew, modality, spread --- at the cost of becoming cumbersome as the number of groups grows. A [grouped box plot]{.important-text} says much the same thing in far less space, sacrificing distributional detail for a compact summary that scales to many groups and makes medians, spreads, and outliers easy to compare at a glance. Both are built with [ggplot2]{.package-name}, and both need any mapped variable with gaps filtered out first --- ggplot drops those rows and prints a warning that would otherwise appear in a knitted document.
+**Visualizing distributions across categories** shows what the table leaves out, in one of two forms. A [faceted histogram]{.important-text} gives each category its own panel and shows the full shape of every group's distribution --- skew, modality, spread --- at the cost of becoming cumbersome as the number of groups grows. A [grouped box plot]{.important-text} says much the same thing in far less space, sacrificing distributional detail for a compact summary that scales to many groups and makes medians, spreads, and outliers easy to compare at a glance. Both are built with [ggplot2]{.package-name}, and neither needs its missing values filtered out first: a missing number has no place on a continuous axis, so ggplot drops those rows itself and reports how many. Read that count and report it. A missing category would be different --- it gets a panel of its own.
 
 - **Faceted histograms:** [Faceting]{.important-text} splits the plot by category. Map the categorical variable to `fill` inside `aes()` and add `facet_wrap(~variable)`, which gives each category its own [facet]{.important-text}, or panel. By default all facets share a y-axis, making group size easy to compare; `scales = "free_y"` gives each facet its own scale so every shape is visible, at the cost of comparing bar heights across facets. Panel titles come from `labeller = as_labeller(c(...))` inside `facet_wrap()`.
 - **Grouped box plots:** Map the categorical variable to both `x` and `fill`, and the interval variable to `y`. The tick labels along the x-axis come from `scale_x_discrete()`.
