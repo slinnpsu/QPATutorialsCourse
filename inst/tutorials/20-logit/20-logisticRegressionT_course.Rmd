@@ -26,7 +26,16 @@ In this tutorial you will learn:
 * How to obtain predicted probabilities using `predict()` with `type = "response"`, and why predicted probabilities are necessary to interpret the substantive size of effects
 * How to assess classification performance using the `hitmiss()` function --- the confusion matrix, percent correctly predicted, and comparison to the null model
 
+::: {.important-note}
+**Before you begin.** This tutorial follows the reading **Logistic Regression**, which develops the logic of modeling a binary outcome, from probabilities to odds to log-odds. [Open the reading](qpa-readings/LogisticRegression.html){target="_blank"} in a new tab, or run `open_reading("logistic-regression")` in the R console.
+:::
+
 ```{r setup, include=FALSE}
+# Make the packaged readings reachable from inside the tutorial
+local({
+  readings <- system.file("readings", package = "QPATutorialsCourse")
+  if (nzchar(readings)) shiny::addResourcePath("qpa-readings", readings)
+})
 library(learnr)
 library(ggplot2)
 library(gradethis)
@@ -76,7 +85,7 @@ where $\exp$ denotes $e$ raised to a power. No matter how large or small the lin
 
 ## Interpreting Logistic Regression Coefficients
 
-The `glm()` function with the argument `family = "binomial"` estimates logistic regression in R. The `summary()` output has the same general structure as `lm()`: a coefficients table with one row per non-intercept coefficient --- a categorical predictor contributes one row for each non-reference category --- each showing an estimate, a standard error, a test statistic, and a p-value. The coefficient estimates are in [log-odds]{.important-text} units rather than the original units of the outcome.
+The `glm()` function with the argument `family = "binomial"` estimates logistic regression in R. The `summary()` output has the same general structure as `lm()`: a coefficients table with one row per non-intercept coefficient --- a categorical predictor contributes one row for each non-reference category --- each showing an estimate, a standard error, a test statistic, and a p-value. The coefficient estimates are in [log-odds]{.important-text} units rather than the original units of the outcome. The log-odds are also called the *logit*, which is why logistic regression is often called a *logit model* and its coefficients *logit coefficients*; both names appear in published work.
 
 The intercept sits above those rows and works as it does in linear regression: it is the model's prediction when every interval predictor equals zero and every factor is at its reference category. Two things follow. It is on the log-odds scale like every other coefficient, so it needs the same transformation before it means anything on the probability scale. And whether it is worth interpreting at all depends on whether that combination of values describes a case that could exist --- often it does not, which is why the intercept row is usually read as part of the machinery rather than as a finding.
 
@@ -89,6 +98,8 @@ This creates an important interpretive constraint that differs from linear regre
 - The **magnitude** of the coefficient, in log-odds units, does not translate directly into a meaningful statement about the size of the effect on the probability scale.
 
 That last point is critical. In linear regression, a slope of 0.314 meant "a one-unit increase in the predictor is associated with a 0.314-unit increase in the outcome." In logistic regression, the size of the estimated association on the probability scale depends on where you are on the S-curve --- which depends on the values of all the other predictors. To say anything about the size of an estimated association, you need predicted probabilities, which we will cover later in this tutorial.
+
+One further quantity turns up constantly in published logistic regression results, and it is worth recognizing even though these tutorials do not use it. Applying `exp()` to a coefficient converts it from log-odds into an **odds ratio**: the multiplicative change in the odds of the outcome for a one-unit increase in the predictor. An odds ratio of 1 means no relationship, a ratio above 1 means the odds go up, and a ratio below 1 means they go down. What an odds ratio does not give you is a change in probability. The odds scale is no more intuitive than the log-odds scale, and neither one answers the question raised above --- how much the probability moves for a case you actually care about. That is why these tutorials go from coefficients straight to predicted probabilities and skip the odds scale. When you meet an odds ratio in published work, read it as a statement about odds, not about probabilities.
 
 The other major difference from linear regression is how we evaluate the model. Logistic regression has no equivalent to the $R^2$ used in linear regression. Several alternative measures exist; here we examine one specific question --- how accurately the model sorts cases into the two outcome categories --- using a **confusion matrix** --- a cross-tabulation of predicted versus actual outcomes --- and compare the percentage of cases correctly predicted to the percentage the null model would get right simply by always predicting the most common outcome category.
 
@@ -1252,13 +1263,13 @@ question("Which of the following statements correctly describe what these result
          message = "The z-statistics for **bipartisan** (3.54, p < .001), **majority_margin** (2.60, p = .009), and `committee_chair_sameSame Party` (3.38, p < .001) all exceed 1.96 in absolute value. All three are significant, and all three coefficients are positive --- **bipartisan** support, a larger majority margin, and a same-party committee chair are each independently associated with a higher probability of passage after controlling for the others."),
   answer("The coefficient on **bipartisan** is positive, which means bills with more cross-party cosponsors were more likely to pass",
          correct = TRUE,
-         message = "The positive coefficient on **bipartisan** (3.987) indicates that a higher proportion of cross-party cosponsors is associated with a higher probability of passage. The magnitude of the log-odds coefficient cannot be directly interpreted as a probability change, but the positive sign and significance are clear."),
+         message = "The positive coefficient on **bipartisan** (3.99) indicates that a higher proportion of cross-party cosponsors is associated with a higher probability of passage. The magnitude of the log-odds coefficient cannot be directly interpreted as a probability change, but the positive sign and significance are clear."),
   answer("The coefficient on `committee_chair_sameSame Party` gives the difference in the probability of passage between bills with same-party and different-party committee chairs",
          message = "The coefficient on `committee_chair_sameSame Party` is in log-odds units, not probability units. It tells us the direction of the relationship and allows a significance test, but the size of the effect on the probability scale cannot be read directly from the coefficient. Predicted probabilities are needed to communicate the magnitude."),
   answer("Because **majority_margin** has the smallest coefficient, it has the smallest effect on the probability of bill passage",
          message = "Logistic regression coefficients are in log-odds units and cannot be compared across predictors to judge relative importance --- the variables are measured on different scales. A small coefficient on **majority_margin** simply reflects that the variable is measured in percentage points (a wide range), not that its effect is small. Predicted probabilities that change one predictor at a time are the right tool for comparing effects."),
-  answer("The positive coefficient on **bipartisan** means that each one-unit increase in the proportion of **bipartisan** cosponsors increases the probability of passage by about 3.89 percentage points",
-         message = "The coefficient of approximately 3.89 is in log-odds units, not probability units. A one-unit increase in **bipartisan** (which would mean moving from no cross-party cosponsors to all cosponsors being from the other party) does not translate to a 3.89 percentage point increase in the probability of passage. The size of the effect on the probability scale depends on where you are on the S-curve."),
+  answer("The positive coefficient on **bipartisan** means that each one-unit increase in the proportion of **bipartisan** cosponsors increases the probability of passage by about 3.99 percentage points",
+         message = "The coefficient of approximately 3.99 is in log-odds units, not probability units. A one-unit increase in **bipartisan** (which would mean moving from no cross-party cosponsors to all cosponsors being from the other party) does not translate to a 3.99 percentage point increase in the probability of passage. The size of the effect on the probability scale depends on where you are on the S-curve."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: make sure to select all true statements. Check the sign, z-value, and p-value for each predictor."
@@ -1306,6 +1317,29 @@ question("Which of the following statements about the classification results are
   allow_retry = TRUE,
   random_answer_order = TRUE,
   try_again = "Hint: make sure to select all true statements. Compare the overall accuracy to the null model, and compare the accuracy for y = 0 to the accuracy for y = 1."
+)
+```
+
+**Apply 30: Interpret an odds ratio**
+
+This question does not use the bills results above.
+
+```{r quiz-cyu-odds-ratio, echo=FALSE}
+question("A published article reports a logistic regression predicting whether a bill passed. For one predictor it reports an odds ratio of 0.72. Which of the following statements are true? Select all that apply.",
+  correct = "Right: two statements follow from an odds ratio of 0.72.",
+  answer("Higher values of that predictor are associated with lower odds of the bill passing",
+         correct = TRUE,
+         message = "An odds ratio below 1 means the odds of the outcome go down as the predictor increases. A ratio of exactly 1 would mean no relationship."),
+  answer("The coefficient the article exponentiated to get 0.72 was negative",
+         correct = TRUE,
+         message = "Exponentiating a negative number returns a value between 0 and 1, so an odds ratio below 1 always comes from a negative log-odds coefficient. A positive coefficient exponentiates to a ratio above 1."),
+  answer("A one-unit increase in the predictor lowers the probability of passage by 28 percentage points",
+         message = "An odds ratio describes odds, not probability. No fixed percentage-point change corresponds to an odds ratio, because how far the probability moves depends on where the case sits on the S-curve. To say anything in percentage points you need predicted probabilities."),
+  answer("The predictor is not statistically significant, because its odds ratio is less than 1",
+         message = "An odds ratio below 1 says the relationship is negative, not that it is insignificant. Significance comes from the z-value and p-value, reported separately. A predictor with an odds ratio of 0.72 may be highly significant or not significant at all."),
+  allow_retry = TRUE,
+  random_answer_order = TRUE,
+  try_again = "Hint: make sure to select all true statements. An odds ratio below 1 tells you the direction of the relationship on the odds scale. It does not tell you a change in probability, and it does not tell you whether the relationship is significant."
 )
 ```
 

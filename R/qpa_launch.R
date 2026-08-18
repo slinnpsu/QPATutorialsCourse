@@ -147,7 +147,8 @@ qpa_tutorial_list <- function() {
       if (nzchar(desc[i])) cat("       ", desc[i], "\n", sep = "")
     }
   }
-  cat("\nOpen one with qpa_launch(4), or by name with qpa_launch(\"univariateNom\").\n\n")
+  cat("\nOpen one with qpa_launch(4), or by name with qpa_launch(\"univariateNom\").\n")
+  cat("Four tutorials have a reading behind them. List them with open_reading().\n\n")
 
   invisible(data.frame(
     number = seq_along(dirs), folder = dirs,

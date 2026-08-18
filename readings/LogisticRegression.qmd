@@ -1,0 +1,740 @@
+---
+title: "Logistic Regression: Modeling Binary Outcomes"
+---
+
+```{r setup}
+library(ggplot2)
+
+set.seed(30918)
+
+n <- 650
+civic <- data.frame(
+  political_interest = round(100 * rbeta(n, 2, 5)),
+  education_years = pmin(pmax(round(rnorm(n, 14, 2.2)), 8), 20),
+  age = round(runif(n, 18, 85)),
+  strong_partisan = rbinom(n, 1, .44),
+  female = rbinom(n, 1, .52)
+)
+
+linear_predictor <- -8.10 +
+  0.14 * civic$political_interest +
+  0.18 * (civic$education_years - 12) +
+  0.012 * (civic$age - 45) +
+  0.55 * civic$strong_partisan -
+  0.05 * civic$female
+
+civic$prob_contact <- exp(linear_predictor) / (1 + exp(linear_predictor))
+civic$contacted <- rbinom(n, 1, civic$prob_contact)
+
+linear_model <- lm(contacted ~ political_interest, data = civic)
+logit_model <- glm(
+  contacted ~ political_interest + education_years + age + strong_partisan + female,
+  data = civic,
+  family = "binomial"
+)
+
+interest_grid <- data.frame(political_interest = seq(0, 100, length.out = 200))
+interest_grid$linear_prediction <- -0.10 + 0.012 * interest_grid$political_interest
+
+simple_logit <- glm(contacted ~ political_interest, data = civic, family = "binomial")
+interest_grid$logit_prediction <- predict(simple_logit, newdata = interest_grid, type = "response")
+interest_at_half <- -coef(simple_logit)[["(Intercept)"]] / coef(simple_logit)[["political_interest"]]
+
+interest_examples <- data.frame(political_interest = c(20, 30, 50, 60, 70, 80))
+interest_examples$predicted_probability <- predict(
+  simple_logit,
+  newdata = interest_examples,
+  type = "response"
+)
+
+logit_summary <- coef(summary(logit_model))
+b_interest <- coef(logit_model)[["political_interest"]]
+or_interest <- exp(b_interest)
+or_female <- exp(coef(logit_model)[["female"]])
+
+theme_reading <- function() {
+  theme_bw(base_family = "Georgia") +
+    theme(
+      plot.title = element_text(color = "#001E44", face = "bold"),
+      plot.subtitle = element_text(color = "#1a1a1a"),
+      axis.title = element_text(color = "#001E44"),
+      panel.grid.minor = element_blank()
+    )
+}
+
+profile_predictions <- data.frame(
+  profile = c(
+    "Low interest, high school",
+    "High interest, high school",
+    "High interest, college",
+    "High interest, college, strong partisan"
+  ),
+  political_interest = c(20, 60, 60, 60),
+  education_years = c(12, 12, 16, 16),
+  age = c(45, 45, 45, 45),
+  strong_partisan = c(0, 0, 0, 1),
+  female = c(0, 0, 0, 0)
+)
+
+profile_predictions$predicted_probability <- predict(
+  logit_model,
+  newdata = profile_predictions,
+  type = "response"
+)
+
+predicted_probability <- predict(logit_model, type = "response")
+predicted_contacted <- ifelse(predicted_probability >= .50, 1, 0)
+fit_table <- table(
+  Predicted = factor(predicted_contacted, levels = c(0, 1), labels = c("Did not contact", "Contacted")),
+  Actual = factor(civic$contacted, levels = c(0, 1), labels = c("Did not contact", "Contacted"))
+)
+
+percent_correct <- mean(predicted_contacted == civic$contacted)
+null_correct <- max(mean(civic$contacted == 0), mean(civic$contacted == 1))
+improvement <- percent_correct - null_correct
+```
+
+## Learning Objectives
+
+In this reading we introduce logistic regression. Logistic regression is used when the outcome variable has two categories, such as whether someone voted or did not vote, contacted an elected official or did not contact an elected official, or supports or does not support a policy. Logistic regression extends the logic of regression to cases where the outcome is binary: we still ask how an outcome changes with its explanatory variables, or **predictors**, but we model the probability that the outcome occurs. As in the regression readings, we use *predictor* from here on.
+
+After reading this material you should be able to:
+
+- Explain when logistic regression is an appropriate statistical tool
+- Explain why linear regression is not usually appropriate when the outcome variable is binary
+- Define probability, odds, log-odds, and odds ratios
+- Explain why logistic regression is linear in the log-odds rather than linear in probabilities
+- Interpret the direction and statistical significance of coefficients from a logistic regression
+- Explain why predicted probabilities are usually the clearest way to interpret substantive effects
+- Assess classification performance using a confusion matrix, percent correctly predicted, and comparison to a null model
+
+We will build logistic regression in five steps. First, we will consider why binary outcomes create problems for linear regression. Second, we will define probability, odds, and log-odds. Third, we will show how logistic regression connects a linear model to a binary outcome. Fourth, we will discuss how to interpret coefficients, odds ratios, and predicted probabilities. Finally, we will consider how to assess how well the model classifies cases when the outcome variable is coded 0 or 1.
+
+## Binary Outcomes
+
+Many political questions involve outcomes that either happen or do not happen. Did an individual vote? Did a country experience a civil war? Did a legislator cosponsor a bill? Did a respondent contact an elected official?
+
+In this reading we will use a fictional **Civic Participation Survey**. Suppose the survey asks respondents whether they contacted an elected official in the past year. We code the outcome variable, **contacted**, as:
+
+- **contacted** = 1 if the respondent contacted an elected official.
+- **contacted** = 0 if the respondent did not contact an elected official.
+
+This is a **binary outcome variable** because it has only two possible values.
+
+Contacting an elected official is also relatively uncommon. In the fictional survey, only about `r sprintf("%.0f", 100 * mean(civic$contacted))` percent of respondents contacted an elected official. This will matter later when we assess how well the model classifies cases.
+
+Our research question is:
+
+> Are people who are more interested in politics more likely to contact an elected official?
+
+We might expect the answer to be yes. Contacting an elected official takes time, attention, and motivation. Classic work on political participation emphasizes that people participate when they have the resources, engagement, and recruitment needed to do so. Verba, Schlozman, and Brady (1995), for example, emphasize resources such as education and civic skills, psychological engagement such as political interest, and mobilizing requests from parties, organizations, and other people. Rosenstone and Hansen (1993) similarly emphasize mobilization and political engagement. Following this logic, people who are more interested in politics may be more likely to know who represents them, to follow public issues, and to believe that contacting an official is worth doing.
+
+Thus, our hypothesis is:
+
+::: {.hypothesis}
+In a comparison of individuals, those with higher levels of political interest will be more likely to contact an elected official than those with lower levels of political interest.
+:::
+
+The figure below shows the relationship between political interest and whether someone contacted an elected official in the fictional survey. Political interest is measured from 0 to 100, where higher values indicate more interest in politics.
+
+```{r}
+#| label: fig-binary-outcome
+#| fig-cap: "A binary outcome variable has only two possible values."
+#| fig-alt: "Scatter plot showing whether respondents contacted an elected official by political interest on a zero to one hundred scale. The y-axis has only two values: zero for did not contact and one for contacted. Points are jittered slightly so overlapping observations can be seen. Most respondents did not contact an official, but contacts become more common at higher levels of political interest."
+#| fig-width: 7
+#| fig-height: 4.5
+ggplot(civic, aes(x = political_interest, y = contacted)) +
+  geom_jitter(width = 1.2, height = .035, alpha = .45, color = "#1E407C") +
+  scale_y_continuous(
+    breaks = c(0, 1),
+    labels = c("Did not contact", "Contacted"),
+    limits = c(-.15, 1.15)
+  ) +
+  scale_x_continuous(breaks = seq(0, 100, 20)) +
+  labs(
+    title = "Contacting an elected official is a binary outcome",
+    x = "Political interest",
+    y = "Contacted an elected official"
+  ) +
+  theme_reading()
+```
+
+The plot looks different from the scatter plots we used for linear regression. The outcome variable does not vary continuously. It can only equal 0 or 1. Even if political interest is strongly related to contacting an official, the observed values of **contacted** still sit on two horizontal lines.
+
+The points are **jittered** in the figure. Jittering adds a very small amount of random movement to the points so that observations with the same or similar values do not sit directly on top of one another. The actual values of **contacted** are still only 0 and 1; the jittering is only used to make the plot easier to read.
+
+This creates a problem. Linear regression is designed for outcome variables that are measured at the interval level. Here, however, the outcome is binary.
+
+## Why Not Use Linear Regression?
+
+What happens if we fit a straight line to a binary outcome? The answer is: we can do it, but the model does not behave very well.
+
+In a linear regression, we model the expected value of $Y$ as:
+
+$$Y_i = \alpha + \beta X_i + \epsilon_i.$$
+
+If $Y$ is coded 0 or 1, the expected value of $Y$ can be interpreted as a probability. For example, if the predicted value is .30, we would say the predicted probability that $Y=1$ is .30. Because of this, a linear regression with a binary outcome variable is sometimes called a **linear probability model**.
+
+But probabilities must be between 0 and 1. A straight line does not know that.
+
+```{r}
+#| label: fig-linear-problem
+#| fig-cap: "A straight line can predict impossible probabilities."
+#| fig-alt: "Scatter plot showing the binary contacted outcome by political interest with an illustrative straight line added. The line slopes upward, but it extends below zero at low levels of political interest and above one at high levels. This illustrates that a linear model can predict probabilities outside the possible zero to one range."
+#| fig-width: 7
+#| fig-height: 4.5
+ggplot(civic, aes(x = political_interest, y = contacted)) +
+  geom_jitter(width = 1.2, height = .035, alpha = .35, color = "#1E407C") +
+  geom_line(
+    data = interest_grid,
+    aes(x = political_interest, y = linear_prediction),
+    color = "#9b2335",
+    linewidth = 1.1
+  ) +
+  geom_hline(yintercept = c(0, 1), linetype = "dashed", color = "gray45") +
+  annotate("text", x = 8, y = -.12, label = "Below 0", color = "#9b2335", size = 3.5) +
+  annotate("text", x = 91, y = 1.08, label = "Above 1", color = "#9b2335", size = 3.5) +
+  scale_y_continuous(limits = c(-.2, 1.2), breaks = c(0, .5, 1)) +
+  scale_x_continuous(breaks = seq(0, 100, 20)) +
+  labs(
+    title = "A linear model is not constrained to the probability scale",
+    x = "Political interest",
+    y = "Predicted probability of contacting an official"
+  ) +
+  theme_reading()
+```
+
+There are three problems.
+
+First, a linear model can produce predicted probabilities less than 0 or greater than 1. These predictions do not make substantive sense.
+
+Second, a linear model assumes a constant effect. It assumes that moving from political interest 20 to 30 changes the probability of contacting an official by the same amount as moving from 70 to 80. For binary outcomes, that is often implausible. When probabilities are already close to 0 or close to 1, there is less room for them to move. The effect of a ten-point change in political interest may be largest in the middle of the probability range.
+
+Before looking at the logistic curve, ask yourself what you would expect. If a respondent scores 20 out of 100 on political interest, what is the probability they contacted an elected official? What if they score 40? 50? 70? You probably do not expect each ten-point increase in interest to have exactly the same effect. Moving from very low to low interest may not change the probability much because contacting an official remains unlikely. Moving through the middle of the scale may matter more. Moving from high to very high interest may again matter less because the probability is already relatively high.
+
+Third, the error term from a binary outcome is not normally distributed. When $Y$ can only equal 0 or 1, the errors cannot follow the same pattern we assume in ordinary least squares regression. This matters for standard errors and hypothesis tests.
+
+::: {.callout-note appearance="minimal" title="Pause and check"}
+Why is it a problem if a model predicts that the probability of contacting an elected official is 1.12? What would that prediction mean?
+:::
+
+A probability of 1.12 cannot be interpreted because probabilities cannot be greater than 1. This is the core problem with using a straight line for a binary outcome: the model can produce predictions that are mathematically possible for a line but impossible for a probability.
+
+## From Probability to Odds to Log-Odds
+
+Logistic regression solves the problem by changing the scale on which we model the outcome. Instead of modeling probability directly as a straight line, logistic regression models the **log-odds** that the outcome equals 1.
+
+That sounds unpleasant at first. But the pieces are manageable.
+
+### Probability
+
+A **probability** is the chance that an event happens. If 30 out of 100 people contacted an elected official, the probability of contacting an official is:
+
+$$p = \frac{30}{100} = .30.$$
+
+Probabilities range from 0 to 1.
+
+### Odds
+
+The **odds** of an event compare the probability that the event happens to the probability that it does not happen:
+
+$$\text{odds} = \frac{p}{1-p}.$$
+
+If the probability of contacting an elected official is .30, the probability of not contacting an official is .70. The odds are:
+
+$$\text{odds} = \frac{.30}{.70} = .43.$$
+
+In words, there are .43 contacts for every non-contact. If that feels less natural than probability, that is normal. Most people find probabilities easier to interpret than odds.
+
+### Log-Odds
+
+The **log-odds** are the natural log of the odds:
+
+$$\text{log-odds} = \log\left(\frac{p}{1-p}\right).$$
+
+The "log" in this equation is the **natural log**, which uses base $e$. The number $e$ is approximately 2.718. You do not need to do natural logs by hand, but you do need to understand why the transformation is useful.
+
+Probabilities are bounded between 0 and 1. Odds are bounded below by 0 but can become very large. Log-odds can range from negative infinity to positive infinity. That makes log-odds a scale on which a linear model can be used.
+
+The table below shows the relationship between probabilities, odds, and log-odds.
+
+<div class="table-container narrow-table">
+<table class="reading-table">
+<caption>Probability, odds, and log-odds</caption>
+<thead>
+<tr>
+<th scope="col">Probability</th>
+<th scope="col">Odds</th>
+<th scope="col">Log-odds</th>
+<th scope="col">Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>.10</td><td>.11</td><td>-2.20</td><td>The event is unlikely.</td></tr>
+<tr><td>.25</td><td>.33</td><td>-1.10</td><td>The event is less likely than not.</td></tr>
+<tr><td>.50</td><td>1.00</td><td>0.00</td><td>The event is as likely to happen as not happen.</td></tr>
+<tr><td>.75</td><td>3.00</td><td>1.10</td><td>The event is more likely than not.</td></tr>
+<tr><td>.90</td><td>9.00</td><td>2.20</td><td>The event is very likely.</td></tr>
+</tbody>
+</table>
+</div>
+
+Notice that when the probability is .50, the odds are 1 and the log-odds are 0. Negative log-odds correspond to probabilities below .50. Positive log-odds correspond to probabilities above .50.
+
+::: {.tip}
+**How to read the notation.** In this reading, $p_i$ means the probability that observation $i$ has $Y=1$. If the outcome variable is **contacted**, then $p_i$ is the probability that respondent $i$ contacted an elected official.
+:::
+
+## The Logistic Regression Model
+
+Logistic regression is one type of **generalized linear model**, often abbreviated GLM. A generalized linear model has three parts.
+
+1. An outcome variable with a distribution. In logistic regression, the outcome variable is binary, so we use the binomial distribution.
+2. A linear predictor. This is the familiar regression part: an intercept plus slopes times predictors.
+3. A link function. The link function connects the linear predictor to the expected value of the outcome variable.
+
+For logistic regression, the link function is the **logit link**:
+
+$$\log\left(\frac{p_i}{1-p_i}\right).$$
+
+The function $\log(p/(1-p))$ is itself called the **logit**, which is why logistic regression is often called a **logit model** and its coefficients **logit coefficients**. You will see both names in published work, and we use them interchangeably from here on.
+
+The logistic regression model is:
+
+$$\log\left(\frac{p_i}{1-p_i}\right) = \alpha + \beta X_i.$$
+
+In words, the log-odds that respondent $i$ contacted an elected official are equal to the intercept plus the slope times political interest.
+
+With multiple predictors, the model becomes:
+
+$$\log\left(\frac{p_i}{1-p_i}\right) =
+\alpha + \beta_1 X_{1,i} + \beta_2 X_{2,i} + \cdots + \beta_k X_{k,i}.$$
+
+In words, the log-odds that $Y=1$ are a function of all the predictors in the model.
+
+This is the central point:
+
+::: {.callout-important appearance="minimal" title="The key idea"}
+Logistic regression is not linear in probabilities. It is linear in log-odds.
+:::
+
+The figure below shows why this helps. The fitted curve stays between 0 and 1, so it can be interpreted as a predicted probability.
+
+```{r}
+#| label: fig-logistic-curve
+#| fig-cap: "Logistic regression fits an S-shaped curve to a binary outcome."
+#| fig-alt: "Scatter plot showing whether respondents contacted an elected official by political interest with a fitted logistic curve. The curve rises from near zero at low political interest to near one at high political interest, but it never goes below zero or above one. A dashed horizontal line marks a predicted probability of point five, and a dotted vertical line marks where the curve crosses that value."
+#| fig-width: 7
+#| fig-height: 4.5
+ggplot(civic, aes(x = political_interest, y = contacted)) +
+  geom_jitter(width = 1.2, height = .035, alpha = .30, color = "#1E407C") +
+  geom_hline(yintercept = .5, linetype = "dashed", color = "gray45") +
+  geom_vline(
+    xintercept = interest_at_half,
+    linetype = "dotted",
+    color = "gray45"
+  ) +
+  geom_line(
+    data = interest_grid,
+    aes(x = political_interest, y = logit_prediction),
+    color = "#009CDE",
+    linewidth = 1.2
+  ) +
+  scale_y_continuous(limits = c(-.05, 1.05), breaks = c(0, .25, .5, .75, 1)) +
+  scale_x_continuous(breaks = seq(0, 100, 20)) +
+  labs(
+    title = "A logistic curve stays on the probability scale",
+    x = "Political interest",
+    y = "Predicted probability of contacting an official"
+  ) +
+  theme_reading()
+```
+
+At low levels of political interest, the predicted probability of contacting an official is low. At high levels of political interest, the predicted probability is high. In the middle of the range, the curve is steeper, meaning that the same change in political interest has a larger effect on the predicted probability.
+
+For example, the fitted curve predicts a probability of about `r sprintf("%.2f", interest_examples$predicted_probability[interest_examples$political_interest == 20])` when political interest is 20 and about `r sprintf("%.2f", interest_examples$predicted_probability[interest_examples$political_interest == 30])` when political interest is 30. That difference is small. But moving from 50 to 60 changes the predicted probability from about `r sprintf("%.2f", interest_examples$predicted_probability[interest_examples$political_interest == 50])` to about `r sprintf("%.2f", interest_examples$predicted_probability[interest_examples$political_interest == 60])`. The same ten-point change matters more when the curve is steep. Moving from 70 to 80 still increases the probability, but the change is smaller again because the curve is beginning to flatten.
+
+### The Intercept and Slope
+
+The intercept and slope still exist in logistic regression, but they are on the log-odds scale.
+
+The **intercept**, $\alpha$, is the expected log-odds that $Y=1$ when all predictors equal zero.
+
+The **slope**, $\beta$, is the expected change in the log-odds that $Y=1$ for a one-unit increase in $X$.
+
+If the slope is positive, higher values of $X$ are associated with a higher probability that $Y=1$. If the slope is negative, higher values of $X$ are associated with a lower probability that $Y=1$. If the slope is zero, $X$ is not related to the probability that $Y=1$.
+
+### How the Intercept and Slope Shape the Curve
+
+The intercept and slope determine the shape and location of the logistic curve.
+
+The **intercept** shifts the curve left or right. When the intercept is larger, the predicted probability reaches .50 at a lower value of $X$. When the intercept is smaller, it takes a higher value of $X$ to reach the same predicted probability. In substantive terms, the intercept changes how likely the outcome is when the predictor is low.
+
+The **slope** affects how steeply the curve rises. A larger positive slope makes the transition from low probability to high probability sharper. A smaller positive slope makes the curve flatter. If the slope is negative, the curve moves in the opposite direction: the predicted probability decreases as $X$ increases.
+
+The figure below illustrates both ideas. In the first panel, the slope is held constant and the intercept changes. In the second panel, the midpoint of the curve is held constant and the slope changes.
+
+```{r}
+#| label: fig-logit-curve-shape
+#| fig-cap: "The intercept shifts the logistic curve left or right, while the slope changes how steeply the curve rises."
+#| fig-alt: "Two-panel line graph showing logistic curves. The first panel holds the slope constant and shows that changing the intercept shifts the S-shaped curve left or right. The second panel holds the midpoint constant and shows that a smaller slope creates a flatter curve while a larger slope creates a steeper curve."
+#| fig-width: 8
+#| fig-height: 4.8
+curve_x <- seq(0, 100, length.out = 300)
+
+intercept_curves <- data.frame(
+  political_interest = rep(curve_x, 3),
+  panel = "Changing the intercept",
+  curve = rep(
+    c("Smaller intercept", "Middle intercept", "Larger intercept"),
+    each = length(curve_x)
+  ),
+  alpha = rep(c(-9, -7, -5), each = length(curve_x)),
+  beta = 0.14
+)
+
+slope_values <- c(0.07, 0.14, 0.28)
+slope_curves <- data.frame(
+  political_interest = rep(curve_x, 3),
+  panel = "Changing the slope",
+  curve = rep(
+    c("Smaller slope", "Middle slope", "Larger slope"),
+    each = length(curve_x)
+  ),
+  beta = rep(slope_values, each = length(curve_x))
+)
+slope_curves$alpha <- -50 * slope_curves$beta
+
+curve_shapes <- rbind(intercept_curves, slope_curves)
+curve_shapes$predicted_probability <- with(
+  curve_shapes,
+  exp(alpha + beta * political_interest) /
+    (1 + exp(alpha + beta * political_interest))
+)
+
+ggplot(
+  curve_shapes,
+  aes(
+    x = political_interest,
+    y = predicted_probability,
+    color = curve,
+    linetype = curve
+  )
+) +
+  geom_hline(yintercept = .5, color = "gray45", linetype = "dashed") +
+  geom_line(linewidth = 1.1) +
+  facet_wrap(~ panel, ncol = 2) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = c(0, .25, .5, .75, 1)
+  ) +
+  scale_x_continuous(breaks = seq(0, 100, 20)) +
+  labs(
+    title = "Intercepts shift the curve; slopes change its steepness",
+    x = "Political interest",
+    y = "Predicted probability",
+    color = NULL,
+    linetype = NULL
+  ) +
+  theme_reading()
+```
+
+This is why the sign and size of a coefficient still matter in logistic regression, even though we do not interpret the coefficient as a constant change in probability. The coefficient tells us how the log-odds change. Once those log-odds are transformed back into probabilities, the same coefficient produces a curve rather than a straight line.
+
+
+## Interpreting Logit Results
+
+Suppose we estimate a logistic regression in which **contacted** is a function of political interest, years of education, age, partisan identification, and sex. Each variable is included for a theoretical reason. Political interest captures psychological engagement with politics. Education captures participatory resources, including civic skills and knowledge. Age captures life-cycle differences in political experience and opportunities for participation. Partisan identification captures attachment to political conflict and mobilizing networks. Sex is included because participation can vary across social groups and because we want to avoid attributing to political interest differences that may reflect demographic composition.
+
+The table below presents illustrative results from the fictional Civic Participation Survey.
+
+```{r}
+#| results: asis
+coef_labels <- c(
+  "(Intercept)" = "Intercept",
+  "political_interest" = "Political Interest",
+  "education_years" = "Years of Education",
+  "age" = "Age",
+  "strong_partisan" = "Strong Partisan",
+  "female" = "Female"
+)
+
+coef_rows <- vapply(rownames(logit_summary), function(term) {
+  estimate <- logit_summary[term, "Estimate"]
+  se <- logit_summary[term, "Std. Error"]
+  pval <- logit_summary[term, "Pr(>|z|)"]
+  star <- ifelse(pval < .05, "*", "")
+  paste0(
+    "<tr><th scope=\"row\">", coef_labels[[term]], "</th>",
+    "<td>", sprintf("%.2f%s", estimate, star), "</td>",
+    "<td>(", sprintf("%.2f", se), ")</td>",
+    "<td>", sprintf("%.2f", exp(estimate)), "</td></tr>"
+  )
+}, character(1))
+
+cat('
+<div class="table-container">
+<table class="regression-table">
+<caption>Logistic regression model of contacting an elected official</caption>
+<thead>
+<tr>
+<th scope="col"></th>
+<th scope="col">Estimate</th>
+<th scope="col">Standard Error</th>
+<th scope="col">Odds Ratio</th>
+</tr>
+</thead>
+<tbody>
+', paste(coef_rows, collapse = "\n"), '
+<tr class="summary-row"><th scope="row">N</th><td>650</td><td></td><td></td></tr>
+</tbody>
+</table>
+<p class="table-note">Standard errors in parentheses. * indicates significance at p &lt; .05. Data are fictional and used only for illustration.</p>
+</div>
+')
+```
+
+### Direction and Significance
+
+The easiest things to interpret from a logistic regression table are the **direction** and **statistical significance** of the relationship.
+
+The coefficient for **Political Interest** is positive. This means that people with higher levels of political interest have a higher probability of contacting an elected official.
+
+The coefficient is also statistically significant. As in linear regression, we test the null hypothesis that the population coefficient is zero. Logistic regression output usually reports a **z-value** rather than a **t-value**, but the logic is the same. If the p-value is less than .05, we reject the null hypothesis at the .05 level.
+
+So we would say:
+
+> Political interest is positively and significantly related to the probability of contacting an elected official.
+
+That is a correct interpretation, but it does not yet tell us how large the effect is.
+
+### Log-Odds and Odds Ratios
+
+The coefficient for **Political Interest** is `r sprintf("%.2f", b_interest)`. This means that a one-point increase in political interest is associated with a `r sprintf("%.2f", b_interest)` increase in the log-odds of contacting an elected official, holding the other variables in the model fixed.
+
+That interpretation is technically correct but not very intuitive.
+
+Because the coefficient is in log-odds, it is also a **log-odds ratio**. If we exponentiate the coefficient, we obtain an **odds ratio**. For political interest, the odds ratio is:
+
+$$e^{\hat{\beta}_{\text{Political Interest}}}.$$
+
+An odds ratio tells us the multiplicative change in the odds of the outcome for a one-unit increase in the predictor.
+
+Here, the odds ratio for **Political Interest** is `r sprintf("%.2f", or_interest)`. That means that each one-point increase in political interest multiplies the odds of contacting an elected official by `r sprintf("%.2f", or_interest)`, holding the other variables fixed.
+
+Odds ratios have a useful reference point:
+
+- An odds ratio of 1 means no relationship.
+- An odds ratio greater than 1 means the odds increase.
+- An odds ratio less than 1 means the odds decrease.
+
+For a binary predictor, an odds ratio compares the included category to the reference category. If the odds ratio for **Female** is less than 1, women have lower odds of contacting an elected official than men, holding the other variables fixed. If it is greater than 1, women have higher odds than men. We still need the standard error, z-value, or p-value to decide whether the estimated difference is statistically significant.
+
+::: {.caution}
+**Do not treat logit coefficients as percentage points.** The coefficient `r sprintf("%.2f", b_interest)` does not mean that a one-point increase in political interest increases the probability of contacting an elected official by `r sprintf("%.0f", 100 * b_interest)` percentage points. The coefficient is on the log-odds scale. To describe changes in probability, use predicted probabilities.
+:::
+
+## Predicted Probabilities
+
+Predicted probabilities are usually the clearest way to interpret logistic regression results. They translate the model back onto the probability scale, which ranges from 0 to 1.
+
+To calculate a predicted probability, we set values for the predictors, calculate the predicted log-odds, and then transform the log-odds back into a probability:
+
+$$\hat{p}_i =
+\frac{\exp(\hat{\alpha} + \hat{\beta}_1X_{1,i} + \hat{\beta}_2X_{2,i} + \cdots)}
+{1 + \exp(\hat{\alpha} + \hat{\beta}_1X_{1,i} + \hat{\beta}_2X_{2,i} + \cdots)}.$$
+
+You do not need to calculate this by hand. Statistical software will do it for you. What matters is that you understand what the prediction means.
+
+The table below compares predicted probabilities for several hypothetical respondents in the Civic Participation Survey. In each case, age is set to 45 and sex is set to male. We vary political interest, years of education, and whether the respondent is a strong partisan.
+
+```{r}
+#| results: asis
+pred_rows <- vapply(seq_len(nrow(profile_predictions)), function(i) {
+  paste0(
+    "<tr><th scope=\"row\">", profile_predictions$profile[i], "</th>",
+    "<td>", profile_predictions$political_interest[i], "</td>",
+    "<td>", profile_predictions$education_years[i], "</td>",
+    "<td>", ifelse(profile_predictions$strong_partisan[i] == 1, "Yes", "No"), "</td>",
+    "<td>", sprintf("%.2f", profile_predictions$predicted_probability[i]), "</td></tr>"
+  )
+}, character(1))
+
+cat('
+<div class="table-container">
+<table class="reading-table">
+<caption>Predicted probabilities of contacting an elected official</caption>
+<thead>
+<tr>
+<th scope="col">Profile</th>
+<th scope="col">Political Interest</th>
+<th scope="col">Years of Education</th>
+<th scope="col">Strong Partisan</th>
+<th scope="col">Predicted Probability</th>
+</tr>
+</thead>
+<tbody>
+', paste(pred_rows, collapse = "\n"), '
+</tbody>
+</table>
+<p class="table-note">Predictions are for a 45-year-old male respondent. Data are fictional and used only for illustration.</p>
+</div>
+')
+```
+
+These predictions are much easier to interpret than log-odds. We can say, for example, that a respondent with low political interest and a high school education has a relatively low predicted probability of contacting an elected official. A respondent with high political interest has a higher predicted probability. The predicted probability is higher still for a respondent with more years of education and strong partisan identification.
+
+Notice that we are still holding other variables fixed. But in logistic regression, the size of the change in predicted probability depends on the values at which we hold them fixed. A one-point increase in political interest does not have the same effect on the probability of contacting an official for every possible respondent.
+
+::: {.callout-note appearance="minimal" title="Pause and check"}
+Why is the phrase "holding other variables fixed" still meaningful in logistic regression? What changes about how we interpret the size of the effect?
+:::
+
+Holding other variables fixed still means we are comparing otherwise similar respondents. The difference is that, in logistic regression, the size of the probability change depends on the values we choose. A one-point increase in political interest has one effect when the predicted probability is near .10, another when it is near .50, and another when it is near .90.
+
+## Assessing Classification Performance
+
+In linear regression, we often use $R^2$ to summarize model fit. $R^2$ tells us the proportion of variation in the outcome variable explained by the model. Logistic regression does not have a direct equivalent to the ordinary least squares $R^2$.
+
+That does not mean we cannot assess fit. It means we need to think differently about fit.
+
+With a binary outcome, one useful question is:
+
+> How well does the model distinguish cases where the event happened from cases where the event did not happen?
+
+In our example, the event is contacting an elected official. The model generates a predicted probability for every respondent. To classify cases, we can convert those predicted probabilities into predicted 0s and 1s.
+
+A common rule is:
+
+- If the predicted probability is .50 or greater, predict $Y=1$.
+- If the predicted probability is less than .50, predict $Y=0$.
+
+This .50 threshold is common, but it is not universal. In some applications, researchers may choose a different threshold. For now, we will use .50 because it is easy to understand.
+
+### The Confusion Matrix
+
+A **confusion matrix** compares the model's predicted outcomes to the actual outcomes in the data.
+
+```{r}
+#| results: asis
+cell_00 <- fit_table["Did not contact", "Did not contact"]
+cell_01 <- fit_table["Did not contact", "Contacted"]
+cell_10 <- fit_table["Contacted", "Did not contact"]
+cell_11 <- fit_table["Contacted", "Contacted"]
+
+cat(sprintf('
+<div class="table-container narrow-table">
+<table class="reading-table">
+<caption>Confusion matrix for the logistic regression model</caption>
+<thead>
+<tr>
+<th scope="col">Predicted outcome</th>
+<th scope="col">Actually did not contact</th>
+<th scope="col">Actually contacted</th>
+</tr>
+</thead>
+<tbody>
+<tr><th scope="row">Predicted did not contact</th><td>%d</td><td>%d</td></tr>
+<tr><th scope="row">Predicted contacted</th><td>%d</td><td>%d</td></tr>
+</tbody>
+</table>
+<p class="table-note">Predicted probabilities of .50 or greater are classified as contacted. Data are fictional and used only for illustration.</p>
+</div>
+', cell_00, cell_01, cell_10, cell_11))
+```
+
+The correct predictions are on the diagonal from upper left to lower right:
+
+- Predicted did not contact and actually did not contact.
+- Predicted contacted and actually contacted.
+
+The incorrect predictions are off the diagonal:
+
+- Predicted did not contact but actually contacted.
+- Predicted contacted but actually did not contact.
+
+From the confusion matrix, we can calculate the **percent correctly predicted**:
+
+$$
+\text{Percent correctly predicted}
+= \frac{\text{correctly predicted 0s} + \text{correctly predicted 1s}}{\text{total number of cases}} \times 100.
+$$
+
+In the confusion matrix, the correctly predicted cases are the two cells on the diagonal. In this example, we add the upper-left cell (predicted did not contact and actually did not contact) to the lower-right cell (predicted contacted and actually contacted), divide by the total number of respondents, and multiply by 100.
+
+```{r}
+#| results: asis
+cat(sprintf(
+  "<p>In this example, the model correctly predicts %.1f%% of cases.</p>",
+  100 * percent_correct
+))
+```
+
+At first, this might sound like the only number we need. But it is not enough.
+
+### Compare the Model to the Null Model
+
+To know whether the model classifies well, we need a baseline for comparison. The simplest baseline is the **null model**. The null model does not use any predictors. Instead, it predicts the most common outcome category for every case.
+
+In the fictional Civic Participation Survey, most respondents did not contact an elected official. Specifically, `r sprintf("%.1f", 100 * mean(civic$contacted == 0))` percent of respondents did **not** contact an official, while `r sprintf("%.1f", 100 * mean(civic$contacted == 1))` percent did. Because "did not contact" is the most common category, the null model predicts that every respondent did not contact an elected official.
+
+This means the null model will be correct for everyone who actually did not contact an official and incorrect for everyone who did. Therefore, the percent correctly predicted by the null model is simply the percent of respondents in the modal category:
+
+$$
+\text{Percent correctly predicted by null model}
+=
+\frac{\text{number who did not contact}}{\text{total number of respondents}}
+\times 100.
+$$
+
+In this example, the null model correctly predicts `r sprintf("%.1f", 100 * null_correct)` percent of cases. The logistic regression model correctly predicts `r sprintf("%.1f", 100 * percent_correct)` percent of cases. Thus, the predictors improve prediction by `r sprintf("%.1f", 100 * improvement)` percentage points.
+
+
+This comparison is especially important when one outcome is much more common than the other. Here, a model that simply predicted "did not contact" for every respondent would be `r sprintf("%.1f", 100 * null_correct)` percent accurate. That sounds impressive, but it would not help us identify who actually contacted an official.
+
+
+
+### Predicting Both Outcomes
+
+We should also ask whether the model predicts both outcomes well. A model might do a good job predicting who did not contact an elected official but a poor job predicting who did. That matters because we are usually interested in the event coded 1.
+
+For a binary outcome, useful fit questions include:
+
+- What percent of all cases did the model correctly predict?
+- How much better is that than the null model?
+- How well does the model predict the 0s?
+- How well does the model predict the 1s?
+- Does the model help us answer the substantive question we care about?
+
+Model fit is not just a mechanical statistic. It is part of the substantive evaluation of the model.
+
+::: {.callout-note appearance="minimal" title="Pause and check"}
+Suppose 95 percent of respondents did not contact an elected official. A model correctly predicts 94 percent of all cases but almost never predicts that someone contacted an official. Is this a useful model? Why or why not?
+:::
+
+This would not be a very useful model if our goal is to understand who contacts elected officials. It looks accurate only because most respondents did not contact an official. A good assessment of fit should ask not only how many cases were correctly predicted overall, but also whether the model improves over the null model and whether it predicts both outcome categories reasonably well.
+
+## The Takeaways
+
+Logistic regression is used when the outcome variable is binary. It is appropriate when we want to model whether an event happened or did not happen, such as whether someone contacted an elected official.
+
+Linear regression is not usually appropriate for binary outcomes because it can produce impossible predicted probabilities, assumes a constant effect on the probability scale, and relies on error assumptions that do not fit a 0/1 outcome variable.
+
+Logistic regression solves these problems by modeling the log-odds of the outcome. The model is linear in log-odds:
+
+$$\log\left(\frac{p_i}{1-p_i}\right) =
+\alpha + \beta_1 X_{1,i} + \beta_2 X_{2,i} + \cdots + \beta_k X_{k,i}.$$
+
+Coefficients from logistic regression tell us how the log-odds of the outcome change as a predictor changes. Exponentiating a coefficient gives an odds ratio. But for most substantive interpretations, predicted probabilities are clearer.
+
+The logic of control variables does not change. If another variable is a competing explanation for the outcome and is related to your central predictor, you should control for it. This is true whether you are using linear regression or logistic regression.
+
+Assessing the model also requires different tools. There is no direct equivalent to $R^2$ in logistic regression. What we can assess is how well the model *classifies* cases, using a confusion matrix, percent correctly predicted, comparison to the null model, and attention to whether both outcome categories are predicted well. Classification performance is not the same thing as model fit: it depends on the 0.5 cutoff and on how common each outcome is.
+
+When you use logistic regression in your own work, remember the central question: What is the predicted probability that $Y=1$, and how does that probability change across theoretically meaningful values of your predictors?
+
+## References
+
+Rosenstone, Steven J., and John Mark Hansen. 1993. *Mobilization, Participation, and Democracy in America*. New York: Macmillan.
+
+Verba, Sidney, Kay Lehman Schlozman, and Henry E. Brady. 1995. *Voice and Equality: Civic Voluntarism in American Politics*. Cambridge, MA: Harvard University Press.
