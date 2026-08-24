@@ -294,6 +294,9 @@ grade_this({
   if (!grepl("y\\s*=\\s*counties\\$racial_majority", code_no_comments)) {
     fail("The explanatory variable goes in the `y` argument, so it appears in the columns.")
   }
+  if (grepl("prop\\.(chisq|c|r|t)\\s*=\\s*[TF](?![A-Za-z])", code_no_comments, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("prop\\.c\\s*=\\s*TRUE", code_no_comments)) {
     fail("Set `prop.c = TRUE` to show column proportions.")
   }
@@ -429,6 +432,9 @@ grade_this({
   }
   if (!grepl("y\\s*=\\s*world\\$regime_type3", code_no_comments)) {
     fail("The explanatory variable goes in the `y` argument, so it appears in the columns.")
+  }
+  if (grepl("prop\\.(chisq|c|r|t)\\s*=\\s*[TF](?![A-Za-z])", code_no_comments, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
   if (!grepl("prop\\.c\\s*=\\s*TRUE", code_no_comments)) {
     fail("Set `prop.c = TRUE` to show column proportions.")
@@ -652,6 +658,10 @@ ggplot(data = counties, mapping = ___(x = ___, fill = ___)) +
 
 ```{r exercise-create-proportions-vote-race-majority-check}
 grade_this({
+  show_label <- function(x) {
+    if (is.null(x)) "nothing" else paste0('"', paste(as.character(x), collapse = " "), '"')
+  }
+
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
 
@@ -698,19 +708,49 @@ grade_this({
   plot_labels <- .result$labels
   x_scales <- Filter(function(sc) "x" %in% sc$aesthetics, .result$scales$scales)
   expected_x <- c("0" = "Clinton", "1" = "Trump")
-  if (length(x_scales) == 0 ||
-      !identical(x_scales[[1]]$labels[names(expected_x)], expected_x)) {
+  if (length(x_scales) == 0) {
     fail('Add `scale_x_discrete()` pairing each stored value with its label, as in "0" = "Clinton".')
+  }
+  unmatched_x <- setdiff(names(expected_x), names(x_scales[[1]]$labels))
+  unused_x <- setdiff(names(x_scales[[1]]$labels), names(expected_x))
+  if (length(unmatched_x) > 0) {
+    fail(paste0("Each label must be paired with the value as it is stored in the data, written \"stored value\" = \"label\". No pair matches ",
+                paste0('"', unmatched_x, '"', collapse = " or "),
+                if (length(unused_x) > 0) paste0(", and you have a pair for ", paste0('"', unused_x, '"', collapse = " and "), ", which is not a stored value") else "",
+                ". The stored values are \"0\" and \"1\"."))
+  }
+  got_lab <- x_scales[[1]]$labels[names(expected_x)]
+  wrong_lab <- names(expected_x)[unlist(got_lab) != expected_x]
+  if (length(wrong_lab) > 0) {
+    fail(paste0("Check the axis labels. ",
+                paste0("For \"", wrong_lab, "\" you have \"", unlist(got_lab)[wrong_lab],
+                       "\"; it should be \"", expected_x[wrong_lab], "\".",
+                       collapse = " ")))
   }
   fill_scales <- Filter(function(sc) "fill" %in% sc$aesthetics, .result$scales$scales)
   expected_fill <- c("Black Majority" = "Black", "Hispanic Majority" = "Hispanic",
                      "Other/No Majority" = "Other/No", "White Majority" = "White")
-  if (length(fill_scales) == 0 ||
-      !identical(fill_scales[[1]]$labels[names(expected_fill)], expected_fill)) {
-    fail('Pair each stored value with its legend label, as in "Black Majority" = "Black". All four racial majority categories need a label.')
+  if (length(fill_scales) == 0) {
+    fail('Pair each stored value with its legend label, as in "Black Majority" = "Black".')
+  }
+  unmatched_fill <- setdiff(names(expected_fill), names(fill_scales[[1]]$labels))
+  unused_fill <- setdiff(names(fill_scales[[1]]$labels), names(expected_fill))
+  if (length(unmatched_fill) > 0) {
+    fail(paste0("Each legend label must be paired with the value as it is stored in the data, written \"stored value\" = \"label\". No pair matches ",
+                paste0('"', unmatched_fill, '"', collapse = " or "),
+                if (length(unused_fill) > 0) paste0(", and you have a pair for ", paste0('"', unused_fill, '"', collapse = " and "), ", which is not a stored value") else "",
+                ". The stored values are \"Black Majority\", \"Hispanic Majority\", \"Other/No Majority\" and \"White Majority\"."))
+  }
+  got_lab <- fill_scales[[1]]$labels[names(expected_fill)]
+  wrong_lab <- names(expected_fill)[unlist(got_lab) != expected_fill]
+  if (length(wrong_lab) > 0) {
+    fail(paste0("Check the legend labels. ",
+                paste0("For \"", wrong_lab, "\" you have \"", unlist(got_lab)[wrong_lab],
+                       "\"; it should be \"", expected_fill[wrong_lab], "\".",
+                       collapse = " ")))
   }
   if (!identical(plot_labels$caption, "Source: Linn, Nagler, Zilinsky")) {
-    fail('Set `caption = "Source: Linn, Nagler, Zilinsky"` inside `labs()`.')
+    fail(paste0("Your caption must match exactly. You have ", show_label(plot_labels$caption), "; use `caption = \"Source: Linn, Nagler, Zilinsky\"` inside `labs()`."))
   }
 
   pass("Excellent! Your plot compares Clinton- and Trump-majority outcomes within each racial majority category, with the bars side by side and every axis and group labeled.")
@@ -823,8 +863,13 @@ world %>%
 
 ```{r exercise-create-proportions-gender-equality-regime-check}
 grade_this({
+  show_label <- function(x) {
+    if (is.null(x)) "nothing" else paste0('"', paste(as.character(x), collapse = " "), '"')
+  }
+
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
+  labs_txt <- sub(".*labs\\s*\\(", "", code_no_comments)
 
   if (is.null(.result)) {
     fail("Your code did not produce a plot. Make sure the pipeline ends with a `ggplot()` call and that nothing is assigned to an object instead of being displayed.")
@@ -873,20 +918,24 @@ grade_this({
 
   # Check labels via plot object
   plot_labels <- .result$labels
+  if (!grepl("labs\\s*\\(", code_no_comments)) {
+    fail("Add `labs()` to give the plot a title, axis labels, and caption.")
+  }
+
   if (!identical(plot_labels$title, "Gender Equality")) {
-    fail('Set `title = "Gender Equality"` inside `labs()`.')
+    fail(paste0("Your plot title must match exactly. You have ", show_label(plot_labels$title), "; use `title = \"Gender Equality\"` inside `labs()`."))
   }
   if (!identical(plot_labels$y, "Proportion")) {
-    fail('Set `y = "Proportion"` inside `labs()`.')
+    fail(paste0("Your y-axis label must match exactly. You have ", show_label(plot_labels$y), "; use `y = \"Proportion\"` inside `labs()`."))
   }
-  if (!is.null(plot_labels$x)) {
+  if (!grepl("x\\s*=\\s*NULL", labs_txt)) {
     fail('Set `x = NULL` inside `labs()` so no `x`-axis title appears.')
   }
-  if (!is.null(plot_labels$subtitle)) {
+  if (grepl("subtitle", labs_txt)) {
     fail('Leave `subtitle` out of `labs()` entirely --- this plot should not have one.')
   }
   if (!identical(plot_labels$caption, "Cheibub Democracy and Dictatorship dataset; World Values Survey")) {
-    fail('Add `caption = "Cheibub Democracy and Dictatorship dataset; World Values Survey"` inside `labs()`.')
+    fail(paste0("Your caption must match exactly. You have ", show_label(plot_labels$caption), "; use `caption = \"Cheibub Democracy and Dictatorship dataset; World Values Survey\"` inside `labs()`."))
   }
 
   # Check scale_fill_discrete and labels via code
@@ -897,13 +946,34 @@ grade_this({
     fail('Set `name = "Regime Type"` inside `scale_fill_discrete()`.')
   }
   fill_scales <- Filter(function(sc) "fill" %in% sc$aesthetics, .result$scales$scales)
-  fill_labels <- if (length(fill_scales) > 0) fill_scales[[1]]$labels else NULL
   expected_labels <- c("Dictatorship" = "Dictatorship",
                        "Parliamentary democ" = "Parliamentary\nDemocracy",
                        "Presidential democ" = "Presidential\nDemocracy")
 
-  if (!identical(fill_labels[names(expected_labels)], expected_labels)) {
-    fail('Pair each stored value with its legend label, as in "Parliamentary democ" = "Parliamentary\\nDemocracy". All three categories need a label, and the two democracy labels need their \\n line breaks.')
+  if (length(fill_scales) == 0) {
+    fail('Pair each stored value with its legend label inside `scale_fill_discrete()`, as in "Dictatorship" = "Dictatorship".')
+  }
+  fill_labels <- fill_scales[[1]]$labels
+  unmatched_fill <- setdiff(names(expected_labels), names(fill_labels))
+  unused_fill <- setdiff(names(fill_labels), names(expected_labels))
+  if (length(unmatched_fill) > 0) {
+    fail(paste0("Each legend label must be paired with the value as it is stored in the data, written \"stored value\" = \"label\". No pair matches ",
+                paste0('"', unmatched_fill, '"', collapse = " or "),
+                if (length(unused_fill) > 0) paste0(", and you have a pair for ", paste0('"', unused_fill, '"', collapse = " and "), ", which is not a stored value") else "",
+                ". The stored values are \"Dictatorship\", \"Parliamentary democ\" and \"Presidential democ\"."))
+  }
+  got <- fill_labels[names(expected_labels)]
+  if (!identical(got, expected_labels) &&
+      identical(gsub("\n", " ", got), gsub("\n", " ", expected_labels))) {
+    fail('Your legend labels are right, but the line breaks are missing. Write `"Parliamentary democ" = "Parliamentary\\nDemocracy"` so the label wraps onto two lines.')
+  }
+  wrong_lab <- names(expected_labels)[unlist(got) != expected_labels]
+  if (length(wrong_lab) > 0) {
+    show_lab <- function(x) gsub("\n", "\\\\n", x)
+    fail(paste0("Check the legend labels. ",
+                paste0("For \"", wrong_lab, "\" you have \"", show_lab(unlist(got)[wrong_lab]),
+                       "\"; it should be \"", show_lab(expected_labels[wrong_lab]), "\".",
+                       collapse = " ")))
   }
 
   pass("Good work! Your plot compares the distribution of gender equality within each regime type, with the three regime labels in their stored order.")

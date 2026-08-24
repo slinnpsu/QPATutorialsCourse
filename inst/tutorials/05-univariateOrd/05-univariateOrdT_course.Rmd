@@ -539,6 +539,9 @@ grade_this({
   if (!grepl("fHouse\\s*\\$\\s*FHStatus_2022", code_no_comments)) {
     fail("Access the variable with the dollar-sign operator: `fHouse$FHStatus_2022`.")
   }
+  if (grepl("na\\.rm\\s*=\\s*T(?![A-Za-z])", code_no_comments, perl = TRUE)) {
+    fail("Write `TRUE` in full. R accepts `T` as shorthand, but these tutorials do not: `TRUE` is a reserved word and always means what you expect, while `T` is an ordinary object name that other code can overwrite --- after which an argument set to `T` quietly means something else. Replace `T` with `TRUE` and submit again.")
+  }
   if (!grepl("na\\.rm\\s*=\\s*TRUE", code_no_comments)) {
     fail("Include `na.rm = TRUE` so `median()` excludes the missing **FHStatus_2022** values.")
   }
@@ -564,7 +567,7 @@ If the mode and median point to different categories, the full distribution help
 
 **Practice 10: Create a proportion bar chart for FHStatus_2022**
 
-Build a proportion bar chart for **FHStatus_2022**. Filter out the missing values before piping the data into `ggplot()`, and use the proportion mapping inside `geom_bar()` that you saw earlier in this tutorial. Remember that **FHStatus_2022** is stored as a numeric variable even though its three values are ordered categories --- that has a consequence for how you map it to the x-axis. As in Tutorial 4, the data arrive via a pipe, so only `mapping =` is needed, not `data =`. In `scale_x_discrete()`, label the categories in order from code 0 to 2: \"Not Free\", \"Partly Free\", \"Free\".
+Build a proportion bar chart for **FHStatus_2022**. Filter out the missing values before piping the data into `ggplot()`, and use the proportion mapping inside `geom_bar()` that you saw earlier in this tutorial. Remember that **FHStatus_2022** is stored as a numeric variable even though its three values are ordered categories --- that has a consequence for how you map it to the x-axis. As in Tutorial 4, the data arrive via a pipe, so only `mapping =` is needed, not `data =`. In `scale_x_discrete()`, pair each stored value (0, 1, 2) with its label: \"Not Free\", \"Partly Free\", \"Free\".
 
 Title: \"Political Freedom Around the World\", x-axis label: `NULL`, y-axis: \"Proportion\", caption: \"Source: Freedom House\", fill: \"steelblue\". Three hints are available. Click "Submit Answer" to check your work.
 
@@ -599,6 +602,14 @@ Title: \"Political Freedom Around the World\", x-axis label: `NULL`, y-axis: \"P
 
 ```{r visual-practice-fhstatus-prop-bar-check}
 grade_this({
+  code <- paste(.user_code, collapse = "\n")
+  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  labs_txt <- sub(".*labs\\s*\\(", "", code_no_comments)
+
+  show_label <- function(x) {
+    if (is.null(x)) "nothing" else paste0('"', paste(as.character(x), collapse = " "), '"')
+  }
+
   if (is.null(.result)) {
     fail("Make sure your code produces a plot the grader can check.")
   }
@@ -650,20 +661,44 @@ grade_this({
     fail('Set `fill = "steelblue"` inside `geom_bar()` to color the bars.')
   }
 
-  if (!identical(.result$labels$title, "Political Freedom Around the World")) fail("Check the plot title.")
-  if (!is.null(.result$labels$x)) fail("Set the x-axis label to `NULL`.")
+  if (!grepl("labs\\s*\\(", code_no_comments)) {
+    fail("Add `labs()` to give the plot a title, axis labels, and caption.")
+  }
+
+  if (!identical(.result$labels$title, "Political Freedom Around the World")) {
+    fail(paste0("Your plot title must match exactly. You have ", show_label(.result$labels$title), "; use `title = \"Political Freedom Around the World\"` inside `labs()`."))
+  }
+  if (!grepl("x\\s*=\\s*NULL", labs_txt)) {
+    fail("Set the x-axis label to `NULL`.")
+  }
   if (!identical(.result$labels$y, "Proportion")) {
-    fail("Set the y-axis label to \"Proportion\".")
+    fail(paste0("Your y-axis label must match exactly. You have ", show_label(.result$labels$y), "; use `y = \"Proportion\"` inside `labs()`."))
   }
   if (!identical(.result$labels$caption, "Source: Freedom House")) {
-    fail("Check the caption. Use \"Source: Freedom House\".")
+    fail(paste0("Your caption must match exactly. You have ", show_label(.result$labels$caption), "; use `caption = \"Source: Freedom House\"` inside `labs()`."))
   }
 
   x_scales <- Filter(function(s) "x" %in% s$aesthetics, .result$scales$scales)
-  labels <- if (length(x_scales) > 0) x_scales[[1]]$labels else NULL
   expected_labels <- c("0" = "Not Free", "1" = "Partly Free", "2" = "Free")
-  if (!identical(labels[names(expected_labels)], expected_labels)) {
-    fail("Use `scale_x_discrete()` to pair each stored value with its label, as in \"0\" = \"Not Free\". All three categories need a label.")
+  if (length(x_scales) == 0) {
+    fail("Use `scale_x_discrete()` to pair each stored value with its label, as in \"0\" = \"Not Free\".")
+  }
+  labels <- x_scales[[1]]$labels
+  unmatched <- setdiff(names(expected_labels), names(labels))
+  unused <- setdiff(names(labels), names(expected_labels))
+  if (length(unmatched) > 0) {
+    fail(paste0("Each label must be paired with the value as it is stored in the data, written \"stored value\" = \"label\". No pair matches ",
+                paste0('"', unmatched, '"', collapse = " or "),
+                if (length(unused) > 0) paste0(", and you have a pair for ", paste0('"', unused, '"', collapse = " and "), ", which is not a stored value") else "",
+                ". The stored values are \"0\", \"1\" and \"2\"."))
+  }
+  got_lab <- labels[names(expected_labels)]
+  wrong_lab <- names(expected_labels)[unlist(got_lab) != expected_labels]
+  if (length(wrong_lab) > 0) {
+    fail(paste0("Check the replacement labels. ",
+                paste0("For \"", wrong_lab, "\" you have \"", unlist(got_lab)[wrong_lab],
+                       "\"; it should be \"", expected_labels[wrong_lab], "\".",
+                       collapse = " ")))
   }
 
   pass("Exactly! Your proportion bar chart shows the three **FHStatus_2022** categories in their substantive order, from Not Free through Free.")

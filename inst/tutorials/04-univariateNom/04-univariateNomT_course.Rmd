@@ -115,7 +115,7 @@ To illustrate how to compute a frequency table and identify the mode, you will e
 The first question is simple: how many counties fall into each category? You need that count because the mode is not something you can identify from the variable name or from the numeric codes 0 and 1. You have to look at the distribution itself. To answer the question, you need to do three things: separate the counties into groups, count how many are in each group, and display the result. You will use three functions from the [dplyr]{.package-name} package to do this, connected by the pipe operator `%>%`.
 
 ::: {.tip}
-**The pipe operator** (`%>%`) passes the result of one step directly into the next. Wherever you see it, read it as "and then." So `counties %>% group_by(TrumpMajority)` means "take **counties**, and then group by **TrumpMajority**." That reading can make long pipelines much less intimidating.
+**The pipe operator** (`%>%`) passes the result of one step directly into the next. Wherever you see it, read it as "and then." So `counties %>% group_by(TrumpMajority)` means "take **counties**, and then group by **TrumpMajority**." That reading can make long pipelines much less intimidating. You will also meet a second pipe, `|>`, which is built into R itself and does the same job; code you find online and in newer books often uses it. These tutorials use `%>%` throughout, and you may use either one in the exercises --- both are accepted.
 :::
 
 ### Step 1: `group_by()`
@@ -578,6 +578,10 @@ Setting an argument to `NULL` actively removes a label that would otherwise appe
 
 A plot should be interpretable without requiring the reader to search the surrounding text for basic information. These labels matter because a reader seeing the chart in isolation needs the title to know what is being counted, the subtitle to know when, and the caption to know the source. You can insert a line break inside any label using `\n`, which is useful when a title is too long to fit on one line.
 
+::: {.caution}
+**Label text must match exactly.** Where an exercise gives you a title, axis label, or caption to use, type it exactly as written --- same words, same capitalization, same spacing. The grader compares your text with the expected text character by character, so \"Democratic vote share\" does not match \"Democratic Vote Share\", and a stray space at the end does not match either. This applies to every graded plot in the series.
+:::
+
 **Run and observe 14: Add labels**
 
 ```{r visual-add-labs, exercise=TRUE, exercise.cap="Run and observe 14", fig.alt="The same two-bar chart, now with a title about the number of US counties casting a majority for the major party candidates, the subtitle 2016, a y-axis labeled Frequency, and a source caption. The x-axis tick labels still read 0 and 1."}
@@ -732,8 +736,22 @@ grade_this({
   expected_labels <- c("Black Majority" = "Black", "Hispanic Majority" = "Hispanic",
                        "Other/No Majority" = "Other/No", "White Majority" = "White")
 
-  if (!identical(x_scale$labels[names(expected_labels)], expected_labels)) {
-    fail("Pair each stored value with its short label, as in \"Black Majority\" = \"Black\". All four categories need a label.")
+  unmatched <- setdiff(names(expected_labels), names(x_scale$labels))
+  unused <- setdiff(names(x_scale$labels), names(expected_labels))
+  if (length(unmatched) > 0) {
+    fail(paste0("Each label must be paired with the value as it is stored in the data, written \"stored value\" = \"label\". No pair matches ",
+                paste0('"', unmatched, '"', collapse = " or "),
+                if (length(unused) > 0) paste0(", and you have a pair for ", paste0('"', unused, '"', collapse = " and "), ", which is not a stored value") else "",
+                ". The stored values are \"Black Majority\", \"Hispanic Majority\", \"Other/No Majority\" and \"White Majority\"."))
+  }
+
+  got_lab <- x_scale$labels[names(expected_labels)]
+  wrong_lab <- names(expected_labels)[unlist(got_lab) != expected_labels]
+  if (length(wrong_lab) > 0) {
+    fail(paste0("Check the replacement labels. ",
+                paste0("For \"", wrong_lab, "\" you have \"", unlist(got_lab)[wrong_lab],
+                       "\"; it should be \"", expected_labels[wrong_lab], "\".",
+                       collapse = " ")))
   }
 
   pass("Well done! Your chart has the right variable and the shortened category labels.")
@@ -885,6 +903,11 @@ When you finish, look at the relative bar heights before moving to the interpret
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
+  labs_txt <- sub(".*labs\\s*\\(", "", code_no_comments)
+
+  show_label <- function(x) {
+    if (is.null(x)) "nothing" else paste0('"', paste(as.character(x), collapse = " "), '"')
+  }
 
   if (grepl("world\\s*<-", code_no_comments)) {
     fail("Look at the first line. You have assigned something to **world** rather than passing **world** along the pipeline --- the arrow and the pipe do different things.")
@@ -940,20 +963,24 @@ grade_this({
     fail("Put `fill = \"red\"` outside `aes()`. The fill color is a fixed setting, not a variable mapping.")
   }
 
-  if (!identical(.result$labels$title, "Regime Type")) {
-    fail("Check the plot title.")
+  if (!grepl("labs\\s*\\(", code_no_comments)) {
+    fail("Add `labs()` to give the plot a title, axis labels, and caption.")
   }
 
-  if (!is.null(.result$labels$x)) {
+  if (!identical(.result$labels$title, "Regime Type")) {
+    fail(paste0("Your plot title must match exactly. You have ", show_label(.result$labels$title), "; use `title = \"Regime Type\"` inside `labs()`."))
+  }
+
+  if (!grepl("x\\s*=\\s*NULL", labs_txt)) {
     fail("Set the x-axis label to `NULL`.")
   }
 
   if (!identical(.result$labels$y, "Proportion")) {
-    fail("Set the y-axis label to \"Proportion\".")
+    fail(paste0("Your y-axis label must match exactly. You have ", show_label(.result$labels$y), "; use `y = \"Proportion\"` inside `labs()`."))
   }
 
   if (!identical(.result$labels$caption, "Source: Cheibub Democracy and Dictatorship data set")) {
-    fail("Check the caption. Use \"Source: Cheibub Democracy and Dictatorship data set\".")
+    fail(paste0("Your caption must match exactly. You have ", show_label(.result$labels$caption), "; use `caption = \"Source: Cheibub Democracy and Dictatorship data set\"` inside `labs()`."))
   }
 
   x_scales <- Filter(function(scale) "x" %in% scale$aesthetics, .result$scales$scales)
@@ -966,8 +993,22 @@ grade_this({
   expected_labels <- c("Dictatorship" = "Dictatorship",
                        "Parliamentary democ" = "Parliamentary democracy",
                        "Presidential democ" = "Presidential democracy")
-  if (!identical(x_scale$labels[names(expected_labels)], expected_labels)) {
-    fail("Pair each stored value with its full label, as in \"Parliamentary democ\" = \"Parliamentary democracy\". All three categories need a label.")
+  unmatched <- setdiff(names(expected_labels), names(x_scale$labels))
+  unused <- setdiff(names(x_scale$labels), names(expected_labels))
+  if (length(unmatched) > 0) {
+    fail(paste0("Each label must be paired with the value as it is stored in the data, written \"stored value\" = \"label\". No pair matches ",
+                paste0('"', unmatched, '"', collapse = " or "),
+                if (length(unused) > 0) paste0(", and you have a pair for ", paste0('"', unused, '"', collapse = " and "), ", which is not a stored value") else "",
+                ". The stored values are \"Dictatorship\", \"Parliamentary democ\" and \"Presidential democ\", as shown by `levels(world$regime_type3)`."))
+  }
+
+  got_lab <- x_scale$labels[names(expected_labels)]
+  wrong_lab <- names(expected_labels)[unlist(got_lab) != expected_labels]
+  if (length(wrong_lab) > 0) {
+    fail(paste0("Check the replacement labels. ",
+                paste0("For \"", wrong_lab, "\" you have \"", unlist(got_lab)[wrong_lab],
+                       "\"; it should be \"", expected_labels[wrong_lab], "\".",
+                       collapse = " ")))
   }
 
   pass("Exactly right --- you built a complete proportion bar chart from scratch, labels and all.")
