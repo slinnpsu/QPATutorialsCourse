@@ -1,4 +1,73 @@
-# QPATutorialsCourse — Review Standards (v18.2)
+# QPATutorialsCourse — Review Standards (v19)
+
+**New in v19**, from the TA-review grader work and the inference reframing of
+24--25 August 2026, across T4 and T6--T11. Three kinds of entry: new grader
+rules in §1, the reframing vocabulary in §8, and **corrections to three claims
+this document made about T7--T11 that were already out of date.**
+
+**THE STALE-CLAIM PROBLEM IS THE MOST IMPORTANT ENTRY HERE.** Three separate
+claims in v18.2 about what T7--T11 still needed had already been fixed by the
+time they were checked: the infographic reorder, T9's library paragraph, and
+T11's wrapped prose. Each cost a check to disprove. **Before enforcing any
+"tutorial X still needs Y" claim in this document, verify it against the file.**
+The rules describing a shape or a test remain reliable; the status claims decay.
+
+**New grader rules (§1):**
+- **`TRUE` and `FALSE` are written in full; `T` and `F` are rejected.** 27 check
+  sites across T1, T2, T5, T6, T7 and T9. Two message variants, one where the
+  argument is needed and one where it is not.
+- **A grader must never assert something the student can see is false.** T6's
+  `range()` message said "Your `range()` call returns NA" while the result sat
+  on screen, because `na.rm = T` was read as the argument being absent.
+- **ggplot no longer stores DEFAULT labels on the plot object.** `p$labels` is
+  an empty named list for a plot whose labels were never set, so
+  `is.null(.result$labels$x)` cannot tell "wrote `x = NULL`" from "wrote
+  nothing" and passes both. Eight such checks across T4--T8 were dead. Scope
+  the check to the `labs()` call in the submitted code instead.
+  **The general lesson: a check that tests for ABSENCE fails OPEN.** It passes a
+  wrong answer silently, where a check on a value fails loudly if the API moves.
+  Audit those first in any tutorial not yet reviewed.
+- **Label comparisons echo the student's own text**, so an invisible difference
+  such as a trailing space becomes visible. 32 sites across T4--T9.
+- **Scale-label checks split into branches** rather than one `identical()`:
+  missing scale, unmatched stored value, a stray key matching nothing, wrong
+  replacement text, and (where the expected text contains one) a missing `\n`.
+
+**Reframing vocabulary (§8):**
+- **A hypothesis is a claim about a general political relationship; the
+  particular election or cross-section is the evidence.** Settled 24 August
+  after she judged the old framing contrived: the counties and world data are
+  near-complete cases, and justifying inference by calling them a sample from a
+  finite population is not true of the data.
+- **Interval-outcome hypotheses read "will tend to have".** A tendency admits
+  exceptions, which is what makes inference the right tool. Categorical-outcome
+  hypotheses already read "will be more likely to" and are untouched.
+  **The "In a comparison of [cases]" template STAYS** --- she teaches it, and it
+  names the unit of analysis, which free prose drops.
+- **"larger than chance" and "statistical significance" are OUT** of the
+  descriptive tutorials. The replacement, used seven times across T7--T9:
+  *whether a pattern this large would be surprising if there were no systematic
+  relationship between the variables.* "Chance" invites "chance from what?",
+  which is the question the reframing exists to answer.
+- **Do not call complete data a sample.** Fixed in T6's n-1 explanation, its
+  range paragraph and its Takeaways; in T8's "small-sample noise" for a group of
+  96 counties; and in T10's claim that any 40-country data set is a sample.
+  Genuine samples keep the word: T8's invented commute-time cities, T9's
+  correlation formula terms, T11's Gallup survey.
+
+**Voice (§9):** the pronoun sweep is NARROW. Only authorial `we`/`us`/`our`
+goes --- promises about the document, and possessives for things belonging to
+the reader. `we` meaning the discipline's practice or the shared walkthrough
+STAYS. T10 and T11 legitimately carry far more of it than T7--T9 because they
+are narrative simulations; that is a genre difference, not a defect.
+
+**Editing discipline (§12): RAISE AN ISSUE BEFORE REVISING, NOT IN THE MESSAGE
+CARRYING THE FILE.** Her ruling, 24 August, after I flagged an open question in
+a delivery: anything known to be unresolved stops the edit until she has ruled.
+
+**Also settled:** the pipe stays `%>%` corpus-wide, with a note in T4 that `|>`
+exists and either is accepted; a migration, if ever done, goes across tutorials,
+decks, problem sets and readings in one pass.
 
 **New in v18.2**, from the T1--T6 Takeaways rebuild of 9 August 2026. §6 gains
 six rules for the Takeaways and §8 gains two on overstatement. The one REVERSAL:
@@ -111,6 +180,79 @@ before enforcing it. Where it describes a shape or a test, it is more reliable.
 ---
 
 ## 1. Graders
+
+- **`TRUE` and `FALSE` are written in full. `T` and `F` are rejected.** Added
+  25 August 2026 from the TA review. `TRUE` and `FALSE` are reserved words and
+  cannot be redefined; `T` and `F` are ordinary object names that any code can
+  overwrite, and in a statistics course `F <- 3.2` for an F-statistic is a
+  plausible thing to type. After that, `se = F` quietly means 3.2, with no error.
+  The check goes ABOVE the check that requires the argument, so `T` gets its own
+  message rather than falling through to one written for the argument being
+  absent:
+
+  ```r
+  if (grepl("na\\.rm\\s*=\\s*T(?![A-Za-z])", code_no_comments, perl = TRUE)) {
+    fail("Write `TRUE` in full. ...")
+  }
+  ```
+
+  `perl = TRUE` is required: the lookahead is what stops the pattern matching
+  inside `TRUE`. **Two message variants.** Where the argument is needed, the
+  message ends "Replace `T` with `TRUE` and submit again." Where it is not ---
+  the variable has no missing values --- it ends by saying the argument can be
+  dropped instead, so the student is not sent round twice. **Scope the check to
+  the function call when several calls in one submission take the argument
+  separately** (T6's `range()`, `min()` and `max()`), and to the whole submission
+  when several arguments in one call take it together (T7's four `prop.*`).
+- **A GRADER MUST NEVER ASSERT SOMETHING THE STUDENT CAN SEE IS FALSE.** T6's
+  Practice 6 told a student "Your `range()` call returns NA" while the range sat
+  on screen above the message --- the code said `na.rm = T`, which the check read
+  as the argument being absent. The message was accurate for the case it was
+  written for and false for the case that reached it. **When a message states a
+  fact about the result rather than an instruction, check which inputs can reach
+  it.**
+- **ggplot no longer stores DEFAULT labels on the plot object.** For a plot whose
+  labels were never set, `p$labels` is an empty named list --- so
+  `is.null(.result$labels$x)` cannot distinguish a student who wrote `x = NULL`
+  from one who wrote nothing, and passes both. Eight checks across T4, T5, T6, T7
+  and T8 were dead this way, found 25 August 2026. The fix reads the submitted
+  code instead, scoped to the `labs()` call:
+
+  ```r
+  labs_txt <- sub(".*labs\\s*\\(", "", code_no_comments)
+  if (!grepl("x\\s*=\\s*NULL", labs_txt)) { fail(...) }
+  ```
+
+  **The general lesson is bigger than this API change: A CHECK THAT TESTS FOR
+  ABSENCE FAILS OPEN.** It passes a wrong answer silently, where a check on a
+  value fails loudly and visibly if the library moves under it. When reviewing a
+  tutorial that has not been through this, audit the absence checks first.
+- **A LABEL COMPARISON ECHOES THE STUDENT'S OWN TEXT.** `identical()` on a title,
+  axis label or caption fails on a trailing space or a capital letter the student
+  cannot see, and quoting only the expected string back at them shows nothing.
+  Build the message with the value they supplied beside the one wanted. A local
+  helper inside the grader handles the cases where a label is absent or is a
+  language object rather than a string:
+
+  ```r
+  show_label <- function(x) {
+    if (is.null(x)) "nothing" else paste0('"', paste(as.character(x), collapse = " "), '"')
+  }
+  ```
+
+  **Do NOT define such a helper in the setup chunk.** There is no evidence in the
+  corpus that a setup-chunk function resolves inside a `-check` chunk, and 32
+  graders is the wrong place to test the assumption.
+- **A SCALE-LABEL CHECK SPLITS INTO BRANCHES.** One `identical()` on
+  `labels[names(expected)]` reports four different mistakes with one message, and
+  the message names none of them. Split it: no scale at all; a stored value with
+  no matching pair, NAMED; a key the student supplied that matches nothing, also
+  named; correct keys with wrong replacement text, naming the pair; and, where the
+  expected text contains one, a missing `\n` line break, which gets its own
+  message because every word can be right and the label still wrong. Seven sites
+  across T4, T5, T7 and T8.
+- **A `labs()` PRESENCE CHECK GOES ABOVE THE LABEL CHECKS.** Without it, deleting
+  `labs()` walks the student through the missing labels one submission at a time.
 
 - **[script]** Comment stripping must be `gsub("#[^\r\n]*", "", code)` — never
   `gsub("#.*", "", code)`. In R's default regex `.` matches newlines, so the
@@ -422,6 +564,21 @@ is `try_again`, covered in section 4 — different thing, different rules.
   Students at that stage should be composing code, not completing it.
 - `___` in exercise *starter code* is always fine — the rule is about hints.
 
+- **THE FINAL HINT STATES THE ANSWER WHEN IT IS A FACT, AND WITHHOLDS IT WHEN IT
+  IS THE JUDGMENT THE EXERCISE TEACHES. Settled 25 August 2026** after T12's four
+  graded exercises looked inconsistent and turned out not to be. Corpus practice
+  for a last hint is to give the answer outright --- T7's cross-tab hint ends
+  "TrumpMajority is the outcome, so it fills the x blank; racial_majority is the
+  explanatory variable, so it fills the y blank", and T8's do the same. That is
+  correct where the remaining step is knowledge: which variable is the outcome,
+  which argument carries the legend title. **But T12's two `prop.test()`
+  exercises end their last hint on a question --- "with that group listed first,
+  which value of `alternative` tests it?" --- and that is also correct**, because
+  translating a hypothesis into `"greater"` or `"less"` given the order the
+  groups were listed in IS the skill the exercise exists to teach. Handing it
+  over empties the exercise. The test to apply: **if the last hint gave its
+  content away, would anything be left to learn?** Where the answer is no,
+  withhold and end on the question.
 - **Hints must not answer each other out of order.** If hint 1 poses a question
   ("Which variable is which here?") and hint 3 answers it, hint 2 must not be
   about something else --- the student opens them in sequence. Check the
@@ -470,6 +627,19 @@ is `try_again`, covered in section 4 — different thing, different rules.
   in `message =`.
 - Per-answer `message =` on every distractor, explaining why it is wrong.
   Each distractor should be a misconception someone actually holds.
+- **[script] `try_again` DOES NOT OPEN WITH "Hint:". Settled 25 August 2026**, after
+  she noticed T12's read like a stand-in. It is not the Hint button --- questions
+  have none --- so the label announces a feature that does not exist. T1 and
+  T4--T9 never used it; T3, T10, T11 and T14 used it on every question and T2,
+  T12 and T13 on some, so the corpus was split 63 of 143 with no rule written
+  down. All 63 were stripped. Start with the substance: "The column totals run
+  along the bottom of the table."
+- **BOTH the per-answer `message` AND `try_again` display on a wrong answer.**
+  Verified in the rendered tutorial, 25 August 2026, because the source cannot
+  tell you. That is why `try_again` may be generic while the messages carry the
+  diagnosis: the student sees the specific explanation with the generic nudge
+  beneath it. **A `try_again` that merely restates one answer's message is
+  therefore redundant, not helpful.**
 - **`try_again` is the message a wrong answer triggers automatically** — not the
   Hint button, which questions do not have. It should point at the distinction
   being tested without naming the answer: "There are two nominal variables in
@@ -511,6 +681,20 @@ is `try_again`, covered in section 4 — different thing, different rules.
   instead --- a four-word throwaway option is its own tell.
   Multi-select items are less exposed, since the cue does not tell you how many
   to pick.
+  **KNOWN THREE-OPTION EXCEPTIONS, ruled 25 August 2026:** T12's
+  `quiz-racialmajority-alternative` and `cyu-direction-prediction` ask which
+  value of `alternative` a hypothesis needs. `"greater"`, `"less"` and
+  `"two.sided"` are the whole answer space, so three options is correct and the
+  battery's count check will flag both by design. Both previously carried a
+  fourth option that was not a value at all --- a sentence ABOUT a value, in one
+  case repeating another option's value verbatim, which with
+  `random_answer_order = TRUE` showed the student two options beginning
+  `alternative = "greater"`. **Do not restore a fourth option to either.**
+  **MEASURE IN WORDS AGAINST THE MEAN. Re-learned 25 August 2026:** checking
+  characters against the LONGEST distractor cleared three questions at 1.12,
+  1.15 and 1.13 that the real rule flagged at 1.59, 1.20 and 1.43. The document
+  already said mean-in-words; using the other metric is how you get a false
+  clear on your own new writing.
 - **[script] A box that concedes the reader already knows is a box that should
   not be there.** Grep the first line of every callout for "As in earlier
   tutorials", "As you know", "You will recall", "By now". T20 carried a `.tip`
@@ -1081,8 +1265,10 @@ backticks are fine everywhere.
   idea.** Opening on the table also forces the sentence beside it to point
   BACKWARD at something the reader has already scrolled past, and it left T3
   with three stub paragraphs of setup before anything substantive. Applied
-  9 Aug to T3, T4, T5 and T6. **T7, T8, T9, T12, T13 and T14 still open with the
-  infographic and need the same reorder.** T1 and T2 have no infographic.
+  9 Aug to T3, T4, T5 and T6. **T7, T8 and T9 were VERIFIED COMPLIANT on 25 August
+  2026 --- all three already open with a motivating paragraph.** T12, T13 and T14
+  were listed as open on 9 Aug and have NOT been re-checked; verify before acting.
+  T1 and T2 have no infographic.
 - **THE SENTENCE BESIDE AN INFOGRAPHIC MUST SAY SOMETHING THE TABLE CANNOT.**
   Her words: "I do not want an administrative table sentence!!" **The test: if
   the sentence could be written by looking at the table, cut it** --- every
@@ -1121,8 +1307,9 @@ backticks are fine everywhere.
 - **`library()` INSTRUCTIONS BELONG IN T1 ONLY.** Name the package that holds a
   function anywhere it helps --- `[dplyr]{.package-name}`, `[ggplot2]{.package-name}`,
   base R --- but no loading instructions outside T1, which is where they are
-  taught. Stripped 9 Aug from T4, T5 and T6; **T9 still carries a full
-  paragraph.**
+  taught. Stripped 9 Aug from T4, T5 and T6. **T9's paragraph is GONE --- verified
+  25 August 2026. T7 and T8 mention packages only in `.package-name` spans, which
+  this rule permits.**
 - **The Takeaways open with an HTML infographic table that accumulates across
   the sequence.** One data column in the first tutorial, headed generically;
   at the second, that column is RENAMED to its case and a second added. Cells
@@ -1317,6 +1504,44 @@ ONWARD --- BUT §10 EXTENDS IT TO EVERY TUTORIAL, INCLUDING WHEN THE COUNT IS
 
 ## 8. Language
 
+- **A HYPOTHESIS IS A CLAIM ABOUT A GENERAL RELATIONSHIP; THE PARTICULAR DATA
+  ARE THE EVIDENCE. Settled 24 August 2026.** The counties and world data cover
+  nearly every case, and the old framing justified inference by treating them as
+  a sample from a finite population --- which is not true of the data and invites
+  the obvious student question: why test for significance when we have every
+  county? The replacement shape, applied across T7--T9: state the hypothesis
+  generally, then bridge to the setting in one sentence --- "The hypothesis
+  describes a broader relationship, and the 2016 election provides one setting in
+  which to examine it." **The bridge names the operationalization too** where the
+  concept and the measure differ: because the Democratic Party held the
+  presidency in 2016, Democratic vote share measures incumbent-party support.
+  That distinction is a pedagogical gain in its own right.
+- **Interval-outcome hypotheses read "will tend to have."** A tendency admits
+  exceptions, which is what makes inference the right tool for assessing it.
+  Categorical-outcome hypotheses already read "will be more likely to" and are
+  untouched. **The "In a comparison of [cases], those that are [X]..." template
+  STAYS** --- she teaches it, and its preamble names the unit of analysis, which
+  free prose silently drops. Thirteen hypotheses across T7--T9 use it.
+- **"larger than chance" and "statistical significance" are OUT of the
+  descriptive tutorials.** One replacement, used seven times across T7--T9:
+  *it does not tell you whether a pattern this large would be surprising if there
+  were no systematic relationship between the variables.* "Chance" invites
+  "chance from what?", and the answer is the null model that T10--T14 build.
+  In T10 and T11 the word survives only where the process is specified and
+  concrete: Sarah guessing at 50% per trial, and the p-value misconception
+  passage, where the whole point is the difference between two conditional
+  probabilities.
+- **DO NOT CALL COMPLETE DATA A SAMPLE.** The corpus had this in five places, all
+  fixed 24--25 August: T6's n-1 explanation ("because you are estimating the
+  population standard deviation from a sample", while computing the SD of ten
+  presidents), its range paragraph and its Takeaways; T8's "small-sample noise"
+  for a group of 96 counties; T10's claim that a 40-country data set is a sample
+  drawn from all countries; and T4's Takeaways definition of descriptive
+  statistics as summaries "about the sample". **Genuine samples keep the word:**
+  T8's invented commute-time cities, the sample mean and sample size in T9's
+  correlation formula, T11's Gallup survey. The test is whether anything was
+  actually sampled.
+
 - **DO NOT OVERSTATE FREQUENCY, UNIVERSALITY, OR WHAT IS COMPUTABLE. New
   9 August 2026, after eight instances surfaced in T1--T5 alone.** The claim is
   never needed and is usually false. Three forms:
@@ -1342,6 +1567,26 @@ ONWARD --- BUT §10 EXTENDS IT TO EVERY TUTORIAL, INCLUDING WHEN THE COUNT IS
   **Grep for how the corpus already words a recurring point before writing it
   again.**
 
+- **HYPOTHESES ARE ABOUT THE POPULATION. Do not write "the population or the
+  underlying process." Settled 25 August 2026.** Under the superpopulation
+  reading the population parameter IS the process parameter --- they are not two
+  targets needing a translation rule, and pairing them makes them sound like
+  alternatives. An earlier attempt added a gloss telling students to "read
+  'the population' as the inferential target"; it was cut, along with a
+  shorthand paragraph built on the same hedge. **The defect to fix is
+  "the population, NOT THE SAMPLE"** --- that one calls complete data a sample
+  and is false. The replacement is "not about the cases you observed."
+- **A CHI-SQUARE NULL NAMES NO PARAMETER, SO STATE IT AT THE LEVEL OF THE
+  HYPOTHESIS.** Her ruling, 25 August 2026, on reading "**racial_majority** and
+  **TrumpMajority** are not related in the population" and finding that it
+  sounded like a question about an already-existing population. T12's six
+  omnibus statements now read "Racial composition and support for Republican
+  presidential candidates are not systematically related." The tests that DO
+  name a parameter keep "in the population", because $\pi$ has to be anchored
+  somewhere. The result is a visible two-level structure --- concept, then
+  operationalization --- which teaches the reframing instead of explaining it.
+  **This requires the concept-to-variable mapping to be explicit once**, which
+  is why T12's first bridge says "with Donald Trump as the Republican candidate."
 - outcome / explanatory / predictor. Not dependent / independent.
 - **The synonyms are named ONCE, at the definition in T7, and nowhere else.**
   Students remember explanatory and outcome but mix up dependent and
@@ -1386,6 +1631,20 @@ ONWARD --- BUT §10 EXTENDS IT TO EVERY TUTORIAL, INCLUDING WHEN THE COUNT IS
 ## 9. Voice
 
 - Warm, direct, second person. Humor where it lands.
+- **THE PRONOUN SWEEP IS NARROW. Settled 25 August 2026**, from three options
+  offered. Only AUTHORIAL `we`/`us`/`our` goes: promises about the document
+  ("we will define it precisely shortly", "the bowl we will use in the next
+  section") and possessives for things belonging to the reader ("our sample
+  mean" becomes "your sample mean"). **What STAYS** is `we` meaning the
+  discipline's practice ("why we test the null and not the alternative", "in
+  practice we cannot compute it exactly") and `we` meaning the walkthrough the
+  reader and the tutorial are doing together ("we simulate what would happen if
+  the null were true"). Rewriting those into second person produces "you
+  simulate" for something the tutorial does for the student. `let's` stays.
+  **Counts are a genre signal, not a defect count:** T7 has 0, T9 2, T8 3, T6 6,
+  T4 12 --- but T10 and T11 had 48 and 41, because they are narrative
+  simulations. Fifteen authorial uses were removed from the two of them; the rest
+  are correct. **Still owed on T13 and T15--T21.**
 - **Never assume WHEN the reader is reading, or what they have just been doing.**
   These tutorials are used in other courses, and by students returning to them
   semesters later while writing honors theses. So nothing may refer to the
@@ -1413,7 +1672,10 @@ ONWARD --- BUT §10 EXTENDS IT TO EVERY TUTORIAL, INCLUDING WHEN THE COUNT IS
   skipping their bodies left T11's p-value definition and misconception box still
   wrapped; **bullets belong on one line** — T6 through T9 have zero wrapped bullet
   continuations and T11 had thirteen, so an indented continuation appends to the
-  bullet above it; and **the YAML front matter is excluded**.
+  bullet above it; and **the YAML front matter is excluded**. **T11 was VERIFIED
+  CLEAN on 25 August 2026: zero wrapped bullet continuations, prose median 296
+  characters against a corpus range of 263--384, and the short lines inside its
+  divs are box titles, which belong on their own line.**
   **INDENTED LINES ARE NOT PROSE — exclude them from both the measurement and
   the unwrapper.** Every tutorial from T3 onward carries an HTML infographic
   table whose rows are indented, not prefixed with `<` at column zero. A filter
@@ -1558,6 +1820,15 @@ carried.** Decided 1 August 2026.
   the vector back to alphabetical.
 
 ## 12. Editing discipline
+
+- **RAISE AN ISSUE BEFORE REVISING, NOT IN THE MESSAGE THAT CARRIES THE FILE.
+  Her ruling, 24 August 2026**, sharpening the earlier rule about never handing
+  back a file known to be incomplete. Flagging an open question alongside the
+  delivery wastes a round: she has to read the file and the caveat together and
+  decide whether the file is usable. Anything known to be unresolved stops the
+  edit until she has ruled on it. **This applies to questions discovered
+  mid-build**, which is when it is most tempting to carry on and mention it
+  afterwards.
 
 Every failure in the T7 pass was in what an edit LEFT BEHIND, not in the edit.
 
