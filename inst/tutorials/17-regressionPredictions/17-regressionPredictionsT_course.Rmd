@@ -163,6 +163,9 @@ Save your model as **fit1** and present the results. Three hints are available. 
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
+  if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("lm\\s*\\(", code_nc))
     fail("Use lm() to estimate the model.")
   if (!grepl("fit1\\s*<-", code_nc))
@@ -256,6 +259,9 @@ stargazer(fit1,
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
+  if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("stargazer\\s*\\(", code_nc))
     fail("Use stargazer() to produce the table.")
   if (!grepl("type\\s*=", code_nc))
@@ -553,12 +559,21 @@ ___(fit1,
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
+  if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("plot_model\\s*\\(", code_nc))
     fail("Use plot_model() to produce the prediction plot.")
   if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
     fail("Set type = \"pred\".")
+  if (!grepl("plot_model\\s*\\(\\s*fit1\\b", code_nc))
+    fail("Pass **fit1** as the model object.")
   if (!grepl("terms\\s*=", code_nc))
     fail("Name the argument that decides which variable goes on the x-axis.")
+  if (!grepl("region_censusf", code_nc))
+    fail("Set `terms =` to **region_censusf**, the variable whose predicted values you want on the x-axis.")
+  if (!grepl("Predicted Democratic House Seat Share by Census Region", code_nc, fixed = TRUE))
+    fail("Use the prescribed title: \"Predicted Democratic House Seat Share by Census Region\".")
   if (!grepl("Census Region", code_nc, fixed = TRUE))
     fail("Use \"Census Region\" as the x-axis label.")
   if (!grepl("Proportion of Democratic House Seats", code_nc, fixed = TRUE))
@@ -652,8 +667,13 @@ ___(fit1,
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
+  if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("plot_model\\s*\\(", code_nc))
     fail("Use plot_model() to produce the prediction plot.")
+  if (!grepl("plot_model\\s*\\(\\s*fit1\\b", code_nc))
+    fail("Pass **fit1** as the model object.")
   if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
     fail("Set type = \"pred\".")
   if (!grepl("terms\\s*=", code_nc))
@@ -777,6 +797,9 @@ Write the complete `stargazer()` call from scratch, passing **model_rep** as the
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
+  if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("stargazer\\s*\\(", code_nc))
     fail("Use stargazer() to produce the table.")
   if (!grepl("model_rep", code_nc))
@@ -793,15 +816,13 @@ grade_this({
   for (lbl in labels)
     if (!grepl(lbl, code_nc, fixed = TRUE))
       fail(paste0("The label \"", lbl, "\" is missing."))
-  cov_match <- regexpr("covariate\\.labels\\s*=.*", code_nc)
-  cov_str   <- if (cov_match > 0) substring(code_nc, cov_match) else code_nc
-  pos_quota <- regexpr("Gender Quota",            cov_str, fixed = TRUE)[1]
-  pos_prop  <- regexpr("Proportional System",     cov_str, fixed = TRUE)[1]
-  pos_mixed <- regexpr("Mixed System",            cov_str, fixed = TRUE)[1]
-  pos_years <- regexpr("Years Since First Woman", cov_str, fixed = TRUE)[1]
-  if (!all(diff(c(pos_quota, pos_prop, pos_mixed, pos_years)) > 0))
+  # Positions are taken in the whole submission rather than in a substring cut at
+  # `covariate.labels =`: the four labels appear nowhere else in the prescribed
+  # text, and slicing the code depended on `.` matching newlines.
+  pos <- vapply(labels, function(l) regexpr(l, code_nc, fixed = TRUE)[1], numeric(1))
+  if (!all(diff(pos) > 0))
     fail("The labels are out of order. They should follow formula order: Gender Quota, Proportional System, Mixed System, Years Since First Woman.")
-  pass("Right.")
+  pass("Right. The labels follow the order the model reports its coefficients in, which is what lets a reader match each row to a predictor.")
 })
 ```
 
@@ -854,27 +875,54 @@ predict(model_rep,
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
+  if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("predict\\s*\\(", code_nc))
-    fail("Use predict() to obtain predicted values.")
+    fail("Use `predict()` to obtain predicted values.")
   if (!grepl("model_rep", code_nc))
-    fail("Pass model_rep as the model object.")
+    fail("Pass **model_rep** as the model object.")
   if (!grepl("newdata", code_nc))
-    fail("Include a newdata = argument specifying the predictor values.")
-  if (!grepl("quota_f", code_nc))
-    fail("Include quota_f in your newdata data frame.")
-  if (!grepl("electoral_f", code_nc))
-    fail("Include electoral_f in your newdata data frame.")
-  if (!grepl("years_c", code_nc))
-    fail("Include years_c in your newdata data frame.")
-  if (!grepl("Plurality/Majority", code_nc, fixed = TRUE))
-    fail("Include a prediction for plurality/majority countries.")
-  if (!grepl("Proportional", code_nc, fixed = TRUE))
-    fail("Include a prediction for proportional countries.")
-  if (!grepl("No quota", code_nc, fixed = TRUE))
-    fail("Set quota_f to \"No quota\" in both calls.")
-  n_calls <- lengths(regmatches(code_nc, gregexpr("predict\\s*\\(", code_nc)))
-  if (n_calls < 2)
-    fail("Write two predict() calls: one for a plurality system, one for a proportional system.")
+    fail("Include a `newdata =` argument specifying the predictor values.")
+
+  # Parse the submission into top-level expressions so each call is graded on its
+  # own. `.result` holds only the last one, and both are being asked for.
+  exprs <- tryCatch(as.list(parse(text = code_nc)), error = function(e) NULL)
+  if (is.null(exprs))
+    fail("Your code could not be parsed. Check for a missing comma or bracket.")
+  is_pred <- function(x) {
+    if (is.call(x) && identical(deparse(x[[1]]), "<-") && length(x) == 3L) x <- x[[3]]
+    is.call(x) && identical(deparse(x[[1]]), "predict")
+  }
+  as_pred <- function(x) {
+    if (is.call(x) && identical(deparse(x[[1]]), "<-") && length(x) == 3L) x[[3]] else x
+  }
+  pcalls <- lapply(Filter(is_pred, exprs), as_pred)
+  if (length(pcalls) != 2)
+    fail(paste0("Write two `predict()` calls, one per electoral system. Your code has ",
+                length(pcalls), "."))
+
+  prof <- data.frame(
+    quota_f     = factor(c("No quota", "No quota"), levels = levels(ipu$quota_f)),
+    electoral_f = factor(c("Plurality/Majority", "Proportional"),
+                         levels = levels(ipu$electoral_f)),
+    years_c     = c(0, 0))
+  want <- as.numeric(predict(model_rep, newdata = prof))
+
+  # Evaluate each call rather than matching its text, so any equivalent way of
+  # writing the same profile is accepted.
+  got <- suppressWarnings(vapply(pcalls, function(cl) {
+    v <- tryCatch(as.numeric(eval(cl))[1], error = function(e) NA_real_)
+    if (length(v) == 0L) NA_real_ else v
+  }, numeric(1)))
+  labels <- c("a Plurality/Majority country with no quota and an average-length history",
+              "a Proportional country with no quota and an average-length history")
+  for (i in seq_len(2)) {
+    if (is.na(got[i]) || abs(got[i] - want[i]) > 0.05)
+      fail(paste0("Call ", i, " does not give the predicted percent women for ", labels[i],
+                  ". Check **quota_f**, **electoral_f** and **years_c** in that call."))
+  }
+
   pass("Right. Two `predict()` calls identical except for the electoral system isolate exactly the comparison the hypothesis is about.")
 })
 ```
@@ -954,6 +1002,9 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
+  if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("plot_model\\s*\\(", code_nc))
     fail("Use plot_model() to produce the prediction plot.")
   if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
@@ -962,6 +1013,8 @@ grade_this({
     fail("Set terms = \"years_c\" to put parliamentary history on the x-axis.")
   if (!grepl("model_rep", code_nc))
     fail("Pass model_rep as the model object.")
+  if (!grepl("Predicted Women's Representation by Length of Parliamentary History", code_nc, fixed = TRUE))
+    fail("Use the prescribed title: \"Predicted Women's Representation by Length of Parliamentary History\".")
   if (!grepl("axis\\.title\\s*=", code_nc))
     fail("Include the axis.title = argument.")
   if (!grepl("Years Since First Woman \\(centered\\)", code_nc))
@@ -1054,6 +1107,9 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
+  if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("plot_model\\s*\\(", code_nc))
     fail("Use plot_model() to produce the prediction plot.")
   if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
@@ -1062,6 +1118,8 @@ grade_this({
     fail("Set terms = \"electoral_f\" to put electoral system on the x-axis.")
   if (!grepl("model_rep", code_nc))
     fail("Pass model_rep as the model object.")
+  if (!grepl("Predicted Women's Representation by Electoral System", code_nc, fixed = TRUE))
+    fail("Use the prescribed title: \"Predicted Women's Representation by Electoral System\".")
   if (!grepl("axis\\.title\\s*=", code_nc))
     fail("Include the axis.title = argument.")
   if (!grepl("Electoral System", code_nc, fixed = TRUE))
@@ -1194,6 +1252,9 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_nc <- gsub("#[^\r\n]*", "", code)
+  if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
+    fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
+  }
   if (!grepl("plot_model\\s*\\(", code_nc))
     fail("Use plot_model() to produce the prediction plot.")
   if (!grepl("model_rep", code_nc))
@@ -1213,6 +1274,8 @@ grade_this({
     fail("Both years_c and electoral_f should appear inside the terms = c(...) argument.")
   if (years_pos > electra_pos)
     fail("years_c should come first in terms (x-axis), and electoral_f second (separate lines). Check the order inside c(...).")
+  if (!grepl("Predicted Women's Representation by History and Electoral System", code_nc, fixed = TRUE))
+    fail("Use the prescribed title: \"Predicted Women's Representation by History and Electoral System\".")
   if (!grepl("axis\\.title\\s*=", code_nc))
     fail("Include the axis.title = argument.")
   if (!grepl("Years Since First Woman \\(centered\\)", code_nc))
