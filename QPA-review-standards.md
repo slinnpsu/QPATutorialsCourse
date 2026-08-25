@@ -681,15 +681,23 @@ is `try_again`, covered in section 4 — different thing, different rules.
   instead --- a four-word throwaway option is its own tell.
   Multi-select items are less exposed, since the cue does not tell you how many
   to pick.
-  **KNOWN THREE-OPTION EXCEPTIONS, ruled 25 August 2026:** T12's
-  `quiz-racialmajority-alternative` and `cyu-direction-prediction` ask which
-  value of `alternative` a hypothesis needs. `"greater"`, `"less"` and
-  `"two.sided"` are the whole answer space, so three options is correct and the
-  battery's count check will flag both by design. Both previously carried a
-  fourth option that was not a value at all --- a sentence ABOUT a value, in one
-  case repeating another option's value verbatim, which with
-  `random_answer_order = TRUE` showed the student two options beginning
-  `alternative = "greater"`. **Do not restore a fourth option to either.**
+  **A DISTRACTOR THAT CARRIES A MISCONCEPTION IS NOT AN "INVENTED FOURTH OPTION."
+  Ruled 25 August 2026, reversing a deletion made earlier the same day.** Four
+  questions across T12, T13 and T14 ask which value of `alternative` a hypothesis
+  needs. `"greater"`, `"less"` and `"two.sided"` are the whole answer space, so a
+  fourth option cannot be another value --- and I read that as the invented-option
+  defect and deleted two of them, folding their content into other messages. That
+  was wrong. **Each fourth option was the misconception the question exists to
+  catch**: that you may reorder the groups, or that variable order changes the
+  sign of a correlation. T14's correct-answer message says so outright --- "the
+  detail about which variable was entered first is a distractor built into the
+  question." **A distractor a student can select tests a misconception better
+  than a sentence inside another option's feedback.** Both were restored.
+  The real defect was narrower: **two options must not OPEN on the same value.**
+  With `random_answer_order = TRUE` a student saw two options beginning
+  `alternative = "greater"`, and the opening is what the eye lands on. Fixed by
+  putting the reason first --- "Because entering anti-establishment support first
+  reverses the predicted direction, `alternative = "greater"`."
   **MEASURE IN WORDS AGAINST THE MEAN. Re-learned 25 August 2026:** checking
   characters against the LONGEST distractor cleared three questions at 1.12,
   1.15 and 1.13 that the real rule flagged at 1.59, 1.20 and 1.43. The document
