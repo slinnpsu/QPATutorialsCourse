@@ -97,7 +97,7 @@ This creates an important interpretive constraint that differs from linear regre
 - The **z-value** and **p-value** tell you whether the relationship is statistically distinguishable from zero. Logistic regression uses maximum likelihood estimation rather than ordinary least squares, which means the sampling distribution of the coefficient estimator is approximately standard normal in large samples rather than a t-distribution --- hence z-values rather than t-values. The decision rule is the same: a z-value whose absolute value exceeds 1.96 corresponds approximately to a p-value below .05.
 - The **magnitude** of the coefficient, in log-odds units, does not translate directly into a meaningful statement about the size of the effect on the probability scale.
 
-That last point is critical. In linear regression, a slope of 0.314 meant "a one-unit increase in the predictor is associated with a 0.314-unit increase in the outcome." In logistic regression, the size of the estimated association on the probability scale depends on where you are on the S-curve --- which depends on the values of all the other predictors. To say anything about the size of an estimated association, you need predicted probabilities, which we will cover later in this tutorial.
+That last point is critical. In linear regression, a slope of 0.314 meant "a one-unit increase in the predictor is associated with a 0.314-unit increase in the outcome." In logistic regression, the size of the estimated association on the probability scale depends on where you are on the S-curve --- which depends on the values of all the other predictors. To say anything about the size of an estimated association, you need predicted probabilities, which this tutorial covers later.
 
 One further quantity turns up constantly in published logistic regression results, and it is worth recognizing even though these tutorials do not use it. Applying `exp()` to a coefficient converts it from log-odds into an **odds ratio**: the multiplicative change in the odds of the outcome for a one-unit increase in the predictor. An odds ratio of 1 means no relationship, a ratio above 1 means the odds go up, and a ratio below 1 means they go down. What an odds ratio does not give you is a change in probability. The odds scale is no more intuitive than the log-odds scale, and neither one answers the question raised above --- how much the probability moves for a case you actually care about. That is why these tutorials go from coefficients straight to predicted probabilities and skip the odds scale. When you meet an odds ratio in published work, read it as a statement about odds, not about probabilities.
 
@@ -109,7 +109,7 @@ The two examples that follow put all of this to work. Each one walks through the
 
 The 2016 presidential election produced one of the most-analyzed results in recent American political history. Donald Trump won the Electoral College while losing the popular vote, assembling a coalition that differed markedly from previous Republican nominees. Understanding which counties gave Trump a majority of their two-party vote --- and why --- offers a window into the political geography of that realignment.
 
-Two theoretical perspectives motivate our model. The first is **retrospective voting**: voters reward the incumbent party when economic conditions are good and punish it when conditions are bad. If retrospective voting drove 2016 results, counties that experienced stronger wage growth should have been more likely to support the incumbent party's candidate, Hillary Clinton --- meaning less likely to give Trump a majority. Counties where working-age adults faced higher mortality risk should have been more likely to reject the incumbent party and support Trump.
+Two theoretical perspectives motivate the model. The first is **retrospective voting**: voters reward the incumbent party when economic conditions are good and punish it when conditions are bad. If retrospective voting drove 2016 results, counties that experienced stronger wage growth should have been more likely to support the incumbent party's candidate, Hillary Clinton --- meaning less likely to give Trump a majority. Counties where working-age adults faced higher mortality risk should have been more likely to reject the incumbent party and support Trump.
 
 The second perspective draws on the work of Sides, Tesler, and Vavreck, who argue that Trump's campaign rhetoric activated attitudes about race, immigration, and cultural identity among voters who felt left behind by economic and demographic change. On this account, the racial and geographic composition of a county --- not just its economic trajectory --- should be associated with Trump support, controlling for the other variables.
 
@@ -345,7 +345,9 @@ grade_this({
 
 Once a package is loaded with `library()`, all of its functions are available for the rest of your R session --- you do not need to load it again each time you use a function from it. [stargazer]{.package-name} was loaded at the start of the exercise above, so it is available for every exercise that follows in this tutorial. In your own work, load a package the first time you need one of its functions.
 
-### What Does the Model Predict?
+## What Does the Model Predict for Particular Counties?
+
+### Predicting a Probability with `predict()`
 
 Coefficients tell you direction and significance. To understand the size of an estimated association --- how different the probability of a Trump majority actually is between two counties --- you need [predicted probabilities]{.important-text}. The `predict()` function with `type = "response"` returns predicted probabilities from a logistic regression model. The two steps are the ones the reading described: the model first combines the intercept and the predictor values into a single value on the log-odds scale, and `type = "response"` then applies the logistic transformation that turns that value into a probability between 0 and 1. Without `type = "response"`, `predict()` stops at the log-odds value, which is not directly interpretable.
 
@@ -577,7 +579,7 @@ question("Which statement best describes what the three predicted probabilities 
 )
 ```
 
-### How Well Does the Model Classify Counties?
+## How Well Does the Model Classify Counties?
 
 The `hitmiss()` function from the [pscl]{.package-name} package assesses classification performance by taking the fitted model object as its argument. It converts each predicted probability to a predicted outcome using a 0.5 threshold --- if the predicted probability exceeds 0.5 the model predicts the outcome occurred; otherwise it predicts it did not --- and cross-tabulates those predicted outcomes against the actual outcomes, producing a [confusion matrix]{.important-text}. The 0.5 threshold is conventional rather than inherent in logistic regression. It has a natural reading --- above 0.5 the model considers the outcome more likely than not --- but other cutoffs are legitimate, and changing the cutoff changes every number in the matrix. When the outcome is rare, the model will often assign predicted probabilities below 0.5 even for actual 1s, because in a world where the event is uncommon that is frequently the right answer. So a 0.5 cutoff applied to an imbalanced outcome will usually classify the minority category less accurately than the majority one. That is a property of the cutoff meeting the imbalance, not a limitation of logistic regression, and it is why comparing to the null model matters.
 
@@ -835,7 +837,7 @@ question("Which of the following statements correctly apply the five-step proced
   correct = "Right: two statements correctly describe the **gov_f** results.",
   answer("We fail to reject the null hypothesis for `gov_fRepublican` --- the data do not provide strong evidence that having a Republican governor is associated with emissions cap adoption after controlling for the other predictors",
          correct = TRUE,
-         message = "The z-statistic for `gov_fRepublican` is -1.258 and the p-value is 0.208. Once we control for the ideological character of the state's public, governor party does not significantly add to our ability to predict emissions cap adoption. That is a statement about what these data can distinguish, not about why. The governor-party estimate is imprecise enough that zero remains among the values consistent with the data."),
+         message = "The z-statistic for `gov_fRepublican` is -1.258 and the p-value is 0.208. Once we control for the ideological character of the state's public, governor party does not significantly add to the ability to predict emissions cap adoption. That is a statement about what these data can distinguish, not about why. The governor-party estimate is imprecise enough that zero remains among the values consistent with the data."),
   answer("The **gov_f** rows report a comparison against Democrat-governed states, because `\"Democrat\"` is the reference category",
          correct = TRUE,
          message = "Every factor coefficient is a comparison against the reference. Here that is `\"Democrat\"`, set deliberately with `relevel()`, so the single **gov_f** row asks whether Republican-governed states differ from Democrat-governed ones. Had a different reference been chosen, the row would answer a different question."),
@@ -932,7 +934,9 @@ grade_this({
 })
 ```
 
-### What Does the Model Predict?
+## What Does the Model Predict for Particular States?
+
+### A First Predicted Probability
 
 **Run and observe 19: Obtain a predicted probability**
 
@@ -1143,7 +1147,7 @@ question("Which statement best describes what the three predicted probabilities 
 )
 ```
 
-### How Well Does the Model Classify States?
+## How Well Does the Model Classify States?
 
 The `hitmiss()` function works the same way as in the first example: pass it the fitted model object to obtain the confusion matrix and classification statistics.
 
