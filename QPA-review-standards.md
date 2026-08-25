@@ -1,5 +1,15 @@
 # QPATutorialsCourse — Review Standards (v19)
 
+**Extended later on 25 August 2026** with the T12--T21 work: the reframing
+carried into the three testing tutorials, the pronoun sweep completed corpus-wide,
+`try_again` stripped of its "Hint:" prefix in 63 places, three tutorials
+restructured for section length, and a grader audit across T15--T21 that added a
+`TRUE`/`FALSE` check to all 46 and brought eight graders up to what their prompts
+prescribe. **Five status claims in this document were found stale that day** ---
+the T7--T9 infographic order, T9's library paragraph, T11's wrapped prose, the
+three-option question exceptions, and `fig.alt` in T15--T19. All five are
+corrected in place and marked with the date verified.
+
 **New in v19**, from the TA-review grader work and the inference reframing of
 24--25 August 2026, across T4 and T6--T11. Three kinds of entry: new grader
 rules in §1, the reframing vocabulary in §8, and **corrections to three claims
@@ -180,6 +190,38 @@ before enforcing it. Where it describes a shape or a test, it is more reliable.
 ---
 
 ## 1. Graders
+
+- **A GRADER MUST CHECK EVERYTHING ITS PROMPT PRESCRIBES. The single most common
+  defect found in the T15--T21 audit of 25 August 2026 --- eight of thirteen
+  graders failed it.** Prompts list a title, axis labels, a legend, a caption;
+  graders checked some and not others, so a student could omit a prescribed
+  title, plot the wrong variable, or pass the wrong model object and still be
+  told they were right. **The test: list every string and every object the
+  prompt names, then find each one in the grader.** Where the item is already
+  written into the starter and the student is told to change nothing else, a
+  check still earns its place --- it catches deletion --- but the priority is
+  anything the student has to type.
+  **Two sub-cases worth naming:** a check on a fragment passes a wrong answer
+  (T19 accepted `"Wage Growth"` where the prompt prescribed `"Wage Growth (%)"`),
+  and a grader that never names the model object accepts a plot of the right
+  shape built from the wrong model.
+- **A PATTERN WITH DOUBLED BACKSLASHES MATCHES NOTHING AND FAILS EVERY
+  SUBMISSION. Near-miss, 25 August 2026.** Model checks written for T21 came out
+  as `plot_model\\\\s*\\\\(` where the working graders beside them read
+  `plot_model\\s*\\(`. In R the first looks for a literal backslash, so three
+  exercises would have rejected every correct answer. **Compare any new pattern
+  against one already working in the same file before accepting it.** It
+  surfaced only because the verification step disagreed with the build script's
+  own success message --- **which is the general lesson: never accept "applied"
+  as evidence that the right thing was applied.**
+- **TEXT-CHECKING IS SOMETIMES CORRECT, NOT ALWAYS A SHORTCUT.** The rule below
+  about inspecting the result rather than the submission holds --- but `T` versus
+  `TRUE` is invisible to any result check, since both evaluate identically, so
+  the style check can only be a text check. Likewise, when a task IS to type
+  prescribed labels in a prescribed order, those labels are text and checking
+  them as text is direct rather than lazy. **Classify a grader as text-only to
+  decide where to look, not to conclude it is wrong.** Of thirteen so classified
+  in T15--T21, two were sound on inspection.
 
 - **`TRUE` and `FALSE` are written in full. `T` and `F` are rejected.** Added
   25 August 2026 from the TA review. `TRUE` and `FALSE` are reserved words and
@@ -698,6 +740,15 @@ is `try_again`, covered in section 4 — different thing, different rules.
   `alternative = "greater"`, and the opening is what the eye lands on. Fixed by
   putting the reason first --- "Because entering anti-establishment support first
   reverses the predicted direction, `alternative = "greater"`."
+  **SKIP MULTI-SELECT ENTIRELY WHEN CHECKING ANSWER LENGTH --- and make the
+  script skip them, not just the reader. Learned 25 August 2026:** a first pass
+  over T15--T21 reported eight flags, six of them in T20, and all eight were
+  "select all that apply" items. The script had taken the FIRST correct answer
+  and compared it against the mean of every other option, which mixes the
+  remaining correct answers in with the distractors. The rule below already says
+  multi-select is less exposed; the check has to implement that. **Detect it by
+  counting `correct = TRUE` in the block: more than one means skip.** Of 114
+  questions in T15--T21, 30 are multi-select and the other 84 flag nothing.
   **MEASURE IN WORDS AGAINST THE MEAN. Re-learned 25 August 2026:** checking
   characters against the LONGEST distractor cleared three questions at 1.12,
   1.15 and 1.13 that the real rule flagged at 1.59, 1.20 and 1.43. The document
@@ -1034,6 +1085,35 @@ backticks are fine everywhere.
   that contrasts it with T7 and T8.
 
 ## 6. Structure
+
+- **SECTION LENGTH IS MEASURED IN LINES PER LEVEL-2 HEADING, NOT IN HEADING
+  COUNT. Settled 25 August 2026** after she noticed T17's pages ran very long.
+  learnr builds progressive reveal from headings, so a section is one continuous
+  scroll with no break and no landmark. The corpus median is **112 lines per
+  `##`**; the files that read best (T8, T12, T13, T18) run 76--82. Heading count
+  scales with length and is not the measure --- T1 has 19 sections and reads
+  well at 92.
+  **Three files were restructured that day**, all of them prediction or model
+  tutorials whose worked examples ran unbroken: T17 from 197 to 105, T21 from
+  191 to 100, T20 from 174 to 115. **No prose was rewritten** --- subsection
+  headings were promoted to sections and renamed.
+  **Where to cut:** each example's own subsections already mark the seams. T17
+  and T21 divide into tables-and-predicted-values, then the interval predictor,
+  then the categorical predictor, then the two together. T20's two examples had
+  eight identical subsections that group into estimating, predicting and
+  classifying. **A split that follows the tutorial's existing progression needs
+  no new writing; one imposed on it needs a lot.**
+  **Name the new sections as substantive questions**, because that is what the
+  corpus does once worked examples begin --- "How Much Do Census Regions
+  Differ?", not "Plotting a Categorical Predictor". The parallel across two
+  examples is what lets a student see the second as the same procedure on
+  different data.
+  **Short sections are normal and not a defect:** 23 of 230 sections corpus-wide
+  run under 20 lines, including six-line ones in T5, T8 and T18. The test is
+  whether it is a thing you would want to navigate to, not how long it is.
+  **T11 (155) and T10 (152) are now the longest-running.** Both are narrative
+  simulation tutorials, so that may be genre rather than defect --- the same
+  argument that settled their pronoun counts.
 
 - Title Case at both `##` and `###`. **A technical term keeps its lowercase
   letter where the case carries meaning** --- `p-value`, `t-test`, and any
@@ -1389,6 +1469,14 @@ backticks are fine everywhere.
   --- §7's first rule is "`fig.alt` on every figure" and the check was simply not
   run. T20 and T21 were brought into compliance on 8 August; T15--T19 still need
   it, and writing the text requires the rendered figures.
+  **CLOSED, VERIFIED 25 August 2026: every figure that RENDERS now carries
+  `fig.alt`.** Twelve across T17 (3), T19 (3), T20 (1) and T21 (5); T15, T16 and
+  T18 produce no figures at all. The count depends on what you call a figure ---
+  a first pass reported 44 "missing" because it counted `-hint-` and `-check`
+  chunks, which contain plotting code as TEXT and render nothing. Count only
+  chunks that execute and display: not hints, not graders, not `eval=FALSE`
+  templates. **Nine of the twelve are `exercise=TRUE` chunks, so the untested
+  mechanism in the next entry is what they depend on.**
 - **OPEN CORPUS-WIDE GAP, logged 8 August 2026: figures produced by STUDENT code
   carry no alt text at all.** `fig.alt` is a knitr chunk option and the checks
   written for it only ever looked at non-exercise chunks, so an exercise whose
@@ -1652,7 +1740,11 @@ ONWARD --- BUT §10 EXTENDS IT TO EVERY TUTORIAL, INCLUDING WHEN THE COUNT IS
   **Counts are a genre signal, not a defect count:** T7 has 0, T9 2, T8 3, T6 6,
   T4 12 --- but T10 and T11 had 48 and 41, because they are narrative
   simulations. Fifteen authorial uses were removed from the two of them; the rest
-  are correct. **Still owed on T13 and T15--T21.**
+  are correct. **COMPLETE ACROSS THE CORPUS as of 25 August 2026:** T10 and T11
+  (15 edits), T12, T13 (15), and T16, T18, T19, T20, T21 (15 between them). T14,
+  T15 and T17 were checked and needed nothing --- every candidate in them was
+  `tells us` or `lets us`, which stays. Of 256 uses in T15--T21, 45 were
+  `tells us` alone. **Do not re-run this sweep.**
 - **Never assume WHEN the reader is reading, or what they have just been doing.**
   These tutorials are used in other courses, and by students returning to them
   semesters later while writing honors theses. So nothing may refer to the
