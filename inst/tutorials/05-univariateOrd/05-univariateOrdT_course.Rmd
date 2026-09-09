@@ -2,6 +2,7 @@
 title: "Univariate Description: Ordinal Variables"
 tutorial:
   id: "05-Ordinal-Description"
+  version: "1.0.0"
 output:
   QPATutorialsCourse::qpa_tutorial:
     progressive: true
@@ -315,6 +316,18 @@ ggplot(data = counties, mapping = aes(x = ___)) +
 
 ```{r visual-practice-bar-rural-check}
 grade_this({
+  get_aes_text <- function(plot, aes_name) {
+    out <- character(0)
+    grab <- function(m) {
+      if (is.null(m)) return(character(0))
+      tryCatch(paste(deparse(rlang::get_expr(m)), collapse = ""),
+               error = function(e) character(0))
+    }
+    out <- c(out, grab(plot$mapping[[aes_name]]))
+    for (layer in plot$layers) out <- c(out, grab(layer$mapping[[aes_name]]))
+    out
+  }
+
   if (is.null(.result)) {
     fail("Make sure your code produces a plot the grader can check.")
   }
@@ -337,7 +350,7 @@ grade_this({
     fail("Use all nonmissing observations of **rural_urban** from the **counties** data frame. Do not remove any valid observations.")
   }
 
-  x_expr <- paste(deparse(rlang::get_expr(.result$mapping$x)), collapse = "")
+  x_expr <- paste(get_aes_text(.result, "x"), collapse = " ")
   if (!grepl("factor\\s*\\(\\s*rural_urban\\s*\\)", x_expr) &&
       !grepl("as.factor\\s*\\(\\s*rural_urban\\s*\\)", x_expr)) {
     fail("Map `factor(rural_urban)` to the x-axis so the ordinal categories appear as categories.")
@@ -604,6 +617,19 @@ Title: \"Political Freedom Around the World\", x-axis label: `NULL`, y-axis: \"P
 grade_this({
   code <- paste(.user_code, collapse = "\n")
   code_no_comments <- gsub("#[^\r\n]*", "", code)
+
+  get_aes_text <- function(plot, aes_name) {
+    out <- character(0)
+    grab <- function(m) {
+      if (is.null(m)) return(character(0))
+      tryCatch(paste(deparse(rlang::get_expr(m)), collapse = ""),
+               error = function(e) character(0))
+    }
+    out <- c(out, grab(plot$mapping[[aes_name]]))
+    for (layer in plot$layers) out <- c(out, grab(layer$mapping[[aes_name]]))
+    out
+  }
+
   labs_txt <- sub(".*labs\\s*\\(", "", code_no_comments)
 
   show_label <- function(x) {
@@ -635,14 +661,13 @@ grade_this({
     fail("Add `geom_bar()` to create the bar plot.")
   }
 
-  x_expr <- paste(deparse(rlang::get_expr(.result$mapping$x)), collapse = "")
+  x_expr <- paste(get_aes_text(.result, "x"), collapse = " ")
   if (!grepl("factor\\s*\\(\\s*FHStatus_2022\\s*\\)", x_expr) &&
       !grepl("as.factor\\s*\\(\\s*FHStatus_2022\\s*\\)", x_expr)) {
     fail("Map `factor(FHStatus_2022)` to the x-axis so the categories are treated as discrete rather than numeric.")
   }
 
-  layer_map <- bar_layers[[1]]$mapping
-  y_expr <- paste(deparse(rlang::get_expr(layer_map$y)), collapse = "")
+  y_expr <- paste(get_aes_text(.result, "y"), collapse = " ")
 
   if (!grepl("after_stat\\s*\\(\\s*prop\\s*\\)", y_expr) && !grepl("\\.\\.prop\\.\\.", y_expr)) {
     fail("Inside `geom_bar()`, map y to `after_stat(prop)` so the bars show proportions.")
@@ -976,7 +1001,7 @@ For ordinal variables, the three dimensions are described as follows:
 
 **Visualizing an ordinal variable** uses the same [ggplot2]{.package-name} layering as Tutorial 4: `ggplot()` sets up the data and mapping, `geom_bar()` draws the bars, and `labs()` adds the title and axis labels. Two additions matter for an ordinal variable. `scale_x_discrete()` pairs readable labels with the stored values, so the axis shows category names rather than codes. `coord_flip()` swaps the axes when the category labels are too long to sit side by side.
 
-**Turning counts into proportions** takes one change inside `geom_bar()`: `aes(y = after_stat(prop), group = 1)`. Filter the missing values out first with `filter()` from [dplyr]{.package-name}, for the same reason as a proportion table, and pipe the filtered data into `ggplot()` --- the pipe supplies the `data =` argument, so only `mapping =` is needed.
+**Turning counts into proportions** takes one change inside `geom_bar()`: `aes(y = after_stat(prop), group = 1)`. Those two mappings can also go inside `ggplot()` alongside `x`. Anything set in `ggplot()` applies to every layer, so the plot comes out the same either way. Putting them in `geom_bar()` keeps them next to the bars they change, which is why the examples here do that. Filter the missing values out first with `filter()` from [dplyr]{.package-name}, for the same reason as a proportion table, and pipe the filtered data into `ggplot()` --- the pipe supplies the `data =` argument, so only `mapping =` is needed.
 
 In Tutorial 6, you will move to interval variables, where the distances between values are equal and meaningful. That additional property makes the **mean** available as a measure of central tendency --- the payoff for all the "not appropriate for ordinal" caveats in this tutorial. The median remains useful for interval variables too, but the mean becomes the primary tool.
 

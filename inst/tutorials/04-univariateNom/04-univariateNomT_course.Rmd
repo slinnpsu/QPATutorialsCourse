@@ -2,6 +2,7 @@
 title: "Univariate Description: Nominal Variables"
 tutorial:
   id: "04-Nominal-Description"
+  version: "1.0.0"
 output:
   QPATutorialsCourse::qpa_tutorial:
     progressive: true
@@ -682,6 +683,18 @@ ggplot(data = counties, mapping = aes(x = ___)) +
 
 ```{r visual-practice-bar-race-check}
 grade_this({
+  get_aes_text <- function(plot, aes_name) {
+    out <- character(0)
+    grab <- function(m) {
+      if (is.null(m)) return(character(0))
+      tryCatch(paste(deparse(rlang::get_expr(m)), collapse = ""),
+               error = function(e) character(0))
+    }
+    out <- c(out, grab(plot$mapping[[aes_name]]))
+    for (layer in plot$layers) out <- c(out, grab(layer$mapping[[aes_name]]))
+    out
+  }
+
   if (is.null(.result)) {
     fail("Make sure your code produces a plot the grader can check.")
   }
@@ -697,10 +710,7 @@ grade_this({
     fail("Add a `geom_bar()` layer so the plot draws a frequency bar chart.")
   }
 
-  mapping_text <- paste(
-    deparse(rlang::quo_get_expr(.result$mapping$x)),
-    collapse = ""
-  )
+  mapping_text <- paste(get_aes_text(.result, "x"), collapse = " ")
 
   if (!grepl("racial_majority", mapping_text)) {
     fail("Map **racial_majority** to the x-axis.")
@@ -805,7 +815,7 @@ To produce a proportion bar chart, only the `geom_bar()` layer changes. `labs()`
 
 The `ggplot()` call itself is unchanged: **df** is named directly in `data =`, as **counties** was earlier.
 
-Inside `geom_bar()`, two things are new to proportion charts, plus one that works on any bar chart. `after_stat(prop)` transforms the y-axis from counts to proportions: it tells ggplot to compute each category's share of all cases after the data have been tallied, rather than drawing raw counts. `group = 1` tells ggplot to compute those proportions across all bars together. Without it, ggplot would compute each bar's proportion relative to itself and every bar would show 1.0. Finally, `fill = "blue"` sets the bar color. This one has nothing to do with proportions --- it works the same way on a frequency bar chart, and you could have added it to any of the charts you built earlier. It sits outside the `aes()` call because it is a fixed setting applied equally to all bars, not a mapping from a variable: when a visual property is constant, it belongs outside `aes()`.
+Inside `geom_bar()`, two things are new to proportion charts, plus one that works on any bar chart. `after_stat(prop)` transforms the y-axis from counts to proportions: it tells ggplot to compute each category's share of all cases after the data have been tallied, rather than drawing raw counts. `group = 1` tells ggplot to compute those proportions across all bars together. Without it, ggplot would compute each bar's proportion relative to itself and every bar would show 1.0. Those two mappings can also go inside `ggplot()` alongside `x`. Anything set in `ggplot()` applies to every layer, so the plot comes out the same either way. Putting them in `geom_bar()` keeps them next to the bars they change, which is why the examples here do that. Finally, `fill = "blue"` sets the bar color. This one has nothing to do with proportions --- it works the same way on a frequency bar chart, and you could have added it to any of the charts you built earlier. It sits outside the `aes()` call because it is a fixed setting applied equally to all bars, not a mapping from a variable: when a visual property is constant, it belongs outside `aes()`.
 
 **Run and observe 20: Build a proportion bar chart for Census region**
 
@@ -909,6 +919,22 @@ grade_this({
     if (is.null(x)) "nothing" else paste0('"', paste(as.character(x), collapse = " "), '"')
   }
 
+  # Collect an aesthetic from the plot mapping AND every layer, so it is found
+  # wherever the student mapped it. Each read is guarded: a missing mapping is
+  # NULL, and passing NULL to quo_get_expr() throws rather than returning empty.
+  get_aes_text <- function(plot, aes_name) {
+    out <- character(0)
+    grab <- function(m) {
+      if (is.null(m)) return(character(0))
+      tryCatch(paste(deparse(rlang::get_expr(m)), collapse = ""),
+               error = function(e) character(0))
+    }
+    out <- c(out, grab(plot$mapping[[aes_name]]))
+    for (layer in plot$layers) out <- c(out, grab(layer$mapping[[aes_name]]))
+    out
+  }
+
+
   if (grepl("world\\s*<-", code_no_comments)) {
     fail("Look at the first line. You have assigned something to **world** rather than passing **world** along the pipeline --- the arrow and the pipe do different things.")
   }
@@ -924,7 +950,7 @@ grade_this({
     fail("Build the plot from the **world** data frame, using **regime_type3**.")
   }
 
-  mapping_text <- paste(deparse(rlang::quo_get_expr(.result$mapping$x)), collapse = "")
+  mapping_text <- paste(get_aes_text(.result, "x"), collapse = " ")
   if (!grepl("regime_type3", mapping_text)) {
     fail("Map **regime_type3** to the x-axis.")
   }
@@ -941,7 +967,7 @@ grade_this({
   bar_layers <- Filter(function(layer) inherits(layer$geom, "GeomBar"), .result$layers)
   bar_layer <- bar_layers[[1]]
 
-  y_mapping <- paste(deparse(rlang::quo_get_expr(bar_layer$mapping$y)), collapse = "")
+  y_mapping <- paste(get_aes_text(.result, "y"), collapse = " ")
   if (!grepl("after_stat\\s*\\(\\s*prop\\s*\\)", y_mapping)) {
     fail("Inside `geom_bar()`, set `y = after_stat(prop)` so the bars show proportions.")
   }
