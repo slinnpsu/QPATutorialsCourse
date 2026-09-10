@@ -2,7 +2,6 @@
 title: "Univariate Description: Ordinal Variables"
 tutorial:
   id: "05-Ordinal-Description"
-  version: "1.0.0"
 output:
   QPATutorialsCourse::qpa_tutorial:
     progressive: true
@@ -357,15 +356,20 @@ grade_this({
   }
 
   bar_layer <- bar_layers[[1]]
-  y_map <- tryCatch(rlang::get_expr(bar_layer$mapping$y), error = function(e) NULL)
+  y_quo <- if (!is.null(bar_layer$mapping$y)) bar_layer$mapping$y else .result$mapping$y
+  y_map <- tryCatch(rlang::get_expr(y_quo), error = function(e) NULL)
   y_expr <- if (!is.null(y_map)) paste(deparse(y_map), collapse = "") else ""
   if (grepl("after_stat\\s*\\(\\s*prop\\s*\\)", y_expr) || grepl("\\.\\.prop\\.\\.", y_expr)) {
-    fail("This exercise asks for a frequency bar chart, not a proportion chart. Remove the `y = after_stat(prop)` and `group = 1` arguments from `geom_bar()`.")
+    fail("This exercise asks for a frequency bar chart, not a proportion chart. Remove the `y = after_stat(prop)` and `group = 1` arguments.")
+  }
+
+  if ("fill" %in% names(bar_layer$mapping) || "fill" %in% names(.result$mapping)) {
+    fail('Put `fill = "firebrick"` outside `aes()`, inside `geom_bar()`. The fill color is a fixed setting, not a variable mapping --- inside `aes()` ggplot treats "firebrick" as data and draws a legend for it.')
   }
 
   fill_value <- bar_layer$aes_params$fill
   if (is.null(fill_value) || !identical(tolower(fill_value), "firebrick")) {
-    fail('Set `fill = "firebrick"` inside `geom_bar()` to color the bars.')
+    fail('Set `fill = "firebrick"` in `geom_bar()`, outside the `aes()` call, to color the bars.')
   }
 
   has_flip <- isTRUE(tryCatch({
@@ -673,7 +677,7 @@ grade_this({
     fail("Inside `geom_bar()`, map y to `after_stat(prop)` so the bars show proportions.")
   }
 
-  group_quo <- bar_layers[[1]]$mapping$group
+  group_quo <- if (!is.null(bar_layers[[1]]$mapping$group)) bar_layers[[1]]$mapping$group else .result$mapping$group
   group_ok <- tryCatch({
     !is.null(group_quo) && identical(rlang::eval_tidy(group_quo), 1)
   }, error = function(e) FALSE)
@@ -681,9 +685,13 @@ grade_this({
     fail("Inside `geom_bar()`, include `group = 1` so proportions are computed across all **FHStatus_2022** categories.")
   }
 
+  if ("fill" %in% names(bar_layers[[1]]$mapping) || "fill" %in% names(.result$mapping)) {
+    fail('Put `fill = "steelblue"` outside `aes()`, inside `geom_bar()`. The fill color is a fixed setting, not a variable mapping --- inside `aes()` ggplot treats "steelblue" as data and draws a legend for it.')
+  }
+
   fill_value <- bar_layers[[1]]$aes_params$fill
   if (is.null(fill_value) || !identical(tolower(fill_value), "steelblue")) {
-    fail('Set `fill = "steelblue"` inside `geom_bar()` to color the bars.')
+    fail('Set `fill = "steelblue"` in `geom_bar()`, outside the `aes()` call, to color the bars.')
   }
 
   if (!grepl("labs\\s*\\(", code_no_comments)) {
