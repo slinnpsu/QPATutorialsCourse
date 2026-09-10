@@ -100,8 +100,10 @@ the corpus carries `fig.alt`** --- twelve of them, in T17 (3), T19 (3), T20 (1)
 and T21 (5). T15, T16 and T18 produce no figures at all. Raw counts per file run
 higher because `-hint-` and `-check` chunks contain plotting code as text and
 render nothing; count only chunks that execute and display. **Nine of the twelve
-sit on `exercise=TRUE` chunks and depend on the mechanism still listed as
-untested.** Earlier counts, for reference: T16 2, T17 8, T18 1, T19 6. **T15 has
+sit on `exercise=TRUE` chunks, and **that mechanism was VERIFIED IN THE BROWSER
+on 10 September 2026** --- the rendered `<img>` carries both `alt` and
+`aria-label` with the full text. Every figure in the corpus, whether produced by
+tutorial code or by student code, is labelled and reachable.** Earlier counts, for reference: T16 2, T17 8, T18 1, T19 6. **T15 has
 none and needs none** --- it has no exercise that produces a plot
 (`inherits(.result, "ggplot")` appears zero times in its graders).
 

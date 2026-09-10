@@ -1535,8 +1535,18 @@ backticks are fine everywhere.
   chunks that execute and display: not hints, not graders, not `eval=FALSE`
   templates. **Nine of the twelve are `exercise=TRUE` chunks, so the untested
   mechanism in the next entry is what they depend on.**
-- **OPEN CORPUS-WIDE GAP, logged 8 August 2026: figures produced by STUDENT code
-  carry no alt text at all.** `fig.alt` is a knitr chunk option and the checks
+- **CLOSED, VERIFIED IN THE BROWSER 10 September 2026: `fig.alt` on an
+  `exercise=TRUE` chunk DOES reach the student.** Inspecting the rendered image
+  in T17's Run and observe 5 showed the `<img>` carrying BOTH `alt="..."` and
+  `role="img" aria-label="..."`, each holding the full `fig.alt` text. So the
+  first of the two candidate mechanisms below works, it is invisible to
+  students, and nothing needs to move into student-visible code. **Twenty-four
+  exercise chunks across T17, T19 and T21 carry `fig.alt` and are all
+  labelled.** The original entry is kept below because its reasoning about why
+  the checks missed this is still the right warning: a scan written for
+  non-exercise chunks will pass an exercise that ships an unlabelled image.
+- **The original entry --- OPEN CORPUS-WIDE GAP, logged 8 August 2026: figures
+  produced by STUDENT code carry no alt text at all.** `fig.alt` is a knitr chunk option and the checks
   written for it only ever looked at non-exercise chunks, so an exercise whose
   output is a plot passes every accessibility check while shipping an unlabelled
   image. Ten plot-producing exercises across T17, T19 and T21 are in this state,
