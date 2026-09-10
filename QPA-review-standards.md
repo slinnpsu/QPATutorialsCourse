@@ -1,5 +1,13 @@
 # QPATutorialsCourse — Review Standards (v19)
 
+**Extended 9--10 September 2026**, from two student-reported failures. §1 gains
+the plot-aesthetic rule --- a grader must look for an aesthetic in both the plot
+mapping and the layer mappings, since a student may map it in either --- and the
+rule that a message must name what is wrong rather than restate the fix.
+Environment gotchas gains the moderndive/formula.tools chain that broke every
+ANOVA in T13. Fourteen graders across T4--T9 were repaired; T10--T21 were audited
+and need none of it.
+
 **Extended later on 25 August 2026** with the T12--T21 work: the reframing
 carried into the three testing tutorials, the pronoun sweep completed corpus-wide,
 `try_again` stripped of its "Hint:" prefix in 63 places, three tutorials
@@ -190,6 +198,56 @@ before enforcing it. Where it describes a shape or a test, it is more reliable.
 ---
 
 ## 1. Graders
+
+- **AN AESTHETIC CAN BE MAPPED IN `ggplot()` OR IN THE GEOM, AND A GRADER MUST
+  LOOK IN BOTH. Fourteen instances across T4--T9, found 9--10 September 2026
+  after a student's correct submission CRASHED T4 Practice 23.** She wrote
+  `y = after_stat(prop), group = 1` inside `ggplot()` rather than `geom_bar()`.
+  Both are valid --- anything set in `ggplot()` applies to every layer --- so the
+  plot rendered. The grader read `bar_layer$mapping$y`, got NULL, and passed it
+  to `rlang::quo_get_expr()`, which REQUIRES a quosure and throws. The student
+  saw "a problem occurred with the grading code" and had nowhere to go.
+  **The helper, now in T4, T5 and T6:**
+
+  ```r
+  aes_expr <- function(nm) {
+    m <- .result$mapping[[nm]]
+    if (is.null(m)) {
+      for (ly in .result$layers) {
+        if (!is.null(ly$mapping[[nm]])) { m <- ly$mapping[[nm]]; break }
+      }
+    }
+    if (is.null(m)) "NULL" else rlang::as_label(m)   # or expr_text(m)
+  }
+  ```
+
+  **`tryCatch` AROUND SUCH A READ MEANS "WILL NOT CRASH", NOT "HANDLED".** T4's
+  `group` check was already wrapped, so it failed quietly with "Inside
+  `geom_bar()`, include `group = 1`" --- to a student who had. I fixed the
+  crashing `y` read, saw the guard on `group`, and moved on; the student hit it
+  on the next submission. **Quiet failures need looking at precisely because
+  nothing draws attention to them.**
+  **It can also let a WRONG answer through.** T5 Practice 6 is a FREQUENCY
+  exercise whose grader rejects `after_stat(prop)` --- but read only the layer,
+  so a proportion chart written in `ggplot()` passed.
+  **Where a one-sided read is CORRECT:** T9's scatter plot reads `x` and `y`
+  from the plot only, because mapping them in `geom_point()` leaves
+  `geom_smooth()` with nothing to inherit and ggplot errors before the grader
+  runs. T6's vline grader reads `xintercept` from the layer, which is where that
+  aesthetic belongs. **Ask whether the other location would actually work before
+  calling it a defect.**
+  **T10--T21 need none of this:** T10 and T11 have no graders, T12--T14 grade
+  test objects, and T15--T21 use `plot_model()` and `stargazer()`, whose
+  arguments are named and cannot migrate.
+- **SAY WHAT IS WRONG, NOT WHAT TO DO. Three graders in T5 and T9, same date.**
+  "Set `fill = "firebrick"` inside `geom_bar()` to color the bars" is useless
+  to a student who put it inside `geom_bar()` --- inside `aes()`. The grader
+  knew the answer was wrong and described the fix instead of the error.
+  **The test: could a student read this message, look at their code, and see
+  nothing wrong?** The repair names what they actually did and points at visible
+  evidence: "Put `fill` outside `aes()`. A fixed color is a setting, not a
+  variable mapping --- inside `aes()` ggplot treats "firebrick" as data and
+  draws a legend for it." The legend is on their screen.
 
 - **A GRADER MUST CHECK EVERYTHING ITS PROMPT PRESCRIBES. The single most common
   defect found in the T15--T21 audit of 25 August 2026 --- eight of thirteen
@@ -2091,6 +2149,43 @@ repeat, so build them into any future sweep rather than trusting care.
   look inside one span. Check flagged hits before acting on them.
 
 ## Environment gotchas
+
+**A PACKAGE LOADED BY ONE TUTORIAL CAN BREAK A LATER ONE, AND RESTARTING THE
+TUTORIAL DOES NOT HELP. Diagnosed 10 September 2026.** Every ANOVA in T13 failed
+with `a two-sided formula is required` for any student who had opened T10 or T11
+first in the same R session. The chain: **T10 and T11 load moderndive** for
+`rep_sample_n()`; **moderndive loads formula.tools**; **formula.tools defines an
+`as.character()` method for formulas** that returns one string, `"len ~ supp"`,
+instead of the three pieces base R returns, `"~" "len" "supp"`; and
+**`oneway.test()` calls `as.character()` on its formula and stops if the result
+is not length 3.** Every formula, every data set.
+
+**Only `oneway.test()` is affected.** `lm()`, `t.test()` and `cor.test()` were
+all verified working in a broken session --- they do not call `as.character()` on
+their formula. **The fix, in T13's setup chunk**, is invisible to students and
+scoped to the session:
+
+```r
+registerS3method("as.character", "formula", base::as.character.default,
+                 envir = baseenv())
+```
+
+**What made this hard to find, worth remembering:**
+- **Namespaces are not unloaded when a tutorial closes**, so it survives closing
+  and reopening. `detach("package:moderndive", unload = TRUE)` does NOT fix it,
+  because moderndive is not the package defining the method.
+- **`getNamespaceUsers("formula.tools")` returned `character(0)`** while the
+  break was live --- the namespace was loaded and held by nothing. It named
+  moderndive only when checked immediately after running T10.
+- **Every early hypothesis was wrong:** not masking (`find("oneway.test")` gave
+  `package:stats`), not the S4 `length` generic (`length(len ~ supp)` gave 3),
+  not `.RData`, not `.Rprofile` (1 byte).
+- **What actually found it: the error message did not match the installed
+  function.** `body(stats::oneway.test)[[2]]` printed `'formula' missing or
+  incorrect`, but the error said `a two-sided formula is required`. Deparsing
+  the whole body showed a SECOND check four lines down, on
+  `length(as.character(formula))`. **When an error message does not appear in
+  the line you expected it to come from, read the whole function.**
 
 **learnr runs every exercise in one R process.** `library()` in any box attaches
 the package globally for the rest of the session. Any tutorial that demonstrates

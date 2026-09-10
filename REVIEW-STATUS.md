@@ -41,9 +41,21 @@ back empty and nobody read anything, it does not.
 
 ## Status
 
-`18` = checked against v18 · `17.10`, `17.9`, `17.8`, `17` = checked against
-that version or earlier · `--` = not run · `*` = partial, see notes ·
-`n/a` = does not apply
+`19` = checked against v19 · `18` = checked against v18 · `17.10`, `17.9`,
+`17.8`, `17` = checked against that version or earlier · `--` = not run ·
+`*` = partial, see notes · `n/a` = does not apply
+
+**The `19` cells come from three passes.** 24--25 August: the inference
+reframing and a full section sweep of T12, and most sections of T11, T13 and
+T14. 25 August: §1, §4 and §9 across T15--T21. 9--10 September: **§1 on every
+tutorial**, from the plot-grader audit --- which is why §1 reads `19` almost
+everywhere while the rest of those rows does not.
+
+**§1 is `n/a` for T10 and T11: they have no graders at all.** Nine
+Run-and-observe exercises in T10 and one in T11, none submitted for checking.
+
+**Do not read a row with a `19` in §1 as nearly done.** T15--T21 have three
+sections each at v19 and the rest at 17.10, two standards versions behind.
 
 **No cell reads `18`.** The 8 August pass was review-driven, not a
 section-by-section sweep, so no section was worked bullet by bullet against v18
@@ -55,24 +67,24 @@ the table as a list of gaps.
 | T1  R Basics: Part 1        | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 |
 | T2  R Basics: Part 2        | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 |
 | T3  Levels of Measurement   | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 |
-| T4  Univariate: Nominal     | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 |
-| T5  Univariate: Ordinal     | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 |
-| T6  Univariate: Interval    | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 |
-| T7  Bivariate: Two Cat      | 17 | 17 | 17 | 17.9 | 17.9 | 17.9 | 17 | 17 | 17 | 17 | 17 | 17.9 |
-| T8  Bivariate: Cat × Int    | 17 | 17 | 17 | 17 | 17.9 | 17.9 | 17 | 17 | 17 | 17 | 17 | 17.9 |
-| T9  Bivariate: Two Int      | 17 | 17 | 17 | 17 | 17.9 | 17.9 | 17 | 17 | 17 | 17 | 17 | 17.9 |
-| T10 Logic of Inference      | 17 | 17 | 17 | 17 | 17.9 | 17.9 | 17.9 | 17 | 17* | n/a | 17 | 17.9 |
-| T11 Hypothesis Testing      | 17 | 17 | 17 | 17 | 17.9 | 17.9 | 17.9 | 17.9 | 17.9 | n/a | 17.9 | 17.9 |
-| T12 Hyp Tests: Two Cat      | 17 | 17 | 17 | 17 | 17.9 | 17.9 | 17.9 | 17 | -- | 17 | 17 | 17.9 |
-| T13 Hyp Tests: Cat and Int  | 17.9 | 17 | 17.9 | 17.9 | 17.9 | 17.9 | **17.10\*** | 17 | -- | 17 | 17 | 17.9 |
-| T14 Hyp Tests: Two Int      | 17 | 17 | 17 | 17.9 | 17.9 | 17.9 | **17.10\*** | 17.9 | -- | 17 | 17 | 17.9 |
-| T15 Simple Regression       | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** |
-| T16 Multiple Regression     | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** |
-| T17 Coefficients to Preds   | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** |
-| T18 Interactions            | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** |
-| T19 Interaction Pred Plots  | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** |
-| T20 Logistic Regression     | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** |
-| T21 Logit Predictions       | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** | **17.10** |
+| T4  Univariate: Nominal     | **19** | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 |
+| T5  Univariate: Ordinal     | **19** | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 |
+| T6  Univariate: Interval    | **19** | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 | 17.8 |
+| T7  Bivariate: Two Cat      | **19** | 17 | 17 | 17.9 | 17.9 | 17.9 | 17 | 17 | 17 | 17 | 17 | 17.9 |
+| T8  Bivariate: Cat × Int    | **19** | 17 | 17 | 17 | 17.9 | 17.9 | 17 | 17 | 17 | 17 | 17 | 17.9 |
+| T9  Bivariate: Two Int      | **19** | 17 | 17 | 17 | 17.9 | 17.9 | 17 | 17 | 17 | 17 | 17 | 17.9 |
+| T10 Logic of Inference      | n/a | 17 | 17 | 17 | 17.9 | 17.9 | 17.9 | 17 | **19** | n/a | 17 | 17.9 |
+| T11 Hypothesis Testing      | n/a | 17 | 17 | **19** | **19** | **19** | **19** | **19** | **19** | n/a | **19** | **19** |
+| T12 Hyp Tests: Two Cat      | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** |
+| T13 Hyp Tests: Cat and Int  | **19** | 17 | 17.9 | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | 17.9 |
+| T14 Hyp Tests: Two Int      | **19** | 17 | 17 | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | 17.9 |
+| T15 Simple Regression       | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
+| T16 Multiple Regression     | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
+| T17 Coefficients to Preds   | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10* | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
+| T18 Interactions            | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
+| T19 Interaction Pred Plots  | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
+| T20 Logistic Regression     | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10* | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
+| T21 Logit Predictions       | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10* | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
 
 ### THE T15--T19 VERDICTS WERE IN DOUBT --- LARGELY RESOLVED 8 AUGUST
 
@@ -83,7 +95,13 @@ their findings applied.** The `17.10` verdicts in those rows are now backed by
 a second, independent read of every file rather than by my checks alone.
 
 **One claim in the old note is stale and is corrected here: T15--T19 are not
-without `fig.alt`.** Current counts are T16 2, T17 8, T18 1, T19 6. **T15 has
+without `fig.alt`.** **Re-verified 25 August 2026: every figure that RENDERS in
+the corpus carries `fig.alt`** --- twelve of them, in T17 (3), T19 (3), T20 (1)
+and T21 (5). T15, T16 and T18 produce no figures at all. Raw counts per file run
+higher because `-hint-` and `-check` chunks contain plotting code as text and
+render nothing; count only chunks that execute and display. **Nine of the twelve
+sit on `exercise=TRUE` chunks and depend on the mechanism still listed as
+untested.** Earlier counts, for reference: T16 2, T17 8, T18 1, T19 6. **T15 has
 none and needs none** --- it has no exercise that produces a plot
 (`inherits(.result, "ggplot")` appears zero times in its graders).
 
@@ -94,6 +112,41 @@ empty on a real defect because its pattern was too narrow, and I reported the
 item already fixed. **Validate every check against a known defect before
 trusting a clean report --- and treat a null from my own checker as evidence
 about the checker.**
+
+### What the recent work was
+
+**24--25 August 2026, eight commits, T2 through T21.** The inference reframing
+(T4, T6--T14): a hypothesis is a claim about a general political relationship,
+and the particular election or cross-section is the evidence. `try_again`
+stripped of its "Hint:" prefix in 63 places. The pronoun sweep **completed
+corpus-wide --- do not re-run it.** T17, T20 and T21 restructured for section
+length, from 197, 174 and 191 lines per `##` to about 105. A grader audit across
+T15--T21 adding a `TRUE`/`FALSE` check to all 46 and bringing eight graders up to
+what their prompts prescribe.
+
+**9--10 September 2026, two student-reported failures.**
+
+- **A correct submission crashed T4 Practice 23.** The student mapped
+  `y = after_stat(prop)` and `group = 1` inside `ggplot()` rather than
+  `geom_bar()` --- equally valid --- and the grader passed the resulting NULL to
+  `rlang::quo_get_expr()`, which throws. **Fourteen graders across T4--T9 had
+  the same shape and are fixed.** One of them was accepting a WRONG answer: T5
+  Practice 6 is a frequency exercise, and a proportion chart written in
+  `ggplot()` passed it. **T10--T21 were audited and need none of it** --- no
+  graders, no plot graders, or `plot_model()` and `stargazer()` whose arguments
+  are named. All fourteen fixes were tested against passing and failing
+  submissions.
+- **Every ANOVA in T13 failed for anyone who had opened T10 or T11 first.**
+  moderndive loads formula.tools, whose `as.character()` method for formulas
+  breaks `oneway.test()`. Fixed in T13's setup; see Environment gotchas in the
+  standards document for the full chain.
+- **Every tutorial gained `version: "1.0.0"` in its YAML**, so a package version
+  bump no longer sends students' saved work to an empty directory.
+
+**A caution this file should apply to itself.** The 25 August update to this
+file was written but never reached the repo, and was lost. Its content is
+rebuilt above. **The standards document's rules have held up across all three
+passes; its status claims have gone stale five times.** The same is true here.
 
 ### Notes on the partials
 
@@ -213,6 +266,14 @@ Four new sections and one amendment, all written during the T15--T19 pass:
   tracked tools --- `tools/qpa-standards-battery.py` (the checker, ~40 checks)
   and `tools/extract-code.py` (generates the all-code files).
 
+- **24--25 August 2026, eight commits, `2449234` through `35f7ec5`:** the TA
+  review's grader work; the inference reframing; Takeaways leads; the standards
+  pass on T13 and T14; the pronoun sweep and three restructurings; the T15--T21
+  grader audit.
+- **9--10 September 2026, `274582d` and `da0dd09`:** the T4 grader crash and the
+  version pin across all 21; then the plot-grader audit across T4--T9 and the
+  T13 ANOVA fix.
+
 **Nothing is uncommitted.** `.gitignore` gained `tools/T*-all-code.R` on
 8 August --- a narrow rule, NOT the whole folder, because `create-fHouse.R`,
 `create-world.R`, `rebuild-counties.R` and `render-diagrams.R` are tracked and
@@ -247,7 +308,6 @@ never reached the built package either.
 - **T9's three-column Takeaways infographic** may want the `narrow-label` CSS
   variant. Never rendered.
 - **T13's front-loading** — 1,782 words. The obvious cut was rejected twice.
-- **§9 has never been run on T12, T13 or T14.**
 - **The readings need a pass** — `SimpleRegression`, `MultipleRegression`,
   `LogisticRegression` `.qmd`. Different voice; fixes may not transfer.
 - **Canvas pages** referencing tutorial numbers need updating after the T19
