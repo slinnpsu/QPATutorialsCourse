@@ -122,7 +122,7 @@
 #'     grand forms of corruption and the capture of the state by elites and
 #'     private interests. Higher values indicate better control of corruption.
 #'     Theoretical range: approximately -2.5--2.5. Observed range:
-#'     -2.35--2.21.
+#'     -1.81--2.28.
 #'     Missing values: 2.
 #'   }
 #'

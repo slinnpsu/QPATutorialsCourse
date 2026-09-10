@@ -45,16 +45,18 @@ back empty and nobody read anything, it does not.
 `17.8`, `17` = checked against that version or earlier · `--` = not run ·
 `*` = partial, see notes · `n/a` = does not apply
 
-**The `19` cells come from three passes.** 24--25 August: the inference
+**The `19` cells come from four passes.** 24--25 August: the inference
 reframing and a full section sweep of T12, and most sections of T11, T13 and
 T14. 25 August: §1, §4 and §9 across T15--T21. 9--10 September: **§1 on every
 tutorial**, from the plot-grader audit --- which is why §1 reads `19` almost
-everywhere while the rest of those rows does not.
+everywhere while the rest of those rows does not. 10 September: **all twelve
+sections on T14--T17**, the regression pass described below.
 
 **§1 is `n/a` for T10 and T11: they have no graders at all.** Nine
 Run-and-observe exercises in T10 and one in T11, none submitted for checking.
 
-**Do not read a row with a `19` in §1 as nearly done.** T15--T21 have three
+**Do not read a row with a `19` in §1 as nearly done.** That warning now applies
+to **T18--T21 only** --- T15, T16 and T17 are complete. T18--T21 still have three
 sections each at v19 and the rest at 17.10, two standards versions behind.
 
 **No cell reads `18`.** The 8 August pass was review-driven, not a
@@ -78,9 +80,9 @@ the table as a list of gaps.
 | T12 Hyp Tests: Two Cat      | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** |
 | T13 Hyp Tests: Cat and Int  | **19** | 17 | 17.9 | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | 17.9 |
 | T14 Hyp Tests: Two Int      | **19** | 17 | 17 | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | 17.9 |
-| T15 Simple Regression       | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
-| T16 Multiple Regression     | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
-| T17 Coefficients to Preds   | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10* | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
+| T15 Simple Regression       | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** |
+| T16 Multiple Regression     | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** | **19** |
+| T17 Coefficients to Preds   | **19** | **19** | **19** | **19** | **19** | **19*** | **19** | **19** | **19** | **19** | **19** | **19** |
 | T18 Interactions            | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
 | T19 Interaction Pred Plots  | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
 | T20 Logistic Regression     | **19** | 17.10 | 17.10 | **19** | 17.10 | 17.10* | 17.10 | 17.10 | **19** | 17.10 | 17.10 | 17.10 |
@@ -149,6 +151,47 @@ what their prompts prescribe.
 file was written but never reached the repo, and was lost. Its content is
 rebuilt above. **The standards document's rules have held up across all three
 passes; its status claims have gone stale five times.** The same is true here.
+
+### The 10 September regression pass
+
+**T14, T15, T16 and T17 were taken through all twelve sections against v19.**
+T15, T16 and T17 are complete; T14 gained only the reframing its earlier pass
+should have applied.
+
+- **The inference reframing extends to the regression tutorials.** Her ruling,
+  10 September: it "absolutely extends." T14's three hypotheses now match T9
+  character for character --- they had claimed to be "unchanged from Tutorial 9"
+  while differing in three places. T15, T16 and T17 gained bracket notation,
+  "tend to" on interval outcomes, and generic wording in place of candidate
+  names wherever a heading, hypothesis or claim is stated. **Candidate names
+  stay where the text reports what the 2016 data show** --- variable
+  definitions, worked cases, findings, and quiz options interpreting a specific
+  coefficient.
+- **`try_again` stripped of "Hint:" in T15, T16 and T17.** The August sweep
+  covered only T2--T14. **62 remain in T18--T21.**
+- **§11 found four numeric errors:** T15's Practice 13 gave 44.62 for a value
+  of 44.637; T16 computed a one-standard-deviation effect from a rounded 5
+  rather than 4.7; T16 reported the outcome range as -2.35 to 2.21 when the
+  shipped data run -1.81 to 2.28; T17 put the West at 0.53 when it is 0.52.
+- **`data-qog.R` had a stale `Observed range:` for `wbgi_cce`** --- corrected,
+  and `man/qog.Rd` regenerated. **Its missing-value counts were all correct**,
+  as were `data-ipu.R`'s. If other codebooks are checked, ranges are where the
+  drift is, not counts.
+- **Two ChatGPT reviews of T15 and three of T16 were worked through.** Their
+  best catches: the 1.96 shortcut fails at T15's 60 df; "the part of the
+  association that belongs to wage growth itself" contradicts T16's own caution
+  box; and R-squared comparisons need the same outcome and the same cases.
+  **Declined twice, on both files: rewriting "typical miss" into
+  standard-deviation units.**
+- **T16 was substantially reworked under her reading**: Check Your Understanding
+  rebuilt on fresh scenarios (every other tutorial's CYU tests transfer; T16's
+  tested recall of its own examples), the Takeaways rebuilt as six topic-led
+  paragraphs, Apply 21 split into build-then-check, the stargazer table
+  explained where it first appears, and the two-block `summary()` wrapping
+  documented before students meet it.
+
+**STILL OWED: her careful read of T17 through T21.** T17 is verified against the
+standards but not yet read end to end, and T18--T21 have had neither.
 
 ### Notes on the partials
 
@@ -275,6 +318,9 @@ Four new sections and one amendment, all written during the T15--T19 pass:
 - **9--10 September 2026, `274582d` and `da0dd09`:** the T4 grader crash and the
   version pin across all 21; then the plot-grader audit across T4--T9 and the
   T13 ANOVA fix.
+
+- **10 September 2026:** T14--T17 taken through all twelve sections; `data-qog.R`
+  and `man/qog.Rd` corrected.
 
 **Nothing is uncommitted.** `.gitignore` gained `tools/T*-all-code.R` on
 8 August --- a narrow rule, NOT the whole folder, because `create-fHouse.R`,
