@@ -692,7 +692,10 @@ grade_this({
   has_50_bins <- any(vapply(hist_layers, function(layer) {
     identical(layer$stat_params$bins, 50)
   }, logical(1)))
-  if (!has_50_bins && !grepl("bins\\s*=\\s*50", code_no_comments)) {
+  if (!has_50_bins) {
+    if (grepl("aes\\s*\\([^)]*bins", code_no_comments)) {
+      fail("`bins` is a setting, not a variable mapping, so it goes outside `aes()` --- `geom_histogram(bins = 50)`. Inside `aes()` ggplot ignores it and prints `Ignoring unknown aesthetics: bins`, then falls back to its default of 30 bins.")
+    }
     fail("Set `bins = 50` inside `geom_histogram()`.")
   }
 
@@ -860,13 +863,24 @@ grade_this({
     fail("Write `TRUE` in full. R accepts `T` as shorthand, but these tutorials do not: `TRUE` is a reserved word and always means what you expect, while `T` is an ordinary object name that other code can overwrite --- after which an argument set to `T` quietly means something else. Replace `T` with `TRUE` and submit again.")
   }
   expected_mean <- mean(counties$wage_growth, na.rm = TRUE)
-  has_mean_line <- any(vapply(vline_layers, function(layer) {
-    x_expr <- expr_text(layer$mapping$xintercept)
-    fixed_x <- layer$geom_params$xintercept
-    grepl("mean\\s*\\(", x_expr) && grepl("wage_growth", x_expr) ||
-      (!is.null(fixed_x) && isTRUE(all.equal(as.numeric(fixed_x), expected_mean)))
-  }, logical(1)))
-  if (!has_mean_line) {
+  # Evaluate the xintercept rather than matching its text: mean() without
+  # na.rm = TRUE returns NA, so the line is never drawn even though the code
+  # reads correctly.
+  drawn_x <- unlist(lapply(vline_layers, function(layer) {
+    v <- layer$geom_params$xintercept
+    if (is.null(v) && !is.null(layer$data) && !is.null(layer$data$xintercept)) {
+      v <- layer$data$xintercept
+    }
+    if (is.null(v)) {
+      v <- tryCatch(as.numeric(rlang::eval_tidy(layer$mapping$xintercept, counties)),
+                    error = function(e) NA_real_)
+    }
+    suppressWarnings(as.numeric(v))
+  }))
+  if (length(drawn_x) == 0 || all(is.na(drawn_x))) {
+    fail("Your mean line has no position to draw at. **wage_growth** has two missing values, so `mean()` returns `NA` unless you add `na.rm = TRUE` --- which is why the plot shows no line and the label reads `Mean: NA`.")
+  }
+  if (!any(abs(drawn_x - expected_mean) < 1e-6, na.rm = TRUE)) {
     fail("Set `xintercept` to `mean(wage_growth, na.rm = TRUE)` inside `geom_vline()`.")
   }
   text_layers <- Filter(function(layer) inherits(layer$geom, "GeomText"), .result$layers)
@@ -888,6 +902,14 @@ grade_this({
   }
   if (!grepl("[Mm]ean", shown_label)) {
     fail('Fill the label blank with text naming the statistic. The finished label should read something like "Mean = 4.33", not a bare number.')
+  }
+  # The label is a second calculation, separate from the line's xintercept, and
+  # it needs na.rm = TRUE of its own.
+  if (grepl("NA", shown_label)) {
+    fail("Your label reads `NA`. The mean inside `annotate()` is a separate calculation from the one inside `geom_vline()`, so it needs its own `na.rm = TRUE` --- **wage_growth** has two missing values, and without it `mean()` returns `NA`.")
+  }
+  if (!grepl(sprintf("%.2f", round(expected_mean, 2)), shown_label, fixed = TRUE)) {
+    fail("Your label does not show the mean of **wage_growth**. Check that the value inside `annotate()` is computed from the data rather than typed in, and that it is the mean of the same variable the line marks.")
   }
 
   pass("Well done! The mean line and its label are both in place, each computed from the data rather than typed in as a number.")
