@@ -46,7 +46,43 @@ local({
 library(learnr)
 library(dplyr)
 library(gradethis)
+# When a submission stops with an R error, the grader never runs, so the
+# student would see R's own message. This translates the errors students hit
+# most often into plain advice. It speaks when they press Submit Answer; Run
+# Code still shows R's message.
+qpa_error_check <- r"--(
+gradethis::grade_this({
+  err <- if (exists(".error") && inherits(.error, "condition")) .error else .result
+  msgs <- character(0)
+  e <- err
+  while (inherits(e, "condition") && length(msgs) < 10) {
+    msgs <- c(msgs, conditionMessage(e))
+    e <- e$parent
+  }
+  msg <- paste(msgs, collapse = "\n")
+
+  if (grepl("with a single argument", msg)) {
+    gradethis::fail("One of your lines starts with `+`. In a ggplot the `+` goes at the end of a line, joining it to the layer on the next line. Move it to the end of the line above.")
+  }
+  if (grepl("Cannot add .*objects together", msg)) {
+    gradethis::fail("A `+` is missing at the end of one of your lines. Every line of a ggplot except the last needs a `+` at its end to join it to the next layer. Check the end of each line in turn.")
+  }
+  obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
+  if (length(obj) == 2) {
+    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+  }
+  fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
+  if (length(fn) == 2) {
+    gradethis::fail(paste0("R does not recognize the function `", fn[2], "()`. Check its spelling, and if it comes from a package, check that the `library()` line for that package is in your code."))
+  }
+  if (grepl("unused argument", msg)) {
+    gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+})
+)--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
+                 exercise.error.check.code = qpa_error_check,
                  exercise.completion = FALSE)
 options(lifecycle_verbosity = "quiet")
 knitr::opts_chunk$set(error = TRUE)
