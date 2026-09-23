@@ -35,6 +35,11 @@ library(ggplot2)
 library(moderndive)
 library(purrr)
 library(gradethis)
+# Okabe-Ito, black left out so the same order serves fills and lines alike:
+# a boxplot draws its median and whiskers in black, and a black fill hides them.
+# Black stays available wherever a color is set directly rather than mapped.
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -58,7 +63,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -67,7 +88,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -178,8 +205,8 @@ sarah_null <- tibble(
 
 ggplot(sarah_null, aes(x = prop_correct)) +
   geom_histogram(binwidth = 0.125, boundary = 0,
-                 color = "white", fill = "steelblue") +
-  geom_vline(xintercept = 7/8, color = "red",
+                 color = "white", fill = "#0072B2") +
+  geom_vline(xintercept = 7/8, color = "#D55E00",
              linewidth = 1.2) +
   labs(title = "Null Distribution: Outcomes for a Guessing Chimp",
        subtitle = "1,000 simulated sets of 8 trials; the reference line marks Sarah's result",
@@ -261,8 +288,8 @@ The figure below shows how the p-value fits into the bigger picture of the sampl
 Because the shaded region falls beyond the critical value, this observed result would lead to rejecting the null hypothesis: a result this far out is rare enough under the assumption of pure guessing that we reject the null hypothesis.
 
 ```{r inference-graph, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.alt="Bell curve showing the null distribution --- the distribution of results expected if the null hypothesis were true. The peak is labeled 'True value under the null hypothesis and most likely observation.' A dot to the right of center is labeled 'Observed result (value).' A vertical dashed line to the right of the dot is labeled 'Critical value, alpha equals 0.05.' The shaded tail area beyond the observed result is labeled 'Area representing the p-value.' Both tails are labeled 'very unlikely observations.'"}
-navy <- "#1a3a6b"
-green <- "#2d6a2d"
+navy <- "#0072B2"
+green <- "#009E73"
 
 mu    <- 0
 sigma <- 1
@@ -554,14 +581,14 @@ gallup_data <- tibble(
 
 ggplot(gallup_data, aes(x = estimate, y = label)) +
   geom_errorbarh(aes(xmin = lower, xmax = upper),
-                  height = 0.3, linewidth = 1, color = "#1565C0") +
-  geom_point(size = 3, color = "#1565C0") +
+                  height = 0.3, linewidth = 1, color = "#0072B2") +
+  geom_point(size = 3, color = "#0072B2") +
   annotate("text", x = 30.0, y = 1.35,
            label = "Point estimate: 30.0%",
-           color = "#1565C0", size = 3.2, fontface = "bold") +
+           color = "#0072B2", size = 3.2, fontface = "bold") +
   annotate("text", x = 30.0, y = 0.65,
            label = "95% CI: [27.41%, 32.59%]",
-           color = "#1565C0", size = 3.2) +
+           color = "#0072B2", size = 3.2) +
   scale_y_discrete(expand = expansion(mult = c(0.6, 0.6))) +
   labs(
     title = "A 95% Confidence Interval Has a Center and a Width",
@@ -610,11 +637,11 @@ ggplot(ci_data,
            color = contains, linetype = contains,
            xmin = lower, xmax = upper)) +
   geom_vline(xintercept = true_pi, linetype = "dashed",
-             color = "#C62828", linewidth = 0.8) +
+             color = "#000000", linewidth = 0.8) +
   geom_errorbarh(height = 0.4, linewidth = 0.7) +
   geom_point(size = 2) +
   scale_color_manual(
-    values = c("FALSE" = "#B8860B", "TRUE" = "#00897B"),
+    values = c("FALSE" = "#D55E00", "TRUE" = "#0072B2"),
     labels = c("FALSE" = "Misses true proportion",
                "TRUE"  = "Contains true proportion"),
     name = NULL
@@ -757,16 +784,16 @@ connection_data <- tibble(
 
 ggplot(connection_data, aes(x = estimate, y = label)) +
   geom_errorbarh(aes(xmin = lower, xmax = upper),
-                  height = 0.3, linewidth = 1, color = "#00897B") +
-  geom_point(size = 3, color = "#00897B") +
+                  height = 0.3, linewidth = 1, color = "#0072B2") +
+  geom_point(size = 3, color = "#0072B2") +
   geom_point(aes(x = null_value, y = label),
-             shape = 4, size = 4, stroke = 1.3, color = "#C62828") +
+             shape = 4, size = 4, stroke = 1.3, color = "#D55E00") +
   annotate("text", x = null_value, y = 1.35,
            label = paste0("Null value\nH0: mean = ", null_value),
-           color = "#C62828", size = 3.2, fontface = "bold", hjust = 0) +
+           color = "#D55E00", size = 3.2, fontface = "bold", hjust = 0) +
   annotate("text", x = ci_estimate, y = 0.65,
            label = paste0("95% CI: [", ci_lower, ", ", ci_upper, "]"),
-           color = "#00897B", size = 3.2, fontface = "bold") +
+           color = "#0072B2", size = 3.2, fontface = "bold") +
   scale_y_discrete(expand = expansion(mult = c(0.6, 0.6))) +
   labs(
     title = "The Null Value Falls Outside the Confidence Interval",

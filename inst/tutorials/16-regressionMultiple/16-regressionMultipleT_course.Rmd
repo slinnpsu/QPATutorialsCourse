@@ -64,7 +64,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -73,7 +89,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -139,7 +161,7 @@ The data frame **counties** contains **wage_growth**, the percent by which wages
 
 Missing values are few but not zero. Of the 3,112 counties, **dem2p_percent** has none; **wage_growth** and **Black_percent** are each missing for 2; **mortality_risk_25_45**, **college_grad_percent**, **hispanic_percent** and **white_percent** for 1 each. A regression uses only the counties with a recorded value on every variable in the model --- here 3,108 of the 3,112, since several of those gaps fall in the same counties.
 
-The other variables we include as controls are **mortality_risk_25_45**, **college_grad_percent**, **hispanic_percent**, **white_percent**, and **Black_percent**. Each was chosen because it is plausibly related to both local economic conditions and presidential voting. That combination is what can make a variable a relevant control: if counties with higher wage growth also have more college graduates, and college attainment independently predicts the vote, then the simple two-variable slope on wage growth is partly measuring education.
+The other variables we include as controls are **mortality_risk_25_45**, **college_grad_percent**, **hispanic_percent**, **white_percent**, and **Black_percent**. Each was chosen because it is plausibly related to both local economic conditions and presidential voting. That combination is what can make a variable a relevant control: if counties with higher wage growth also have more college graduates, and college attainment independently predicts the vote, then the simple two-variable slope on wage growth is partly measuring education. Which variables belong in the model is a question for the theoretical argument, not for correlations alone.
 
 ### Estimate the Regression
 
@@ -394,7 +416,7 @@ summary(model1)
 
 The model output reports two versions of $R^2$. The [Multiple R-squared]{.important-text} ($R^2$) has the cleanest interpretation: it is the proportion of the variation in the outcome that the model explains, expressed as a percentage. An $R^2$ of 0.607 means the model explains about 60.7% of the county-to-county variation in Clinton's two-party vote --- the remaining 39.3% is variation the model does not capture.
 
-The [Adjusted R-squared]{.important-text} is a corrected version that penalizes for the number of predictors. Every variable you add to a regression model, even a useless one, will mechanically increase the Multiple $R^2$ at least a tiny bit, just because the model has more flexibility to fit the data. The Adjusted $R^2$ subtracts a penalty that grows with the number of predictors, making it less likely to increase unless an added variable genuinely improves fit. In this model the two values are nearly identical --- 0.607 and 0.606 --- because with over 3,100 counties and only six predictors, the penalty is tiny.
+The [Adjusted R-squared]{.important-text} is a corrected version that penalizes for the number of predictors. Every variable you add to a regression model, even a useless one, will mechanically increase the Multiple $R^2$ at least a tiny bit, just because the model has more flexibility to fit the data. Fitting quirks of these particular data rather than a real relationship is called [overfitting]{.important-text}, and the Adjusted $R^2$ is one guard against it. It subtracts a penalty that grows with the number of predictors, making it less likely to increase unless an added variable genuinely improves fit. In this model the two values are nearly identical --- 0.607 and 0.606 --- because with over 3,100 counties and only six predictors, the penalty is tiny.
 
 For describing how well a model fits, use the Multiple $R^2$ --- it gives the clean "percentage of variation explained" interpretation. Reserve the Adjusted $R^2$ for one specific purpose: comparing models that differ in the number of predictors, where the Multiple $R^2$ would mechanically favor the model with more variables regardless of whether they are genuinely useful.
 
@@ -511,7 +533,7 @@ summary(model_gov)
 ```{r exercise-multipleregression-governance-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_no_comments, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -780,7 +802,7 @@ Three hints are available. Click "Submit Answer" to check your work.
 ```{r exercise-prepare-ipu-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_no_comments, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -877,7 +899,7 @@ Write the code from scratch to regress **women_percent** on **quota_f**, **elect
 ```{r exercise-multipleregression-ipu-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_no_comments, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -1104,7 +1126,7 @@ stargazer(model_gov,
 ```{r exercise-stargazer-governance-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_no_comments, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -1242,7 +1264,7 @@ question("Which statement best captures what multiple regression adds compared t
 
 **Judging effect size.** A statistically significant coefficient is not necessarily an important one, so judge the [effect]{.important-text} on the scale the outcome is measured in. For a continuous predictor, multiply the slope by one standard deviation of that predictor to get the expected change across a typical difference. For a factor, the coefficient is already the whole difference between two categories --- compare it with the standard deviation of the outcome to see how large that difference is.
 
-**Assessing fit.** The [Multiple R-squared]{.important-text} gives the share of variation the model accounts for. The [Adjusted R-squared]{.important-text} penalizes for the number of predictors, so it does not automatically rise whenever one is added --- which makes it the right statistic for comparing models of different sizes, provided they are fitted to the same outcome and the same cases. The [residual standard error]{.important-text} answers a different question, in the units of the outcome: how far a typical case falls from the fitted line.
+**Assessing fit.** The [Multiple R-squared]{.important-text} gives the share of variation the model accounts for. The [Adjusted R-squared]{.important-text} penalizes for the number of predictors, so it does not automatically rise whenever one is added --- a guard against [overfitting]{.important-text}, and the right statistic for comparing models of different sizes, provided they are fitted to the same outcome and the same cases. The [residual standard error]{.important-text} answers a different question, in the units of the outcome: how far a typical case falls from the fitted line.
 
 **What controls do and do not buy.** [Omitted variable bias]{.important-text} can occur when a variable left out of the model helps explain the outcome and is also related to a predictor that is in it --- the included coefficient then partly captures the omitted variable's relationship with the outcome. Adding relevant controls reduces that problem without solving it: unmeasured [confounders]{.important-text}, measurement error and other issues remain. Controlling for measured differences is not the same as establishing causation.
 

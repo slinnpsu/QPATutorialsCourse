@@ -33,6 +33,11 @@ library(learnr)
 library(dplyr)
 library(ggplot2)
 library(gradethis)
+# Okabe-Ito, black left out so the same order serves fills and lines alike:
+# a boxplot draws its median and whiskers in black, and a black fill hides them.
+# Black stays available wherever a color is set directly rather than mapped.
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -56,7 +61,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -65,7 +86,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -156,7 +183,7 @@ Find the value at the 50th percentile of **wage_growth** in the **counties** dat
 ```{r compute_median_wage_growth-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("median\\s*\\(", code_no_comments)) {
     fail("Use the `median()` function.")
@@ -227,7 +254,7 @@ Compute the arithmetic average of **wage_growth**. Two hints are available. Clic
 ```{r compute_mean_wage_growth-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("mean\\s*\\(", code_no_comments)) {
     fail("Use the `mean()` function.")
@@ -286,7 +313,7 @@ Compute both statistics for **dem2p_percent** in the **counties** data frame on 
 
 ```{r compute_mean_median_dem2p_percent-check}
 grade_this({
-  code_lines <- gsub("#[^\r\n]*", "", .user_code)
+  code_lines <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (!grepl("median\\s*\\(", code_no_comments)) {
@@ -373,7 +400,7 @@ See how far the distribution of **wage_growth** in the **counties** data frame s
 
 ```{r compute_range_min_max_wage_growth-check}
 grade_this({
-  code_lines <- gsub("#[^\r\n]*", "", .user_code)
+  code_lines <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (!grepl("range\\s*\\(", code_no_comments)) {
@@ -511,7 +538,7 @@ One call to `quantile()` gives you all five values for **employ_pop_ratio_25_64*
 ```{r calculate_percentile_employ_pop_ratio_25_64-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("quantile\\s*\\(", code_no_comments)) {
     fail("Use the `quantile()` function.")
@@ -604,7 +631,7 @@ Inside `geom_histogram()`, two arguments control the appearance of the bars. `fi
 ```{r generate_histogram_wage_growth, exercise=TRUE, warning=TRUE, message=TRUE, exercise.cap="Run and observe 11", fig.alt="Histogram of wage growth across US counties. The horizontal axis runs from about -60 to 60 percent. Almost all counties fall between roughly -10 and 20 percent: one tall bar just above zero reaches about 1,500 counties and the bar beside it about 950. Anything outside that narrow range is too short to see at this scale."}
 library(ggplot2)  # first use in this tutorial; it stays loaded from here on
 ggplot(data = counties, mapping = aes(x = wage_growth)) +
-  geom_histogram(fill = "steelblue", color = "white") +
+  geom_histogram(fill = "#0072B2", color = "white") +
   labs(title = "Wage Growth in US Counties in 2016",
        x = NULL,
        y = "Frequency",
@@ -638,7 +665,7 @@ skew_demo <- data.frame(
 )
 
 ggplot(skew_demo, aes(x = value)) +
-  geom_histogram(bins = 20, fill = "steelblue", color = "white") +
+  geom_histogram(bins = 20, fill = "#0072B2", color = "white") +
   facet_wrap(~ shape, scales = "free_x") +
   labs(x = "Value", y = "Number of observations") +
   theme_minimal()
@@ -663,7 +690,7 @@ Change the number of bins in the plot to 50 --- not because 50 is the right answ
 
 ```{r generate_histogram_wage_growth_custom_bin, exercise=TRUE, exercise.cap="Practice 12", fig.alt="The same wage growth histogram drawn with 50 bins. The bars are narrower, so the single tall peak now splits into two adjacent bars of roughly 900 and 1,050 counties, and several shorter bars on either side become visible that the default binning had merged together."}
 ggplot(data = counties, mapping = aes(x = wage_growth)) +
-  geom_histogram(fill = "steelblue", color = "white", ___ = ___) +
+  geom_histogram(fill = "#0072B2", color = "white", ___ = ___) +
   labs(title = "Wage Growth in US Counties in 2016",
        x = NULL,
        y = "Frequency",
@@ -692,7 +719,7 @@ ggplot(data = counties, mapping = aes(x = wage_growth)) +
 ```{r generate_histogram_wage_growth_custom_bin-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   expr_text <- function(x) {
     if (is.null(x)) return("")
     paste(deparse(rlang::get_expr(x)), collapse = "")
@@ -710,7 +737,7 @@ grade_this({
 
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
@@ -749,7 +776,7 @@ Change the value of `binwidth` in the code below, run it, and look at what happe
 
 ```{r generate_histogram_wage_growth_custom_bin-width, exercise=TRUE,exercise.cap="Explore 13", fig.alt="The same wage growth histogram drawn with a binwidth of 3. This is slightly coarser than the 50-bin version, so the two adjacent bars that appeared there merge back into a single peak of about 1,180 counties, with much shorter bars on either side."}
 ggplot(data = counties, mapping = aes(x = wage_growth)) +
-  geom_histogram(fill = "steelblue", color = "white", binwidth = 3) +
+  geom_histogram(fill = "#0072B2", color = "white", binwidth = 3) +
   labs(title = "Wage Growth in US Counties in 2016",
        x = NULL,
        y = "Frequency",
@@ -805,15 +832,15 @@ Often it is useful to add a vertical line to a histogram to mark where the media
 
 When that value has to be computed from the data, you have two routes, and the difference is about where R looks for the variable. Inside `aes()`, ggplot resolves bare variable names against the data you piped in, so `aes(xintercept = median(wage_growth, na.rm = TRUE))` works. Outside `aes()` you are in ordinary R, which knows nothing about the pipeline, so you have to name the data frame: `xintercept = median(counties$wage_growth, na.rm = TRUE)`. Both produce the same line. That same rule explains why `annotate()` needs `counties$wage_growth` later in this section --- it does not inherit the data context either.
 
-Two more arguments control how the line looks, and both are fixed settings rather than mappings, so both go outside `aes()`. `color` sets the line's color; red is a good choice here because it stands out against the steelblue bars, and a reference line that blends into the data is not doing its job. `linetype` sets the line's pattern, and takes values including `"solid"`, `"dashed"`, `"dotted"`, and `"dotdash"`. A broken line is conventional for a reference line: it signals that the line is an annotation you have added rather than part of the data itself. `linewidth` sets how thick the line is, and defaults to 0.5, which is thin enough to disappear against filled bars --- a reference line usually wants a little more weight than that.
+Two more arguments control how the line looks, and both are fixed settings rather than mappings, so both go outside `aes()`. `color` sets the line's color; the vermillion `"#D55E00"` is a good choice here because it stands out against the blue bars, and a reference line that blends into the data is not doing its job. `linetype` sets the line's pattern, and takes values including `"solid"`, `"dashed"`, `"dotted"`, and `"dotdash"`. A broken line is conventional for a reference line: it signals that the line is an annotation you have added rather than part of the data itself. `linewidth` sets how thick the line is, and defaults to 0.5, which is thin enough to disappear against filled bars --- a reference line usually wants a little more weight than that.
 
 **Run and observe 16: Add the median line**
 
 ```{r try_it_label_median_line, exercise=TRUE,exercise.cap="Run and observe 16", fig.alt="Histogram of wage growth with 60 bins, overlaid with a dashed vertical line marking the median at about 4.7 percent. The line passes through the tallest bar, near the center of the main cluster of counties."}
 ggplot(data = counties, mapping = aes(x = wage_growth)) +
-  geom_histogram(fill = "steelblue", color = "white", bins = 60) +
+  geom_histogram(fill = "#0072B2", color = "white", bins = 60) +
   geom_vline(aes(xintercept = median(wage_growth, na.rm = TRUE)),
-             color = "firebrick", linetype = "dashed", linewidth = 0.8) +
+             color = "#D55E00", linetype = "dashed", linewidth = 0.8) +
   labs(title = "Wage Growth in US Counties in 2016",
        x = NULL,
        y = "Frequency",
@@ -844,9 +871,9 @@ Four blanks to fill. Two take the function that computes the arithmetic mean: on
 
 ```{r plot_vertical_and_text, exercise=TRUE, exercise.cap="Practice 17", fig.alt="Histogram of wage growth with 60 bins, overlaid with a dotted vertical line at the mean. A text label naming the mean and reporting its value sits to the right of the peak."}
 ggplot(data = counties, mapping = aes(x = wage_growth)) +
-  geom_histogram(fill = "steelblue", color = "white", bins = 60) +
+  geom_histogram(fill = "#0072B2", color = "white", bins = 60) +
   geom_vline(aes(xintercept = ___(wage_growth, na.rm = TRUE)),
-             color = "firebrick", linetype = "dotted", linewidth = 0.8) +
+             color = "#D55E00", linetype = "dotted", linewidth = 0.8) +
   annotate(___, x = 25, y = 900,
            label = paste0("___",
                           round(___(counties$wage_growth, na.rm = TRUE), 2))) +
@@ -880,14 +907,14 @@ ggplot(data = counties, mapping = aes(x = wage_growth)) +
 ```{r plot_vertical_and_text-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   expr_text <- function(x) {
     if (is.null(x)) return("")
     paste(deparse(rlang::get_expr(x)), collapse = "")
   }
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
@@ -940,6 +967,21 @@ grade_this({
   if (!grepl("[Mm]ean", shown_label)) {
     fail('Fill the label blank with text naming the statistic. The finished label should read something like "Mean = 4.33", not a bare number.')
   }
+  # A misspelled column is silent: df$nope returns NULL, mean(NULL) is NA, and
+  # the label reads NA for a reason that has nothing to do with na.rm. Check the
+  # names the code uses before blaming the missing argument.
+  pairs <- regmatches(code_no_comments,
+                      gregexpr("[A-Za-z.][A-Za-z0-9._]*[$][A-Za-z.][A-Za-z0-9._]*",
+                               code_no_comments))[[1]]
+  for (pr in unique(pairs)) {
+    parts <- strsplit(pr, "[$]", fixed = FALSE)[[1]]
+    ok <- tryCatch(is.data.frame(get(parts[1])) && parts[2] %in% names(get(parts[1])),
+                   error = function(e) TRUE)
+    if (!isTRUE(ok)) {
+      fail(paste0("**", parts[1], "** has no variable called `", parts[2],
+                  "`. R does not stop when a name is wrong after `$` --- it returns nothing, which is why your label reads `NA` rather than showing an error. Check the spelling against the variable list."))
+    }
+  }
   # The label is a second calculation, separate from the line's xintercept, and
   # it needs na.rm = TRUE of its own.
   if (grepl("NA", shown_label)) {
@@ -962,9 +1004,9 @@ grade_this({
 
 Build a histogram of **dem2p_percent** with median and mean reference lines, each labeled. Your plot should have:
 
-- 30 bins, `fill = "skyblue"`, `color = "white"`
-- A median line: firebrick, dashed, `linewidth = 0.8`, labeled at `x = 55, y = 280`
-- A mean line: firebrick, dotted, `linewidth = 0.8`, labeled at `x = 55, y = 250`
+- 30 bins, `fill = "#0072B2"`, `color = "white"`
+- A median line: `color = "#D55E00"`, dashed, `linewidth = 0.8`, labeled at `x = 55, y = 280`
+- A mean line: `color = "#D55E00"`, dotted, `linewidth = 0.8`, labeled at `x = 55, y = 250`
 - Labels built with `paste0()`, each naming its statistic and reporting the value rounded to two digits
 - Title \"Democratic Vote Share\", x-axis label \"Percent of Two-Party Vote\", y-axis label \"Frequency\", caption \"Source: Linn, Nagler, Zilinsky\", and no subtitle
 
@@ -991,10 +1033,10 @@ Every layer is one you have already seen, and the plot is less work than it look
 
 ```{r histogram_dem2p_percent-hint-3}
 # Hint 3 of 4
-# In geom_histogram(), set bins = 30, fill = "skyblue",
+# In geom_histogram(), set bins = 30, fill = "#0072B2",
 # and color = "white". In each geom_vline(), set
 # xintercept inside aes() --- median() for one line and
-# mean() for the other --- with color = "firebrick" and
+# mean() for the other --- with color = "#D55E00" and
 # linewidth = 0.8 outside aes().
 ```
 
@@ -1015,7 +1057,7 @@ grade_this({
   }
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   expr_text <- function(x) {
     if (is.null(x)) return("")
     paste(deparse(rlang::get_expr(x)), collapse = "")
@@ -1033,7 +1075,7 @@ grade_this({
 
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
@@ -1056,10 +1098,10 @@ grade_this({
     fail("Use `geom_histogram()` to create the histogram.")
   }
   has_fill <- any(vapply(hist_layers, function(layer) {
-    identical(layer$aes_params$fill, "skyblue")
+    identical(tolower(layer$aes_params$fill), "#0072b2")
   }, logical(1)))
   if (!has_fill) {
-    fail('Set `fill = "skyblue"` inside `geom_histogram()`.')
+    fail('Set `fill = "#0072B2"` inside `geom_histogram()`.')
   }
   has_white_outline <- any(vapply(hist_layers, function(layer) {
     identical(layer$aes_params$colour, "white") ||
@@ -1111,11 +1153,11 @@ grade_this({
     fail('Set `linetype = "dashed"` for the median line.')
   }
   all_firebrick <- all(vapply(vline_layers, function(layer) {
-    identical(layer$aes_params$colour, "firebrick") ||
-      identical(layer$aes_params$color, "firebrick")
+    identical(tolower(layer$aes_params$colour), "#d55e00") ||
+      identical(tolower(layer$aes_params$color), "#d55e00")
   }, logical(1)))
   if (!all_firebrick) {
-    fail('Set `color = "firebrick"` for both reference lines.')
+    fail('Set `color = "#D55E00"` for both reference lines.')
   }
   all_weighted <- all(vapply(vline_layers, function(layer) {
     lw <- layer$aes_params$linewidth
@@ -1307,7 +1349,7 @@ grade_this({
   }
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   labs_txt <- sub(".*labs\\s*\\(", "", code_no_comments)
   expr_text <- function(x) {
     if (is.null(x)) return("")
@@ -1326,7 +1368,7 @@ grade_this({
 
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
@@ -1422,7 +1464,7 @@ Consider the following histogram and answer the question below. Public expenditu
 
 ```{r cyu-spendeduc-histogram, echo=FALSE, fig.alt="Histogram of public expenditure on education as a percentage of GDP across countries. Bars show the number of countries in each spending interval, and a text annotation reports a standard deviation of 1.92."}
 ggplot(data = world, mapping = aes(x = spendeduc)) +
-  geom_histogram(fill = "steelblue", color = "white", bins = 20) +
+  geom_histogram(fill = "#0072B2", color = "white", bins = 20) +
   labs(title = "Public Expenditure on Education Around the World",
        caption = "Country Data from the United Nations",
        x = "Percent of GDP",

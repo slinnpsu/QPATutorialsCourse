@@ -72,7 +72,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -81,7 +97,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -235,7 +257,7 @@ TO
 ```{r data4-import-csv-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (!grepl("import\\s*\\(", code_no_comments)) {
     fail("Use the `import()` function to read the file.")
   }
@@ -292,7 +314,7 @@ ___(unFBposts)
 ```{r data-explore-class-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("class\\s*\\(", code_no_comments)) {
     fail("Use the `class()` function to check what kind of object **unFBposts** is.")
@@ -362,7 +384,7 @@ ___(unFBposts) / 365
 ```{r data-howmanyposts-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("nrow\\s*\\(", code_no_comments)) {
     fail("Use `nrow()` to count the number of posts, then divide by 365.")
@@ -418,7 +440,7 @@ ___(unFBposts)
 ```{r data-structure-columns-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("ncol\\s*\\(", code_no_comments)) {
     fail("Use `ncol()` with the data frame name inside the parentheses.")
@@ -471,7 +493,7 @@ ___(unFBposts)
 ```{r data-explore-names-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("names\\s*\\(", code_no_comments)) {
     fail("Use `names()` on **unFBposts** to display the variable names.")
@@ -659,7 +681,7 @@ unFBposts$___
 ```{r data-explore-dollar-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (!grepl("\\$", code_no_comments)) {
     fail("Use the `$` operator to access the variable. The syntax is `data_frame_name$variable_name`.")
   }
@@ -703,7 +725,7 @@ unFBposts$message[___]
 ```{r text-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (!grepl("\\$", code_no_comments)) {
     fail("Use the `$` operator to access the **message** variable in **unFBposts**.")
   }
@@ -768,7 +790,7 @@ sum(is.na(unFBposts$___))
 ```{r data-handle-summation-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("is\\.na\\s*\\(", code_no_comments)) {
     fail("You need a way to test each value for whether it is missing.")
@@ -823,7 +845,7 @@ sum(___(unFBposts$___))
 ```{r data-handle-summation2-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("is\\.na\\s*\\(", code_no_comments)) {
     fail("You need a way to test each value for whether it is missing.")
@@ -890,7 +912,7 @@ ___(___(unFBposts$___))
 ```{r data-handle-summation3-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("!", code_no_comments)) {
     fail("Use the `!` operator in front of `is.na()` to flip missing to non-missing.")
@@ -961,7 +983,7 @@ ___(unFBposts$___, na.rm = ___)
 ```{r comments-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("mean\\s*\\(", code_no_comments)) {
     fail("You need the function that returns an arithmetic average.")
@@ -1024,7 +1046,7 @@ ___(unFBposts$comments_count, na.rm = TRUE)
 ```{r practice-min-max-range-comments-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   for (fn in c("min", "max", "range")) {
     call_pattern <- paste0("\\b", fn,
@@ -1167,7 +1189,7 @@ grade_this({
   correct <- unFBposts$message[which(unFBposts$shares_count == max(unFBposts$shares_count))]
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("which\\s*\\(", code_no_comments)) {
     fail("Use `which()` to find the row with the maximum **shares_count**.")
@@ -1231,7 +1253,7 @@ grade_this({
   correct <- unFBposts$likes_count[which(unFBposts$shares_count == max(unFBposts$shares_count))]
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("which\\s*\\(", code_no_comments)) {
     fail("You need to identify which row holds the maximum **shares_count**.")
@@ -1256,7 +1278,11 @@ grade_this({
 
 ## Creating a New Variable in a Data Frame
 
-You can create a new variable inside an existing data frame using the `$` operator combined with `<-`. The syntax is `data_frame$new_variable <- expression`. The expression on the right side can combine any variables already in the data frame, as long as each one is also referenced with `$`. This is one of the places where R starts to feel genuinely useful: you are no longer just inspecting data, you are constructing the variables your research question actually requires. 
+Data rarely arrive holding the variable your question is about. A file gives you what was collected: counts, dates, categories, whatever the source chose to record. A research question is usually about something built from those --- a total, a rate, a share, a difference between two columns. If your question is about how much engagement a post drew, neither likes nor shares answers it on its own. Creating a variable is how you close that gap.
+
+Creating it *inside* the data frame matters too. A variable stored there stays lined up with every other variable, row by row, so it travels with the data when you filter, group, summarize or plot. A standalone object holding the same numbers would have to be kept in step by hand.
+
+You can create a new variable inside an existing data frame using the `$` operator combined with `<-`. The syntax is `data_frame$new_variable <- expression`. The expression on the right side can combine any variables already in the data frame, as long as each one is also referenced with `$`.
 
 The code below creates a variable called **like.or.share** that adds likes and shares together for each post. Note that no output appears --- assignment never prints a result.
 
@@ -1310,7 +1336,7 @@ grade_this({
   correct_attention <- unFBposts$likes_count + unFBposts$comments_count
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("unFBposts\\s*\\$\\s*attention\\s*(<-|=[^=])", code_no_comments)) {
     fail("Create the new variable as `unFBposts$attention` using the `$` operator.")
@@ -1402,7 +1428,7 @@ grade_this({
   fewest  <- min(unFBposts$comments_count, na.rm = TRUE)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("sum\\s*\\(", code_no_comments)) {
     fail("You need a way to count how many posts meet a condition.")
@@ -1471,7 +1497,7 @@ grade_this({
   correct <- unFBposts$month[which(unFBposts$comments_count == max(unFBposts$comments_count, na.rm = TRUE))]
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("which\\s*\\(", code_no_comments)) {
     fail("You need to identify which row holds the maximum **comments_count**.")
@@ -1541,7 +1567,7 @@ grade_this({
   correct <- unFBposts$message[which(expected_engagement == max(expected_engagement, na.rm = TRUE))]
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("unFBposts\\s*\\$\\s*full\\.engagement\\s*(<-|=[^=])", code_no_comments)) {
     fail("Create a variable called **full.engagement** inside **unFBposts** using `$`.")
@@ -1608,7 +1634,7 @@ grade_this({
   correct <- sum(unFBposts$shares_count > unFBposts$likes_count)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("sum\\s*\\(", code_no_comments)) {
     fail("Use `sum()` to count the posts meeting the condition.")

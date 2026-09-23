@@ -31,6 +31,11 @@ library(learnr)
 library(dplyr)
 library(ggplot2)
 library(gradethis)
+# Okabe-Ito, black left out so the same order serves fills and lines alike:
+# a boxplot draws its median and whiskers in black, and a black fill hides them.
+# Black stays available wherever a color is set directly rather than mapped.
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -54,7 +59,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -63,7 +84,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -93,7 +120,7 @@ $$t=\frac{r\sqrt{n-2}}{\sqrt{1-r^2}}$$
 
 where $r$ is the sample correlation and $n$ is the sample size. As with every other test statistic in this course, you do not need to memorize this formula --- understand the logic, and let R compute it for you. Like the t-statistics in Tutorial 13, this one reflects both the size of the observed relationship and how much information there is to estimate it. For the same value of $r$, a larger sample produces a larger absolute t-statistic because the correlation is estimated more precisely. A given $r$ is harder to explain by chance --- and produces a bigger $t$ --- when it comes from a larger sample, the same logic behind every standard error in this course.
 
-The good news is that this is not really a new complication: $t$ here is the same kind of test statistic used throughout Tutorial 13 and is evaluated using a t-distribution. There is no new distribution shape to learn --- only the formula used to calculate $t$ from the data has changed.
+The good news is that this is not really a new complication: $t$ here is the same kind of test statistic used throughout Tutorial 13 and is evaluated using a t-distribution. There is no new distribution shape to learn --- only the formula used to calculate $t$ from the data has changed. R reports both $t$ and a p-value, but they are not alternatives: the p-value comes from locating $t$ in a t-distribution with $n - 2$ degrees of freedom, so the same $t$ gives a different p-value at a different sample size. That is why the p-value, not $t$ alone, tells you whether a correlation is statistically distinguishable from zero.
 
 ### Running the Test with `cor.test()`
 
@@ -149,8 +176,8 @@ The data frame **world** contains the interval variable **effectiveness**, a mea
 world %>%
   filter(!is.na(effectiveness), !is.na(lifeex_total)) %>%
   ggplot(mapping = aes(x = effectiveness, y = lifeex_total)) +
-  geom_point(color = "steelblue") +
-  geom_smooth(color = "darkorange", se = FALSE, method = "lm") +
+  geom_point(color = "#0072B2") +
+  geom_smooth(color = "#D55E00", se = FALSE, method = "lm") +
   labs(title = "Government Effectiveness and Life Expectancy",
        x = "Government Effectiveness",
        y = "Life Expectancy at Birth",
@@ -216,18 +243,19 @@ In a comparison of [countries], those with [higher income inequality] will tend 
 
 The data frame **qog**, from the Quality of Government project, contains the interval variable **wdi_gini**, the World Bank's Gini index of income inequality (higher values mean more unequal), stored as a numeric variable, and the interval variable **vdem_polyarchy**, the V-Dem electoral democracy index (higher values indicate more democratic), also stored as a numeric variable. **wdi_gini** is missing for 80 of the 194 countries and **vdem_polyarchy** for 21; because a correlation needs both values for the same country, this test describes the 110 countries that have both --- fewer than three in five.
 
-```{r scatterplot-gini-polyarchy-14, echo=FALSE, message=FALSE, warning=FALSE, out.width='80%', fig.alt="Scatter plot showing income inequality on the x-axis and the electoral democracy index on the y-axis across countries, with dark teal points and a black fitted line. The points are spread widely across the plot, and the fitted line runs nearly horizontally with only a slight downward tilt."}
+```{r scatterplot-gini-polyarchy-14, echo=FALSE, message=FALSE, warning=FALSE, out.width='80%', fig.alt="Scatter plot showing income inequality on the x-axis and the electoral democracy index on the y-axis across countries, with a fitted line drawn through the points. The points are spread widely across the plot, and the fitted line runs nearly horizontally with only a slight downward tilt."}
 qog %>%
   filter(!is.na(wdi_gini), !is.na(vdem_polyarchy)) %>%
   ggplot(mapping = aes(x = wdi_gini, y = vdem_polyarchy)) +
-  geom_point(color = "darkcyan") +
+  geom_point(color = "#009E73") +
   geom_smooth(color = "black", se = FALSE, method = "lm") +
   labs(title = "Income Inequality and Democracy",
        x = "Income Inequality (Gini Index)",
        y = "Electoral Democracy Index",
        caption = "Source: Quality of Government project")
 ```
- **wdi_gini** is the explanatory variable and **vdem_polyarchy** is the outcome.
+
+**wdi_gini** is the explanatory variable and **vdem_polyarchy** is the outcome.
 
 ### Steps 1 and 2: State the Hypotheses
 
@@ -284,7 +312,7 @@ cor.test(qog$___, qog$___,
 ```{r cortest-gini-polyarchy-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("cor\\.test\\s*\\(", code_no_comments)) {
     fail("Use `cor.test()` to run the correlation test.")
@@ -369,8 +397,8 @@ The data frame **counties** contains the interval variable **wage_growth**, the 
 counties %>%
   filter(!is.na(wage_growth), !is.na(dem2p_percent)) %>%
   ggplot(mapping = aes(x = wage_growth, y = dem2p_percent)) +
-  geom_point(color = "steelblue") +
-  geom_smooth(color = "darkorange", se = FALSE, method = "lm") +
+  geom_point(color = "#0072B2") +
+  geom_smooth(color = "#D55E00", se = FALSE, method = "lm") +
   labs(title = "Wage Growth and Democratic Vote Percentage",
        x = "Wage Growth",
        y = "Percent of Two-Party Vote",
@@ -432,7 +460,7 @@ Use **wage_growth** and **dem2p_percent** from the **counties** data frame. Two 
 ```{r cortest-wagegrowth-demvoteshare-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("cor\\.test\\s*\\(", code_no_comments)) {
     fail("Use `cor.test()` to run the correlation test.")

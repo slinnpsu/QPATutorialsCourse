@@ -30,6 +30,13 @@ library(learnr)
 library(dplyr)
 library(ggplot2)
 library(gradethis)
+# Okabe-Ito, the five that also pass 3:1 contrast on white. Set as ggplot2's
+# default categorical palette so every plot uses it without extra code.
+# Black is left out so the same order serves fills and lines alike: a boxplot
+# draws its median and whiskers in black, and a black fill would hide them.
+# Black stays available wherever a color is set directly rather than mapped.
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -53,7 +60,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -62,7 +85,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -120,15 +149,15 @@ labeled <- counties_plot %>%
       county_name == "Williamson" ~ "Williamson, TN"
     ),
     point_color = case_when(
-      county_name == "Arlington"  ~ "#2166ac",
-      county_name == "Mcdowell"   ~ "#d73027",
-      county_name == "Bronx"      ~ "#1a9850",
-      county_name == "Williamson" ~ "#f46d43"
+      county_name == "Arlington"  ~ "#000000",
+      county_name == "Mcdowell"   ~ "#D55E00",
+      county_name == "Bronx"      ~ "#009E73",
+      county_name == "Williamson" ~ "#CC79A7"
     )
   )
 
 ggplot(counties_plot, aes(x = prop_college_grad, y = dem2p_percent)) +
-  geom_point(color = "steelblue", alpha = 0.4, size = 1.2) +
+  geom_point(color = "#0072B2", alpha = 0.4, size = 1.2) +
   geom_vline(xintercept = mean_educ, color = "black", linewidth = 0.6) +
   geom_hline(yintercept = mean_vote, color = "black", linewidth = 0.6) +
   geom_point(data = labeled, aes(color = I(point_color)), size = 3) +
@@ -217,20 +246,20 @@ panel_theme <- theme_bw() +
         plot.subtitle = element_text(size = 11, hjust = 0.5, color = "#444444"))
 
 p_neg <- ggplot(df_neg, aes(x, y)) +
-  geom_point(color = "steelblue", alpha = 0.5, size = 1.5) +
-  geom_smooth(method = "lm", se = FALSE, color = "#d73027", linewidth = 1) +
+  geom_point(color = "#0072B2", alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#D55E00", linewidth = 1) +
   labs(title = "Negative relationship", subtitle = paste0("r = ", r_neg)) +
   panel_theme
 
 p_zero <- ggplot(df_zero, aes(x, y)) +
-  geom_point(color = "steelblue", alpha = 0.5, size = 1.5) +
-  geom_smooth(method = "lm", se = FALSE, color = "#d73027", linewidth = 1) +
+  geom_point(color = "#0072B2", alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#D55E00", linewidth = 1) +
   labs(title = "No linear relationship", subtitle = paste0("r = ", r_zero)) +
   panel_theme
 
 p_pos <- ggplot(df_pos, aes(x, y)) +
-  geom_point(color = "steelblue", alpha = 0.5, size = 1.5) +
-  geom_smooth(method = "lm", se = FALSE, color = "#d73027", linewidth = 1) +
+  geom_point(color = "#0072B2", alpha = 0.5, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#D55E00", linewidth = 1) +
   labs(title = "Positive relationship", subtitle = paste0("r = ", r_pos)) +
   panel_theme
 
@@ -277,8 +306,8 @@ The data frame **world** contains the variable **effectiveness**, a measure of g
 library(dplyr)    # first use in this tutorial; it stays loaded from here on
 library(ggplot2)  # first use in this tutorial; it stays loaded from here on
 ggplot(data = world, mapping = aes(x = effectiveness, y = lifeex_total)) +
-  geom_point(color = "steelblue") +
-  geom_smooth(color = "darkorange", se = FALSE, method = "lm") +
+  geom_point(color = "#0072B2") +
+  geom_smooth(color = "#D55E00", se = FALSE, method = "lm") +
   labs(title = "Government Effectiveness and Life Expectancy",
        x = "Government Effectiveness",
        y = "Life Expectancy at Birth",
@@ -367,9 +396,9 @@ Now ask whether countries with higher income inequality tend to have lower democ
 
 Fill in the blanks in the starter code. Decide which variable is explanatory and which is the outcome before you begin. One hint is available. Click "Submit Answer" to check your work.
 
-```{r scatterplot-gini-polyarchy, exercise=TRUE, exercise.cap="Practice 5", fig.alt="Scatter plot showing income inequality on the x-axis and the electoral democracy index on the y-axis across countries, with dark teal points and a black fitted line. The points are spread widely across the plot, and the fitted line runs nearly horizontally with only a slight downward tilt."}
+```{r scatterplot-gini-polyarchy, exercise=TRUE, exercise.cap="Practice 5", fig.alt="Scatter plot showing income inequality on the x-axis and the electoral democracy index on the y-axis across countries, with a fitted line drawn through the points. The points are spread widely across the plot, and the fitted line runs nearly horizontally with only a slight downward tilt."}
 ggplot(data = qog, mapping = aes(x = ___, y = ___)) +
-  geom_point(color = "darkcyan") +
+  geom_point(color = "#009E73") +
   geom_smooth(color = "black", se = FALSE, method = "lm") +
   labs(title = "Income Inequality and Democracy",
        x = "Income Inequality (Gini Index)",
@@ -387,11 +416,11 @@ ggplot(data = qog, mapping = aes(x = ___, y = ___)) +
 
 ```{r scatterplot-gini-polyarchy-check}
 grade_this({
-  code_lines <- gsub("#[^\r\n]*", "", .user_code)
+  code_lines <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. Check for a missing `+` at the end of a line, unmatched parentheses, a label string missing its quotation marks, or a missing `%>%` in the pipeline.")
@@ -482,7 +511,7 @@ cor(x      = qog$___,
 
 ```{r correlation-gini-polyarchy-check}
 grade_this({
-  code_lines <- gsub("#[^\r\n]*", "", .user_code)
+  code_lines <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (is.null(.result)) {
@@ -570,7 +599,7 @@ Build this one from scratch, with no starter code. Most of the syntax is familia
 
 Decide which variable is explanatory and which is the outcome --- that decides which one goes on `x` and which on `y`. Your plot should have:
 
-- Points in `"steelblue"` and a fitted line in `"darkorange"`
+- Points in `"#0072B2"` and a fitted line in `"#D55E00"`
 - Title `"Wage Growth and Democratic Vote Percentage"`
 - Axis labels `"Wage Growth"` and `"Percent of Two-Party Vote"`
 - Caption `"Source: Linn, Nagler, Zilinsky"`
@@ -627,11 +656,11 @@ grade_this({
     if (is.null(x)) "nothing" else paste0('"', paste(as.character(x), collapse = " "), '"')
   }
 
-  code_lines <- gsub("#[^\r\n]*", "", .user_code)
+  code_lines <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. Check for a missing `+` at the end of a line, unmatched parentheses, a label string missing its quotation marks, or a missing `%>%` in the pipeline.")
@@ -643,14 +672,25 @@ grade_this({
     fail("Use `ggplot()` to build the scatter plot.")
   }
 
-  plot_mapping <- .result$mapping
-  x_mapping <- rlang::as_label(plot_mapping$x)
-  y_mapping <- rlang::as_label(plot_mapping$y)
+  # x and y may be mapped in ggplot() or inside geom_point(), so look in both.
+  get_aes_text <- function(plot, aes_name) {
+    out <- character(0)
+    grab <- function(m) {
+      if (is.null(m)) return(character(0))
+      tryCatch(paste(deparse(rlang::get_expr(m)), collapse = ""),
+               error = function(e) character(0))
+    }
+    out <- c(out, grab(plot$mapping[[aes_name]]))
+    for (layer in plot$layers) out <- c(out, grab(layer$mapping[[aes_name]]))
+    out
+  }
+  x_mapping <- get_aes_text(.result, "x")
+  y_mapping <- get_aes_text(.result, "y")
 
-  if (!identical(x_mapping, "wage_growth")) {
+  if (!"wage_growth" %in% x_mapping) {
     fail("The explanatory variable belongs on the x-axis inside `aes()`. The hypothesis above tells you which of the two is doing the explaining.")
   }
-  if (!identical(y_mapping, "dem2p_percent")) {
+  if (!"dem2p_percent" %in% y_mapping) {
     fail("The outcome variable belongs on the y-axis inside `aes()` --- the one the hypothesis says is being explained.")
   }
   if (!grepl("geom_point\\s*\\(", code_no_comments)) {
@@ -673,16 +713,16 @@ grade_this({
   sm <- which(layer_geoms == "GeomSmooth")
 
   if (length(pt) > 0 && any(c("colour", "color") %in% names(.result$layers[[pt[1]]]$mapping))) {
-    fail("Put `color = \"steelblue\"` outside `aes()`, inside `geom_point()`. A fixed color is a setting, not a variable mapping --- inside `aes()` ggplot treats \"steelblue\" as data and draws a legend for it.")
+    fail("Put `color = \"#0072B2\"` outside `aes()`, inside `geom_point()`. A fixed color is a setting, not a variable mapping --- inside `aes()` ggplot treats \"steelblue\" as data and draws a legend for it.")
   }
-  if (length(pt) == 0 || !identical(.result$layers[[pt[1]]]$aes_params$colour, "steelblue")) {
-    fail("The prompt asks for steelblue points --- set `color = \"steelblue\"` inside `geom_point()`.")
+  if (length(pt) == 0 || !identical(tolower(.result$layers[[pt[1]]]$aes_params$colour), "#0072b2")) {
+    fail("The prompt asks for blue points --- set `color = \"#0072B2\"` inside `geom_point()`.")
   }
   if (length(sm) > 0 && any(c("colour", "color") %in% names(.result$layers[[sm[1]]]$mapping))) {
-    fail("Put `color = \"darkorange\"` outside `aes()`, inside `geom_smooth()`. A fixed color is a setting, not a variable mapping.")
+    fail("Put `color = \"#D55E00\"` outside `aes()`, inside `geom_smooth()`. A fixed color is a setting, not a variable mapping.")
   }
-  if (length(sm) == 0 || !identical(.result$layers[[sm[1]]]$aes_params$colour, "darkorange")) {
-    fail("The prompt asks for a darkorange fitted line --- set `color = \"darkorange\"` inside `geom_smooth()`.")
+  if (length(sm) == 0 || !identical(tolower(.result$layers[[sm[1]]]$aes_params$colour), "#d55e00")) {
+    fail("The prompt asks for a vermillion fitted line --- set `color = \"#D55E00\"` inside `geom_smooth()`.")
   }
   if (!grepl("labs\\s*\\(", code_no_comments)) {
     fail("Add `labs()` to give the plot a title, axis labels, and caption.")
@@ -762,7 +802,7 @@ Use **wage_growth** and **dem2p_percent** from the **counties** data frame, foll
 
 ```{r correlation-wagegrowth-demvoteshare-check}
 grade_this({
-  code_lines <- gsub("#[^\r\n]*", "", .user_code)
+  code_lines <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (is.null(.result)) {
@@ -901,10 +941,10 @@ In a comparison of [countries], those with [more effective governments] will ten
 
 The data frame **world** contains **effectiveness**, a measure of government effectiveness running from 0 to 100 in principle, though the observed values run from about 7.8 to 100, where 100 is most effective, and **fertility**, the average number of children born per woman. **effectiveness** is the explanatory variable and **fertility** the outcome. **effectiveness** is missing for 14 countries and **fertility** for 2, so 153 of the 167 countries are plotted.
 
-```{r scatterplot-governmenteffectiveness-fertility, echo=FALSE, warning=FALSE, message=FALSE, fig.alt="Scatter plot showing government effectiveness on the x-axis and fertility rate on the y-axis across countries, with purple points and a firebrick fitted line. The line runs from the upper left of the plot down to the lower right. The points are spread around the line, with a wider vertical spread at lower levels of government effectiveness."}
+```{r scatterplot-governmenteffectiveness-fertility, echo=FALSE, warning=FALSE, message=FALSE, fig.alt="Scatter plot showing government effectiveness on the x-axis and fertility rate on the y-axis across countries, with a fitted line drawn through the points. The line runs from the upper left of the plot down to the lower right. The points are spread around the line, with a wider vertical spread at lower levels of government effectiveness."}
 ggplot(data = world, mapping = aes(x = effectiveness, y = fertility)) +
-  geom_point(color = "purple4") +
-  geom_smooth(color = "firebrick", method = "lm", se = FALSE) +
+  geom_point(color = "#CC79A7") +
+  geom_smooth(color = "#D55E00", method = "lm", se = FALSE) +
   labs(title = "Government Effectiveness and Fertility Around the World",
        x = "Government Effectiveness Score",
        y = "Number of Children",

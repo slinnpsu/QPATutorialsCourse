@@ -32,6 +32,9 @@ library(ggplot2)
 library(gradethis)
 library(stargazer)
 library(sjPlot)
+# Colorblind-safe palette used for every grouped plot in this tutorial.
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -55,7 +58,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -64,7 +83,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -175,7 +200,7 @@ Save your model as **fit1** and present the results. Three hints are available. 
 ```{r exercise-fit1-estimate-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_nc <- gsub("#[^\r\n]*", "", code)
+  code_nc <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -263,7 +288,7 @@ stargazer(fit1,
 ```{r exercise-stargazer-fit1-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_nc <- gsub("#[^\r\n]*", "", code)
+  code_nc <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -294,20 +319,9 @@ grade_this({
 
 The hypothesis concerns liberalism. The most direct way to make the liberalism coefficient concrete is to compare the model's prediction for a state with a lower liberal proportion to one with a higher liberal proportion, holding everything else constant.
 
-Two things about the code are worth knowing before you write it. Interval predictors that are not being varied are held at their means, which is what `mean(..., na.rm = TRUE)` does. A factor predictor cannot be held at a mean, so it is set to one of its levels --- and it must be supplied as a factor carrying **all** of the original levels, not as a bare string, or `predict()` will not recognize it.
+`predict()` does that. It takes the model object and a `newdata` argument --- a data frame describing the exact case you want a prediction for. Every predictor in the model must appear in `newdata`, named exactly as it is in the formula, so here that means all four: **p.liberal**, **nonwhite**, **povrate** and **region_censusf**.
 
-**Example code:**
-
-```{r predict-factor-template, exercise=FALSE, eval=FALSE}
-predict(yourmodel,
-        newdata = data.frame(
-          interval_predictor = mean(yourdata$interval_predictor, na.rm = TRUE),
-          factor_predictor   = factor("level you want",
-                                      levels = levels(yourdata$factor_predictor))
-        ))
-```
-
-The `levels =` argument gives the new factor the same set of levels as the variable the model was fitted on, which is the convention used throughout these tutorials.
+Predictors you are not varying are held at their means, which is what `mean(..., na.rm = TRUE)` does. A factor cannot be held at a mean, so it is set to one of its levels --- and it has to be supplied as a factor carrying all the levels the model knows, not as a bare string: `factor("South", levels = levels(states$region_censusf))`. The prediction comes back in the units of the outcome, a proportion of seats on a 0-to-1 scale.
 
 **Run and observe 3: Compute predicted Democratic seat share at two levels of p.liberal**
 
@@ -330,8 +344,6 @@ predict(fit1,
           region_censusf = factor("South", levels = levels(states$region_censusf))
         ))
 ```
-
-**How this code works.** `predict()` takes the model object and a `newdata` argument --- a data frame describing the exact case you want to predict. Every predictor in the model must appear in `newdata`, named and typed exactly as in the formula. Here that means four variables: `p.liberal`, `nonwhite`, and `povrate` set to specific values, and `region_censusf`. Factor variables in R carry information about all their possible levels, not just the value you are supplying --- they are not simply character strings. The recommended way to specify a factor predictor in `newdata` is `factor("South", levels = levels(states$region_censusf))`, which creates a one-element factor with the correct level set explicitly attached. This makes the type unambiguous and protects against edge cases where R cannot determine the levels from context alone. The output is in the same units as the outcome variable: the proportion of Democratic house seats, on a 0-to-1 scale.
 
 The two predictions differ in exactly one way --- the value of `p.liberal`. Everything else is held constant. That difference is the liberalism slope made concrete. A second useful comparison is the regional gap: the Northeast coefficient is also significant, so comparing an otherwise identical Southern and Northeastern state gives you a concrete statement of what that coefficient means.
 
@@ -386,7 +398,7 @@ plot_model(fit1,
   labs(caption = "Predictions are for Southern states with average poverty rate and proportion non-white.")
 ```
 
-Since [sjPlot]{.package-name} was loaded in the exercise above, you can assume it is already loaded for all subsequent exercises in this tutorial. In your own scripts, call `library(sjPlot)` once at the top before using `plot_model()`. You may also see a note about overlapping data points --- with only 49 states this is not a concern, and the `jitter` argument is optional. Jitter adds a small random offset to each data point's position so that overlapping points spread apart and remain individually visible. With sparse data like these 49 states it is unnecessary, but in datasets where many observations share similar x-axis values, `show.data = TRUE` combined with `jitter = 0.1` (or a similar small value) prevents points from stacking on top of each other.
+In your own work, load a package the first time you need one of its functions. You may also see a note about overlapping data points --- with only 49 states this is not a concern, and the `jitter` argument is optional. Jitter adds a small random offset to each data point's position so that overlapping points spread apart and remain individually visible. With sparse data like these 49 states it is unnecessary, but in datasets where many observations share similar x-axis values, `show.data = TRUE` combined with `jitter = 0.1` (or a similar small value) prevents points from stacking on top of each other.
 
 Notice what this plot is doing: it is sweeping across the full range of **p.liberal**, computing a predicted value at every point --- exactly what `predict()` did for one specific value, but repeated across the entire range and displayed as a continuous line. The two specific values you computed earlier (about 0.54 and 0.71) are points on this line. The shaded band is the 95% confidence region around those predictions. Its width is not constant: it is narrower in the middle of the **p.liberal** range, where more states are concentrated and the model has more information, and wider at the tails, where fewer states have very high or very low liberalism levels. Predictions are often more precise where data are dense and less precise where data are sparse, though precision also depends on the model's overall fit and the covariance among predictors.
 
@@ -403,7 +415,7 @@ You now have what a complete interpretation needs: a fitted model, two specific 
 
 3. **Specific predicted values.** At least two. "The predicted proportion increases" is weaker than "the predicted proportion increases from 0.54 to 0.71 as the liberal proportion rises from 0.2 to 0.4." Magnitude is part of the finding.
 
-4. **The uncertainty.** A [confidence interval]{.important-text} shows how precisely the model estimates the expected outcome for cases with that predictor profile. That should change how firmly you state the finding: with a narrow band you can report the predicted value as a reasonably settled quantity; with a wide one the honest claim is about the range rather than the point.
+4. **The uncertainty.** A [confidence interval]{.important-text} shows how precisely the model estimates the expected outcome for cases with that predictor profile. That should change how firmly you state the finding: with a narrow band you can report the predicted value as a reasonably settled quantity; with a wide one the honest claim is about the range rather than the point. The band is about the predicted values, not a test of the slope: it can be wide while the slope is clearly different from zero.
 
 5. **The connection to the hypothesis.** A predicted value comparison is evidence. Does the pattern support the hypothesis, fail to support it, or complicate it?
 :::
@@ -491,14 +503,14 @@ question("Using the prediction plot above, approximately what is the predicted D
 
 ```{r quiz-liberal-band, echo=FALSE}
 question("Look at the shaded confidence band in the plot above. Which statement best describes what it tells you?",
-  correct = "Right. The band is moderately wide and widens at the extremes.",
-  answer("The band is moderately wide and widens at the extremes, but stays consistent with a positive slope",
+  correct = "Right. The band is moderately wide and widens at the extremes, where the states thin out.",
+  answer("The band is moderately wide and widens at the extremes, where fewer states have very high or very low liberalism",
          correct = TRUE,
-         message = "With only 49 states, there is meaningful uncertainty around each prediction. The widening at the tails is expected. The band never crosses in a way that would reverse the directional conclusion."),
+         message = "With only 49 states, each predicted value is estimated with meaningful imprecision, and the widening at the tails is expected. The band describes how precisely each predicted value is estimated; whether the slope differs from zero is the coefficient test's question."),
   answer("The band is so narrow that predictions can be read to three decimal places",
          message = "With 49 states, the band is visible and meaningful."),
   answer("The band is so wide that no conclusions can be drawn about direction",
-         message = "The band limits precision but not directional conclusions. It is consistent with a positive slope throughout."),
+         message = "The band shows how precisely each predicted value is estimated, not whether the slope differs from zero. That is the coefficient test's question, and the **p.liberal** coefficient is significant at p = .013."),
   answer("The band is narrower at the tails because that is where the model has the most reliable predictions",
          message = "It is the opposite: the band widens at the tails, where fewer states have very high or very low liberalism levels. Predictions are more precise where data are dense --- in the middle of the range --- and less precise where data are sparse, at the extremes."),
   allow_retry = TRUE,
@@ -509,23 +521,21 @@ question("Look at the shaded confidence band in the plot above. Which statement 
 
 **Apply 10: Component 5 --- The hypothesis connection**
 
-A coefficient and p-value tell you the relationship is statistically significant. The plot translates that coefficient into a substantively interpretable pattern across the observed range.
-
 ```{r quiz-liberal-hypothesis, echo=FALSE}
-question("Look at the **p.liberal** coefficient and its p-value in your output. What does the prediction plot add to that conclusion?",
-  correct = "Right. The plot adds substantive magnitude to what the p-value can only confirm as non-zero.",
-  answer("The plot shows the size of the difference, not only its existence",
+question("The hypothesis predicts that more liberal states will tend to have a higher proportion of Democratic house seats. The line rises, the band around it is moderately wide, and the **p.liberal** coefficient is significant (p = .013). What do these say about the hypothesis?",
+  correct = "Right. A wide band and a significant slope are answers to different questions, and both belong in the write-up.",
+  answer("The results are consistent with the hypothesis: the slope is significant, and the wide band means the predicted values are imprecise, not that the relationship is in doubt",
          correct = TRUE,
-         message = "A significant p-value tells you the relationship is statistically distinguishable from zero. The plot tells you what it looks like in the units and range that matter --- about 17.5 percentage points between a less liberal and a more liberal state across a realistic range."),
-  answer("The plot adds nothing the p-value has not already established",
-         message = "The p-value tells you the relationship is unlikely to be chance. The plot tells you its magnitude across a realistic range --- substantively different information."),
-  answer("The plot proves liberal voters cause Democratic victories",
-         message = "A prediction plot is evidence of an association, not proof of causation."),
-  answer("The plot shows the same information as the p-value, just in visual form",
-         message = "The p-value tells you whether the relationship is statistically distinguishable from zero. The plot tells you how large the predicted difference is across a realistic range --- about 17.5 percentage points for a 20-point shift in the liberal proportion. Statistical significance and substantive magnitude are different things."),
+         message = "The band and the test answer different questions. The band shows how precisely each predicted value is estimated; the test asks whether the slope differs from zero. A band can be wide while the slope is clearly positive, which is what happens here."),
+  answer("The wide band means the results do not support the hypothesis, whatever the p-value says",
+         message = "Width is about precision, not about direction. The band would have to be wide enough to admit a flat or falling line before it raised doubt about the relationship, and whether the slope differs from zero is settled by the coefficient test."),
+  answer("The results prove the hypothesis, since the line rises and the coefficient is significant",
+         message = "Evidence consistent with a hypothesis is not proof of it. These data are observational, one model among the many that could have been fitted, and the estimate carries uncertainty."),
+  answer("The results support the hypothesis only in the middle of the range, where the band is narrow",
+         message = "The band is narrower in the middle because more states sit there, so predictions are more precise. That is a statement about precision, not about where the relationship holds --- the slope is the same across the whole range."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Think about what a p-value tells you and what it cannot tell you about the size or practical meaning of an effect."
+  try_again = "What question does the band answer, and what question does the coefficient test answer?"
 )
 ```
 
@@ -534,7 +544,7 @@ question("Look at the **p.liberal** coefficient and its p-value in your output. 
 Those five components are the parts. Written out, they read as a single paragraph rather than a list:
 
 ::: {.research-example}
-*Predicted Democratic seat share rises with the liberal proportion of a state's public --- the relationship is positive and roughly linear across the observed range. Predictions hold the proportion non-white and the poverty rate at their means and assume a Southern state; a Northeastern state at the same liberal proportion would be predicted about 13 percentage points higher, but the estimated liberalism association would be the same. A state at a liberal proportion of 0.2 is predicted to have about 54% of its house seats held by Democrats; one at 0.4, about 71%. The confidence band is wide, so the honest claim is that the predicted values lie somewhere in a fairly broad range rather than at those points exactly. The positive relationship is consistent with the hypothesis that more liberal publics elect more Democratic legislators.*
+*Predicted Democratic seat share rises with the liberal proportion of a state's public --- the relationship is positive and roughly linear across the observed range. Predictions hold the proportion non-white and the poverty rate at their means and assume a Southern state; a Northeastern state at the same liberal proportion would be predicted about 13 percentage points higher, but the estimated liberalism association would be the same. A state at a liberal proportion of 0.2 is predicted to have about 54% of its house seats held by Democrats; one at 0.4, about 71%. The confidence band is moderately wide, so the predicted values are best read as approximate rather than exact. The positive relationship is consistent with the hypothesis that more liberal publics elect more Democratic legislators.*
 :::
 
 All five components appear in the prose without being labeled. That is the standard this tutorial asks you to meet.
@@ -588,7 +598,7 @@ ___(fit1,
 ```{r exercise-predplot-region-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_nc <- gsub("#[^\r\n]*", "", code)
+  code_nc <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -612,11 +622,37 @@ grade_this({
     fail("Add a labs(caption = \"...\") layer stating the held values.")
   if (!grepl("Predictions are for states with average poverty rate, proportion liberal, and proportion non-white.", code_nc, fixed = TRUE))
     fail("Use the prescribed caption: \"Predictions are for states with average poverty rate, proportion liberal, and proportion non-white.\"")
+  # The checks above find the prescribed words somewhere in the code. These read
+  # the finished plot, so each label has to be in its right place: swapped axis
+  # labels, or an x-axis label left out because its words also appear in the
+  # title, would otherwise pass.
+  if (!inherits(.result, "ggplot"))
+    fail("Your last line should produce the plot itself, so `plot_model()` is what prints.")
+  bl <- tryCatch(ggplot2::ggplot_build(.result), error = function(e) NULL)
+  if (is.null(bl))
+    fail("The plot could not be built. Check that every argument is inside the `plot_model()` call.")
+  lb <- .result$labels
+  norm <- function(x) if (is.null(x)) "" else gsub("\\s+", " ", paste(as.character(x), collapse = " "))
+  want <- list(
+    title   = "Predicted Democratic House Seat Share by Census Region",
+    x       = "Census Region",
+    y       = "Proportion of Democratic House Seats",
+    caption = "Predictions are for states with average poverty rate, proportion liberal, and proportion non-white.")
+  if (identical(norm(lb$x), want$y) && identical(norm(lb$y), want$x))
+    fail("Your axis labels are swapped. `axis.title` takes the x-axis label first, then the y-axis label: `axis.title = c(\"Census Region\", \"Proportion of Democratic House Seats\")`.")
+  what <- c(title = "title", x = "x-axis label", y = "y-axis label", caption = "caption")
+  for (f in names(want)) {
+    if (!identical(norm(lb[[f]]), want[[f]]))
+      fail(paste0("The plot's ", what[[f]], " should be \"", want[[f]], "\". Check that it is set in the right place inside this plot."))
+  }
+  if (length(unique(bl$data[[1]]$x)) != nlevels(states$region_censusf))
+    fail("The plot should show one prediction for each of the four regions. Check that `terms` names **region_censusf**.")
+
   pass("Well done. The plot is built and captioned --- and the caption is what tells a reader which values everything else was held at.")
 })
 ```
 
-When `terms` is a factor, `plot_model()` produces a point with a confidence interval for each level rather than a continuous line --- there is no meaningful range to sweep across for a categorical variable, only discrete levels. Wide confidence intervals show that the predictions are estimated imprecisely. Whether two predictions differ by more than sampling variation is a separate question, and the overlap between their intervals does not answer it --- that requires the relevant coefficient test.
+When `terms` is a factor, `plot_model()` produces a point with a confidence interval for each level rather than a continuous line --- there is no meaningful range to sweep across for a categorical variable, only discrete levels. Wide confidence intervals show that the predictions are estimated imprecisely. Whether two predictions are statistically distinguishable is a separate question, and the overlap between their intervals does not answer it --- that requires the relevant coefficient test.
 
 **Apply 12: Interpret the region plot**
 
@@ -646,17 +682,29 @@ The liberalism and region plots each varied one predictor. A two-variable plot e
 
 Setting `terms` to a vector of two variable names produces this plot: the first variable goes on the x-axis, and the second variable's levels appear as separate colored lines.
 
+**A note on color.** When a plot draws several groups, the colors have to be ones every reader can tell apart. This tutorial uses a fixed set, defined once in its setup:
+
+```r
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+```
+
+These are the five hex codes introduced in Tutorial 4: they stay distinguishable for readers with color-vision deficiency and have enough contrast against a white background, which the default palette does not. Passing `colors = cb_colors` to `plot_model()` uses them in place of its own.
+
+In your own work you would define that vector yourself --- the one line above is the whole of it --- or choose another palette. What matters is that the choice is yours rather than the software's, and that whoever reads your plot can tell the groups apart. If the colors are still hard to distinguish, `colors = "bw"` draws the groups as different line types instead.
+
 **Apply 13: Produce a two-variable prediction plot for liberalism and region**
 
-Produce the plot and notice whether the four lines are parallel --- that parallelism is a finding about the model, not just a visual feature. Use the title \"Predicted Democratic House Seat Share by Liberalism and Region\", the x-axis label \"Proportion Liberal\", the y-axis label \"Proportion of Democratic House Seats\", and the caption \"Predictions are for states with average poverty rate and proportion non-white.\" `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Census Region", caption = "...")` to set both. Four hints are available. Click "Submit Answer" to check your work.
+Put **p.liberal** on the x-axis, with a separate line for each region, and notice whether the four lines are parallel --- that parallelism is a finding about the model, not just a visual feature. Use the title \"Predicted Democratic House Seat Share by Liberalism and Region\", the x-axis label \"Proportion Liberal\", the y-axis label \"Proportion of Democratic House Seats\", and the caption \"Predictions are for states with average poverty rate and proportion non-white.\" Set `colors = cb_colors`, set the legend title with `legend.title = "Census Region"`, and add the caption with `labs(caption = "...")`. Four hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predplot-twovar, exercise=TRUE, exercise.cap="Apply 13", fig.alt="Four straight lines, one per census region, showing the predicted proportion of Democratic House seats against the proportion of liberal residents. Each rises from left to right across a horizontal axis running from 0.0 to about 0.6, each with its own shaded band, and a legend names the four regions."}
 ___(fit1,
     ___ = "pred",
     ___ = c("p.liberal", "region_censusf"),
+    colors = ___,
     title = "___",
-    ___ = c("___", "___")) +
-  labs(color = "___", caption = "___")
+    ___ = c("___", "___"),
+    legend.title = "___") +
+  labs(caption = "___")
 ```
 
 ```{r exercise-predplot-twovar-hint-1}
@@ -672,23 +720,25 @@ ___(fit1,
 ```{r exercise-predplot-twovar-hint-2}
 # Hint 2 of 4
 # The blank argument names are: the function name (plot_model),
-# type =, terms =, and axis.title =.
+# type =, terms =, axis.title =, and legend.title =.
 # terms takes a character vector of two variable names.
-# In labs(), color = sets the legend title and caption = sets the caption.
+# colors takes the palette object named in the note above.
+# In labs(), caption = sets the caption.
 ```
 
 ```{r exercise-predplot-twovar-hint-3}
 # Hint 3 of 4
 # Prescribed title: "Predicted Democratic House Seat Share by Liberalism and Region"
 # Prescribed axis labels: x = "Proportion Liberal", y = "Proportion of Democratic House Seats"
-# Prescribed legend title (color =): "Census Region"
+# Prescribed legend title (legend.title =): "Census Region"
 # Prescribed caption: "Predictions are for states with average poverty rate and proportion non-white."
 ```
 
 ```{r exercise-predplot-twovar-hint-4}
 # Hint 4 of 4
-# The whole call is one plot_model() with four arguments -- the model,
-# type, terms, axis.title -- followed by a labs() layer chained with +.
+# The whole call is one plot_model() with the model, type, terms, colors,
+# title, axis.title and legend.title -- followed by a labs() layer
+# chained with +.
 # terms takes both variable names in a character vector, the continuous
 # one first. Everything else is the prescribed strings above, typed exactly.
 ```
@@ -696,7 +746,7 @@ ___(fit1,
 ```{r exercise-predplot-twovar-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_nc <- gsub("#[^\r\n]*", "", code)
+  code_nc <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -716,18 +766,55 @@ grade_this({
     fail("Use \"Proportion Liberal\" as the x-axis label.")
   if (!grepl("Proportion of Democratic House Seats", code_nc, fixed = TRUE))
     fail("Use \"Proportion of Democratic House Seats\" as the y-axis label.")
+  if (!grepl("colors\\s*=\\s*cb_colors", code_nc))
+    fail("Set `colors = cb_colors` so the lines use the colorblind-safe palette.")
   if (!grepl("labs\\s*\\(", code_nc))
-    fail("Add a labs() layer with color = and caption = arguments.")
+    fail("Add a labs() layer with the caption.")
+  if (!grepl("legend\\.title\\s*=", code_nc))
+    fail("Set the legend title with `legend.title =` inside `plot_model()`.")
   if (!grepl("Census Region", code_nc, fixed = TRUE))
-    fail("Use labs(color = \"Census Region\") to set the legend title.")
+    fail("Use `legend.title = \"Census Region\"` to set the legend title.")
   if (!grepl("Predictions are for states with average poverty rate and proportion non-white.", code_nc, fixed = TRUE))
     fail("Use the prescribed caption: \"Predictions are for states with average poverty rate and proportion non-white.\"")
+  # The checks above find the prescribed words somewhere in the code. These read
+  # the finished plot, so each label sits in its right place and the two names in
+  # `terms` are the right way round: swapping them draws points per region
+  # rather than four lines, which a text check cannot see.
+  if (!inherits(.result, "ggplot"))
+    fail("Your last line should produce the plot itself, so `plot_model()` is what prints.")
+  bl <- tryCatch(ggplot2::ggplot_build(.result), error = function(e) NULL)
+  if (is.null(bl))
+    fail("The plot could not be built. Check that every argument is inside the `plot_model()` call.")
+  lb <- .result$labels
+  norm <- function(x) if (is.null(x)) "" else gsub("\\s+", " ", paste(as.character(x), collapse = " "))
+  want <- list(title = "Predicted Democratic House Seat Share by Liberalism and Region",
+               x = "Proportion Liberal",
+               y = "Proportion of Democratic House Seats",
+               caption = "Predictions are for states with average poverty rate and proportion non-white.")
+  if (identical(norm(lb$x), want$y) && identical(norm(lb$y), want$x))
+    fail("Your axis labels are swapped. `axis.title` takes the x-axis label first, then the y-axis label.")
+  what <- c(title = "title", x = "x-axis label", y = "y-axis label", caption = "caption")
+  for (fld in names(want)) {
+    if (!identical(norm(lb[[fld]]), want[[fld]]))
+      fail(paste0("The plot's ", what[[fld]], " should be \"", want[[fld]], "\". Check that it is set in the right place inside this plot."))
+  }
+  if (!identical(norm(lb$colour), "Census Region"))
+    fail("The legend title should be \"Census Region\". Set it with `legend.title =` inside `plot_model()`.")
+  x_labels <- tryCatch(as.character(bl$layout$panel_params[[1]]$x$get_labels()),
+                       error = function(e) character(0))
+  if (any(levels(states$region_censusf) %in% x_labels))
+    fail("**p.liberal** belongs on the x-axis, with one line per region --- your plot has the regions on the x-axis instead. Check the order of the two names in `terms`: the first goes on the x-axis.")
+  if (length(unique(bl$data[[1]]$group)) != nlevels(states$region_censusf))
+    fail("The plot should draw one line for each of the four regions. Check that **region_censusf** is the second name in `terms`.")
+
   pass("Well done. Passing two names to `terms` puts the first on the x-axis and draws one line for each level of the second.")
 })
 ```
 
 ::: {.caution}
 **The y-axis runs past 1.0, and the outcome cannot.** **hs_dem_prop_all** is a proportion, so it is bounded at 0 and 1 --- yet the Northeast line approaches 1.0 at the top of the liberalism range and its confidence band goes beyond it. Nothing has gone wrong with your code. A linear model fits a straight line and knows nothing about the bounds of the variable it is predicting, so extended far enough that line will leave the range the outcome can actually occupy. Two things follow. Predictions near the edge of the observed data are the least trustworthy part of any plot, and predictions outside the outcome's possible range are not predictions at all. And when an outcome is bounded --- a proportion, or a yes/no --- a method that respects the bound is the better tool. That is what Tutorial 20 introduces.
+
+Notice also that the Northeast's band is wide near the top of the range, yet the Northeast coefficient is significant. A wide band says the predicted values there are imprecise; it does not say the regional difference is in doubt.
 :::
 
 The four lines are parallel. That is not a coincidence --- [parallel lines]{.important-text} are what a model without an interaction produces. Because there is no interaction term between **p.liberal** and **region_censusf** in this model, the slope of liberalism is mathematically identical in every region. The vertical distances between lines are the region coefficients: the Northeast line runs consistently above the others, and South, West, and Midwest cluster closely together. Parallel lines tell you that the x-axis predictor has the same estimated slope in every group.
@@ -754,14 +841,14 @@ question("Look at the two-variable plot. Which statement best describes what the
 
 ### What We Learned About Ideology, Region, and Democratic Representation
 
-The model confirms the hypothesis: states with more liberal public opinion do have higher proportions of Democratic state house seats, even after controlling for racial composition, poverty, and region. A 10-percentage-point increase in the liberal share of the electorate predicts about 0.09 more in the proportion of Democratic seats --- a substantive association, visible in the slope of the prediction plot, and significant (p = .013).
+The model confirms the hypothesis: states with more liberal public opinion do have higher proportions of Democratic state house seats, even after controlling for racial composition, poverty, and region. A 20-percentage-point increase in the liberal proportion of the electorate predicts a proportion of Democratic seats about 0.18 higher --- a substantive association, visible in the slope of the prediction plot, and significant (p = .013).
 
 The regional finding is worth dwelling on. The Northeast stands apart from the other three even after controlling for ideology, and it is the only region whose coefficient the model distinguishes from zero (0.128, p = .047). The West and Midwest are not significantly different from the South --- and the West is in fact predicted lowest of the four, marginally below the South, despite a reputation that would suggest otherwise. What makes the Northeast distinct here is not just a more liberal electorate, since the gap persists with liberalism held constant.
 
 A complete interpretation of this plot reads like this:
 
 ::: {.research-example}
-*As the proportion of liberal state residents increases, the predicted proportion of Democratic house seats rises in a straight line across the full observed range of the variable. Predictions are for Southern states with average poverty rate and proportion non-white; a Northeastern state at the same liberalism level would be predicted to have about 0.13 higher proportion of Democratic seats, but the liberalism slope would be identical. At a liberal proportion of 0.2, the model predicts about 0.54; at 0.4, about 0.71 --- a difference of about 0.18 for a 20-point shift in the liberal electorate. The confidence band is moderately wide, narrower in the middle of the range where most states are concentrated, and widens at the extremes. This is consistent with the hypothesis that public ideology shapes legislative representation, even after controlling for racial composition, poverty, and region.*
+*As the proportion of liberal state residents increases, the predicted proportion of Democratic house seats rises in a straight line across the full observed range of the variable. Predictions are for Southern states with average poverty rate and proportion non-white; a Northeastern state at the same liberalism level would be predicted to have about 0.13 higher proportion of Democratic seats, but the liberalism slope would be identical. At a liberal proportion of 0.2, the model predicts about 0.54; at 0.4, about 0.71 --- a difference of about 0.18 for a 20-point shift in the liberal electorate. The confidence band is moderately wide, narrower in the middle of the range where most states are concentrated, and widens at the extremes. This is consistent with the hypothesis that more liberal states will tend to have a higher proportion of Democratic house seats, even after controlling for racial composition, poverty, and region.*
 :::
 
 ## What Do Electoral Rules Predict for Women's Representation?
@@ -826,7 +913,7 @@ Write the complete `stargazer()` call from scratch, passing **model_rep** as the
 ```{r exercise-stargazer-rep-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_nc <- gsub("#[^\r\n]*", "", code)
+  code_nc <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -904,7 +991,7 @@ predict(model_rep,
 ```{r exercise-predict-rep-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_nc <- gsub("#[^\r\n]*", "", code)
+  code_nc <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -1031,7 +1118,7 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 ```{r exercise-predplot-years-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_nc <- gsub("#[^\r\n]*", "", code)
+  code_nc <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -1136,7 +1223,7 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 ```{r exercise-predplot-electoral-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_nc <- gsub("#[^\r\n]*", "", code)
+  code_nc <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -1248,7 +1335,7 @@ The single-variable plots show parliamentary history and electoral system separa
 
 **Apply 24: Produce a two-variable prediction plot for history and electoral system**
 
-Write the complete `plot_model()` call from scratch, using **model_rep** as the model object. Put **years_c** on the x-axis and use **electoral_f** to produce separate lines. Use the title \"Predicted Women's Representation by History and Electoral System\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", and the caption \"Predictions are for countries with no gender quota.\" `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Electoral System", caption = "...")` to set both. Three hints are available. Click "Submit Answer" to check your work.
+Write the complete `plot_model()` call from scratch, using **model_rep** as the model object. Put **years_c** on the x-axis and use **electoral_f** to produce separate lines. Use the title \"Predicted Women's Representation by History and Electoral System\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", and the caption \"Predictions are for countries with no gender quota.\" Set `colors = cb_colors`, set the legend title with `legend.title = "Electoral System"`, and add the caption with `labs(caption = "...")`. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predplot-twovar-rep, exercise=TRUE, exercise.cap="Apply 24", fig.alt="Three straight lines, one per electoral system, showing predicted percent women against centered years since the first woman entered parliament. Each rises from left to right across a horizontal axis running from about -60 to 60, each with its own shaded band, and a legend names the three systems."}
 
@@ -1269,21 +1356,22 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 # Set type = "pred", and give terms both variable names in a
 # character vector rather than one name.
 # axis.title takes a character vector: c("x label", "y label").
-# Chain labs(color = "Electoral System", caption = "...") after with +.
+# Chain labs(caption = "...") after the call with +.
 ```
 
 ```{r exercise-predplot-twovar-rep-hint-3}
 # Hint 3 of 3
-# One plot_model() call, then a labs() layer chained with + that sets
-# both the legend title (color =) and the caption. terms takes both
-# variable names in a character vector, the continuous one first.
+# One plot_model() call carrying colors, the title, the axis labels and
+# legend.title, then a labs() layer chained with + for the caption.
+# terms takes both variable names in a character vector, the continuous
+# one first.
 # Every string comes from the prescribed list above.
 ```
 
 ```{r exercise-predplot-twovar-rep-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_nc <- gsub("#[^\r\n]*", "", code)
+  code_nc <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
@@ -1314,10 +1402,12 @@ grade_this({
     fail("Use \"Years Since First Woman (centered)\" as the x-axis label.")
   if (!grepl("Predicted Percent Women", code_nc, fixed = TRUE))
     fail("Use \"Predicted Percent Women\" as the y-axis label.")
+  if (!grepl("colors\\s*=\\s*cb_colors", code_nc))
+    fail("Set `colors = cb_colors` so the lines use the colorblind-safe palette.")
   if (!grepl("labs\\s*\\(", code_nc))
     fail("Add a labs() layer with color = and caption = arguments.")
   if (!grepl("Electoral System", code_nc, fixed = TRUE))
-    fail("Use labs(color = \"Electoral System\") to set the legend title.")
+    fail("Use `legend.title = \"Electoral System\"` inside `plot_model()` to set the legend title.")
   if (!grepl("Predictions are for countries with no gender quota.", code_nc, fixed = TRUE))
     fail("Use the prescribed caption: \"Predictions are for countries with no gender quota.\"")
   pass("Right. Three electoral systems, three lines, all from a single `plot_model()` call.")

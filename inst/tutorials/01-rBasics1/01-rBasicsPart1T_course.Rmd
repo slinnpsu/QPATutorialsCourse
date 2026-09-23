@@ -96,7 +96,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -105,7 +121,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -262,7 +284,7 @@ ___(4)
 ```{r functions-square-root-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("sqrt\\s*\\(", code_no_comments)) {
     fail("Make sure you are using the `sqrt()` function.")
@@ -352,7 +374,7 @@ class(___)
 ```{r classes-determine-types-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   has_first  <- grepl("class\\s*\\(\\s*my\\.first\\.object\\s*\\)", code_no_comments)
   has_second <- grepl("class\\s*\\(\\s*another\\.object\\s*\\)", code_no_comments)
@@ -408,7 +430,7 @@ my.first.vector
 ```{r vectors-create-first-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("my\\.first\\.vector\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign your vector to an object called **my.first.vector**.")
@@ -480,7 +502,7 @@ grade_this({
                     0.537, 0.520, 0.511, 0.513, 0.493)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("dem\\.pres\\.vote\\.share\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the result to an object called **dem.pres.vote.share**.")
@@ -556,7 +578,7 @@ grade_this({
   correct_vals <- c("Carter", "Mondale", "Dukakis",
                     "Clinton", "Clinton", "Gore")
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (!grepl("first\\.6\\.candidates\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the result to an object called **first.6.candidates**.")
   }
@@ -609,7 +631,7 @@ grade_this({
   correct_vals <- c("Kerry", "Obama", "Obama",
                     "Clinton", "Biden", "Harris")
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (!grepl("last\\.6\\.candidates\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the result to an object called **last.6.candidates**.")
   }
@@ -671,7 +693,7 @@ grade_this({
   correct_vals <- c("Carter", "Mondale", "Dukakis", "Clinton", "Clinton", "Gore",
                     "Kerry", "Obama", "Obama", "Clinton", "Biden", "Harris")
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (!grepl("dem\\.candidates\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the result to an object called **dem.candidates**.")
   }
@@ -736,7 +758,7 @@ dem.pres.vote.share[___]
 ```{r vectors-access-single-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("\\[\\s*10\\s*\\]", code_no_comments)) {
     fail("Not quite. Use the position table above to find which index position corresponds to the 2016 election.")
@@ -798,7 +820,7 @@ dem.pres.vote.share[c(___, ___, ___, ___, ___)]
 ```{r vectors-access-multiple-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   expected <- c(0.537, 0.520, 0.511, 0.513, 0.493)
   if (!grepl("\\[", code_no_comments) || !grepl("c\\s*\\(", code_no_comments)) {
     fail("Make sure you are using square brackets with `c()` inside to select multiple elements.")
@@ -865,7 +887,7 @@ grade_this({
   expected <- c(0.448, 0.408, 0.461, 0.535, 0.547, 0.503, 0.488,
                 0.537, 0.520, 0.511, 0.513, 0.493) * 100
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   if (!grepl("dem\\.pres\\.vote\\.percent\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the result to an object called **dem.pres.vote.percent**.")
   }
@@ -929,7 +951,7 @@ grade_this({
   expected <- baseline - baseline[1]
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("compared\\.to\\.1980\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the result to an object called **compared.to.1980**.")
@@ -1027,7 +1049,7 @@ grade_this({
                 "Hillary Clinton", "Biden", "Harris")
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("dem\\.candidates\\s*\\[", code_no_comments)) {
     fail("Use square bracket indexing on **dem.candidates** to replace specific positions, like `dem.candidates[...] <- ...`")
@@ -1191,7 +1213,7 @@ grade_this({
   expected <- seq(from = 1980, to = 2024, by = 4)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("elect\\.year\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the result to an object called **elect.year**.")
@@ -1345,7 +1367,7 @@ grade_this({
   expected <- 1 - dem
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("rep\\.pres\\.vote\\.share\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the result to an object called **rep.pres.vote.share**.")
@@ -1424,7 +1446,7 @@ grade_this({
   expected <- abs(rep_share - dem)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("victory\\.margin\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the result to an object called **victory.margin**.")
@@ -1506,7 +1528,7 @@ grade_this({
                 "Bush", "McCain", "Romney", "Trump", "Trump", "Trump")
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("rep\\.names\\s*(<-|=[^=])", code_no_comments)) {
     fail("Make sure you assign the names to an object called **rep.names**.")
@@ -1560,7 +1582,7 @@ grade_this({
   expected <- mean(1 - dem)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("mean\\s*\\(", code_no_comments)) {
     fail("Make sure you are using the `mean()` function.")
@@ -1620,7 +1642,7 @@ grade_this({
   expected <- range(1 - dem)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("range\\s*\\(", code_no_comments)) {
     fail("Make sure you are using the `range()` function.")

@@ -34,6 +34,11 @@ library(learnr)
 library(dplyr)
 library(ggplot2)
 library(gradethis)
+# Okabe-Ito, black left out so the same order serves fills and lines alike:
+# a boxplot draws its median and whiskers in black, and a black fill hides them.
+# Black stays available wherever a color is set directly rather than mapped.
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -57,7 +62,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -66,7 +87,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -190,7 +217,7 @@ grade_this({
   }
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (grepl("freq\\s*/\\s*[0-9]", code_no_comments)) {
     fail("Compute the total rather than typing it in. `sum(freq)` inside `mutate()` adds up the counts, so the proportions stay correct whatever the data contain.")
@@ -310,7 +337,7 @@ A bar plot lets you compare all nine categories at once and ask whether counties
 
 **Practice 6: Create a frequency bar plot for rural_urban**
 
-Frequency bar charts are built with `ggplot()`, `geom_bar()`, `labs()` and `scale_x_discrete()`; Tutorial 4 introduces them if you need to review. The same structure applies here. The one addition is `coord_flip()` as a final layer, which flips the bars horizontal and makes the nine category labels readable. Remember that it is stored as a numeric variable, even though its nine values are ordered categories rather than quantities. Complete the code below: map the variable to the x-axis, add the bar layer with its fill color, and add the final layer that flips the bars. The plot labels and the nine shortened category labels are already supplied. Set the bar fill to \"firebrick\". Three hints are available. Click "Submit Answer" to check your work.
+Frequency bar charts are built with `ggplot()`, `geom_bar()`, `labs()` and `scale_x_discrete()`; Tutorial 4 introduces them if you need to review. The same structure applies here. The one addition is `coord_flip()` as a final layer, which flips the bars horizontal and makes the nine category labels readable. Remember that it is stored as a numeric variable, even though its nine values are ordered categories rather than quantities. Complete the code below: map the variable to the x-axis, add the bar layer with its fill color, and add the final layer that flips the bars. The plot labels and the nine shortened category labels are already supplied. Set the bar fill to `"#D55E00"`. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r visual-practice-bar-rural, exercise=TRUE, exercise.cap="Practice 6", fig.alt="Frequency bar chart of the nine-point urban-rural classification of US counties, drawn horizontally, with the most urban category at the bottom and the most rural at the top. All nine ordered categories carry substantial bars and none dominates the rest: the longest is 2,500-19,999 near metro, in the middle of the scale, and the shortest is 20k+ not near metro."}
 library(ggplot2)  # first use in this tutorial; it stays loaded from here on
@@ -349,7 +376,7 @@ ggplot(data = counties, mapping = aes(x = ___)) +
 # Hint 3 of 3
 # The fill color is a fixed setting applied to every bar,
 # not a mapping from a variable, so it goes inside
-# geom_bar() but outside any aes() call: fill = "firebrick".
+# geom_bar() but outside any aes() call: fill = "#D55E00".
 # coord_flip() takes no arguments --- empty parentheses
 # are all it needs.
 ```
@@ -369,7 +396,7 @@ grade_this({
   }
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
@@ -405,12 +432,12 @@ grade_this({
   }
 
   if ("fill" %in% names(bar_layer$mapping) || "fill" %in% names(.result$mapping)) {
-    fail('Put `fill = "firebrick"` outside `aes()`, inside `geom_bar()`. The fill color is a fixed setting, not a variable mapping --- inside `aes()` ggplot treats "firebrick" as data and draws a legend for it.')
+    fail('Put `fill = "#D55E00"` outside `aes()`, inside `geom_bar()`. The fill color is a fixed setting, not a variable mapping --- inside `aes()` ggplot treats "firebrick" as data and draws a legend for it.')
   }
 
   fill_value <- bar_layer$aes_params$fill
-  if (is.null(fill_value) || !identical(tolower(fill_value), "firebrick")) {
-    fail('Set `fill = "firebrick"` in `geom_bar()`, outside the `aes()` call, to color the bars.')
+  if (is.null(fill_value) || !identical(tolower(fill_value), "#d55e00")) {
+    fail('Set `fill = "#D55E00"` in `geom_bar()`, outside the `aes()` call, to color the bars.')
   }
 
   has_flip <- isTRUE(tryCatch({
@@ -492,7 +519,7 @@ grade_this({
   }
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (grepl("freq\\s*/\\s*[0-9]", code_no_comments)) {
     fail("Compute the total rather than typing it in. `sum(freq)` inside `mutate()` adds up the counts, so the proportions stay correct whatever the data contain.")
@@ -593,7 +620,7 @@ grade_this({
   expected <- median(fHouse$FHStatus_2022, na.rm = TRUE)
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("median\\s*\\(", code_no_comments)) {
     fail("Use the `median()` function to compute the median.")
@@ -631,7 +658,7 @@ If the mode and median point to different categories, the full distribution help
 
 Build a proportion bar chart for **FHStatus_2022**. Filter out the missing values before piping the data into `ggplot()`, and use the proportion mapping inside `geom_bar()` that you saw earlier in this tutorial. Remember that **FHStatus_2022** is stored as a numeric variable even though its three values are ordered categories --- that has a consequence for how you map it to the x-axis. As in Tutorial 4, the data arrive via a pipe, so only `mapping =` is needed, not `data =`. In `scale_x_discrete()`, pair each stored value (0, 1, 2) with its label: \"Not Free\", \"Partly Free\", \"Free\".
 
-Title: \"Political Freedom Around the World\", x-axis label: `NULL`, y-axis: \"Proportion\", caption: \"Source: Freedom House\", fill: \"steelblue\". Three hints are available. Click "Submit Answer" to check your work.
+Title: \"Political Freedom Around the World\", x-axis label: `NULL`, y-axis: \"Proportion\", caption: \"Source: Freedom House\", fill: `"#0072B2"`. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r visual-practice-fhstatus-prop-bar, exercise=TRUE, exercise.cap="Practice 10", fig.alt="Proportion bar chart of countries by Freedom House status, with three bars labeled Not Free, Partly Free, and Free, in that order along the horizontal axis. Free is the tallest at about 0.44. Not Free and Partly Free are close to each other and much shorter, at about 0.29 and 0.27. The vertical axis is labeled Proportion."}
 
@@ -656,7 +683,7 @@ Title: \"Political Freedom Around the World\", x-axis label: `NULL`, y-axis: \"P
 ```{r visual-practice-fhstatus-prop-bar-hint-3}
 # Hint 3 of 3
 # Inside geom_bar(), map y to after_stat(prop) and set
-# group = 1 in the same aes() call. Put fill = "steelblue"
+# group = 1 in the same aes() call. Put fill = "#0072B2"
 # outside aes(). Add labs() and scale_x_discrete() with
 # each stored value paired with its label, as in
 # "0" = "Not Free". Order does not matter when named.
@@ -665,7 +692,7 @@ Title: \"Political Freedom Around the World\", x-axis label: `NULL`, y-axis: \"P
 ```{r visual-practice-fhstatus-prop-bar-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   get_aes_text <- function(plot, aes_name) {
     out <- character(0)
@@ -686,7 +713,7 @@ grade_this({
   }
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
@@ -731,12 +758,12 @@ grade_this({
   }
 
   if ("fill" %in% names(bar_layers[[1]]$mapping) || "fill" %in% names(.result$mapping)) {
-    fail('Put `fill = "steelblue"` outside `aes()`, inside `geom_bar()`. The fill color is a fixed setting, not a variable mapping --- inside `aes()` ggplot treats "steelblue" as data and draws a legend for it.')
+    fail('Put `fill = "#0072B2"` outside `aes()`, inside `geom_bar()`. The fill color is a fixed setting, not a variable mapping --- inside `aes()` ggplot treats "steelblue" as data and draws a legend for it.')
   }
 
   fill_value <- bar_layers[[1]]$aes_params$fill
-  if (is.null(fill_value) || !identical(tolower(fill_value), "steelblue")) {
-    fail('Set `fill = "steelblue"` in `geom_bar()`, outside the `aes()` call, to color the bars.')
+  if (is.null(fill_value) || !identical(tolower(fill_value), "#0072b2")) {
+    fail('Set `fill = "#0072B2"` in `geom_bar()`, outside the `aes()` call, to color the bars.')
   }
 
   if (!grepl("labs\\s*\\(", code_no_comments)) {
@@ -883,10 +910,10 @@ ggplot(data = survey, mapping = aes(x = ___)) +
 ```{r ordinal-alphabetical-fix-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!grepl("factor\\s*\\(", code_no_comments)) {
     fail("Wrap **education** in `factor()` inside `aes()`.")

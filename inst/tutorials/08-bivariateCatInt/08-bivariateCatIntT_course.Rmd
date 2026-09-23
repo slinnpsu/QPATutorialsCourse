@@ -32,6 +32,13 @@ library(learnr)
 library(dplyr)
 library(ggplot2)
 library(gradethis)
+# Okabe-Ito, the five that also pass 3:1 contrast on white. Set as ggplot2's
+# default categorical palette so every plot uses it without extra code.
+# Black is left out so the same order serves fills and lines alike: a boxplot
+# draws its median and whiskers in black, and a black fill would hide them.
+# Black stays available wherever a color is set directly rather than mapped.
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -55,7 +62,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -64,7 +87,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -191,7 +220,7 @@ counties %>%
 
 ```{r exercise-dem2p-by-racialmajority-check}
 grade_this({
-  code_no_comments <- paste(gsub("#[^\r\n]*", "", .user_code), collapse = "\n")
+  code_no_comments <- paste(gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE), collapse = "\n")
 
   if (!is.data.frame(.result)) {
     fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the `=`.")
@@ -328,7 +357,7 @@ Write the full pipeline from scratch using **gdppcap08** and **dem_level4** in t
 
 ```{r exercise-gdp-by-democracy-level-check}
 grade_this({
-  code_no_comments <- paste(gsub("#[^\r\n]*", "", .user_code), collapse = "\n")
+  code_no_comments <- paste(gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE), collapse = "\n")
 
   if (!is.data.frame(.result)) {
     fail("Your result should be a data frame. If you're seeing an error, check for unmatched parentheses or a missing %>% between steps. Inside `summarise()`, you are creating new columns with new names --- do not use existing variable names from the data frame on the left side of the `=`.")
@@ -505,11 +534,11 @@ grade_this({
     if (is.null(x)) "nothing" else paste0('"', paste(as.character(x), collapse = " "), '"')
   }
 
-  code_lines <- gsub("#[^\r\n]*", "", .user_code)
+  code_lines <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (is.null(.result)) {
-    fail("Your code did not produce a plot. Make sure the pipeline ends with a `ggplot()` call and that nothing is assigned to an object instead of being displayed.")
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a `ggplot()` call and that nothing is assigned to an object instead of being displayed. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. Check for a missing `+` at the end of a line, unmatched parentheses, or a label string missing its quotation marks.")
@@ -641,12 +670,12 @@ grade_this({
     if (is.null(x)) "nothing" else paste0('"', paste(as.character(x), collapse = " "), '"')
   }
 
-  code_lines <- gsub("#[^\r\n]*", "", .user_code)
+  code_lines <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE)
   code_no_comments <- paste(code_lines, collapse = "\n")
   labs_txt <- sub(".*labs\\s*\\(", "", code_no_comments)
 
   if (is.null(.result)) {
-    fail("Your code did not produce a plot. Make sure the pipeline ends with a `ggplot()` call and that nothing is assigned to an object instead of being displayed.")
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a `ggplot()` call and that nothing is assigned to an object instead of being displayed. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string missing its quotation marks.")
@@ -792,7 +821,7 @@ The layer that draws the boxes is `geom_boxplot()`, in place of the `geom_histog
 
 That is the second time a legend has been redundant, for two different reasons: in the histogram the panel titles already named the groups, and here the x-axis does. The general rule covers both --- whenever the fill variable is identified somewhere else in the plot, `guides(fill = "none")` takes the legend away.
 
-The `fill` aesthetic works in two ways. Set outside `aes()`, as `fill = "firebrick"`, it gives every element the same fixed color. Mapped inside `aes()` to a variable, as `fill = dem_level4`, it gives each group its own color. Here it is mapped to the grouping variable, so each category's box is visually distinct.
+The `fill` aesthetic works in two ways. Set outside `aes()`, as `fill = "#D55E00"`, it gives every element the same fixed color. Mapped inside `aes()` to a variable, as `fill = dem_level4`, it gives each group its own color. Here it is mapped to the grouping variable, so each category's box is visually distinct.
 
 **Run and observe 11: The same four groups as box plots**
 
@@ -875,11 +904,11 @@ ggplot(data = world, mapping = aes(x = ___, y = ___, fill = ___)) +
 
 ```{r boxplot-lifeex-by-democracylevel-check}
 grade_this({
-  code_lines <- gsub("#[^\r\n]*", "", .user_code)
+  code_lines <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE)
   code_no_comments <- paste(code_lines, collapse = "\n")
 
   if (is.null(.result)) {
-    fail("Your code did not produce a plot. Make sure the pipeline ends with a `ggplot()` call and that nothing is assigned to an object instead of being displayed.")
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a `ggplot()` call and that nothing is assigned to an object instead of being displayed. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string missing its quotation marks.")
@@ -1040,13 +1069,13 @@ grade_this({
   }
 
   if (is.null(.result)) {
-    fail("Your code did not produce a plot. Make sure the pipeline ends with a `ggplot()` call and that nothing is assigned to an object instead of being displayed.")
+    fail("Your code did not produce a plot. Make sure the pipeline ends with a `ggplot()` call and that nothing is assigned to an object instead of being displayed. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. Check for a missing `+` at the end of a line or unmatched parentheses.")
   }
 
-  code_no_comments <- paste(gsub("#[^\r\n]*", "", .user_code), collapse = "\n")
+  code_no_comments <- paste(gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", .user_code, perl = TRUE), collapse = "\n")
   labs_txt <- sub(".*labs\\s*\\(", "", code_no_comments)
   if (!grepl("\\bcounties\\b", code_no_comments)) {
     fail("Use the **counties** data frame.")

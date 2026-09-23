@@ -33,6 +33,11 @@ library(learnr)
 library(dplyr)
 library(ggplot2)
 library(gradethis)
+# Okabe-Ito, black left out so the same order serves fills and lines alike:
+# a boxplot draws its median and whiskers in black, and a black fill hides them.
+# Black stays available wherever a color is set directly rather than mapped.
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -56,7 +61,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -65,7 +86,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -288,7 +315,7 @@ grade_this({
     mutate(prop = freq / sum(freq))
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("group_by\\s*\\(", code_no_comments)) {
     fail("Your pipeline is missing the step that separates the cases into categories.")
@@ -406,7 +433,7 @@ grade_this({
     mutate(prop = freq / sum(freq))
 
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
 
   if (!grepl("group_by\\s*\\(", code_no_comments)) {
     fail("Your pipeline is missing the step that separates the cases into categories.")
@@ -534,7 +561,7 @@ shape_demo <- data.frame(
 )
 
 ggplot(shape_demo, aes(x = category, y = count)) +
-  geom_col(fill = "darkblue") +
+  geom_col(fill = "#0072B2") +
   facet_wrap(~ shape, scales = "free_x") +
   labs(title = "Distribution Shapes", x = "Category", y = "Frequency") +
   theme_minimal() +
@@ -732,7 +759,7 @@ grade_this({
   }
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
@@ -851,13 +878,15 @@ To produce a proportion bar chart, only the `geom_bar()` layer changes. `labs()`
 
 The `ggplot()` call itself is unchanged: **df** is named directly in `data =`, as **counties** was earlier.
 
-Inside `geom_bar()`, two things are new to proportion charts, plus one that works on any bar chart. `after_stat(prop)` transforms the y-axis from counts to proportions: it tells ggplot to compute each category's share of all cases after the data have been tallied, rather than drawing raw counts. `group = 1` tells ggplot to compute those proportions across all bars together. Without it, ggplot would compute each bar's proportion relative to itself and every bar would show 1.0. Those two mappings can also go inside `ggplot()` alongside `x`. Anything set in `ggplot()` applies to every layer, so the plot comes out the same either way. Putting them in `geom_bar()` keeps them next to the bars they change, which is why the examples here do that. Finally, `fill = "blue"` sets the bar color. This one has nothing to do with proportions --- it works the same way on a frequency bar chart, and you could have added it to any of the charts you built earlier. It sits outside the `aes()` call because it is a fixed setting applied equally to all bars, not a mapping from a variable: when a visual property is constant, it belongs outside `aes()`.
+Inside `geom_bar()`, two things are new to proportion charts, plus one that works on any bar chart. `after_stat(prop)` transforms the y-axis from counts to proportions: it tells ggplot to compute each category's share of all cases after the data have been tallied, rather than drawing raw counts. `group = 1` tells ggplot to compute those proportions across all bars together. Without it, ggplot would compute each bar's proportion relative to itself and every bar would show 1.0. Those two mappings can also go inside `ggplot()` alongside `x`. Anything set in `ggplot()` applies to every layer, so the plot comes out the same either way. Putting them in `geom_bar()` keeps them next to the bars they change, which is why the examples here do that. Finally, `fill = "#0072B2"` sets the bar color. This one has nothing to do with proportions --- it works the same way on a frequency bar chart, and you could have added it to any of the charts you built earlier. It sits outside the `aes()` call because it is a fixed setting applied equally to all bars, not a mapping from a variable: when a visual property is constant, it belongs outside `aes()`.
+
+Colors can be named --- `"red"`, `"steelblue"` --- but R's names are a fixed list, and the color you want is often not on it. A hex code names any color precisely, and R accepts one anywhere a name works. This course uses five, chosen so that readers who cannot distinguish some colors can still tell them apart: `"#0072B2"` is a strong blue, `"#D55E00"` a red-orange, `"#009E73"` a blue-green, `"#CC79A7"` a dusty pink, and `"#E69F00"` an amber. R has names close to some of these, but not close enough --- its `"blue"` is darker and its `"orange"` brighter than what the set needs to stay readable.
 
 **Run and observe 20: Build a proportion bar chart for Census region**
 
 ```{r visual-bar-proportion-region, exercise=TRUE, exercise.cap="Run and observe 20", fig.alt="Proportion bar chart of US states by Census region, with four bars labeled South, Northeast, Midwest, and West. The y-axis is labeled Proportion and runs from 0 to about 0.3. South is tallest at just over 0.3, Northeast smallest at about 0.18, with Midwest and West in between."}
 ggplot(data = df, mapping = aes(x = region)) +
-  geom_bar(aes(y = after_stat(prop), group = 1), fill = "blue") +
+  geom_bar(aes(y = after_stat(prop), group = 1), fill = "#0072B2") +
   labs(title = "Proportion of US States in Each Census Region",
        x = NULL,
        y = "Proportion")
@@ -913,7 +942,7 @@ Now build a complete proportion bar chart from scratch. Your chart should have:
 - y-axis label: \"Proportion\"
 - x-axis label: omitted (`NULL`)
 - Caption: \"Source: Cheibub Democracy and Dictatorship data set\"
-- Bar fill color: \"red\"
+- Bar fill color: `"#D55E00"`
 - Missing values excluded by filtering before `ggplot()`
 - Category labels: \"Dictatorship\", \"Parliamentary democracy\", \"Presidential democracy\" (in the order shown by `levels()`)
 
@@ -940,7 +969,7 @@ When you finish, look at the relative bar heights before moving to the interpret
 ```{r visual-practice-bar-proportion-regime-hint-3}
 # Hint 3 of 3
 # Inside geom_bar(), map y to after_stat(prop) and set
-# group = 1 in the same aes() call. Put fill = "red"
+# group = 1 in the same aes() call. Put fill = "#D55E00"
 # outside aes(). regime_type3 is already a factor, so no
 # factor() wrapper is needed.
 ```
@@ -948,7 +977,7 @@ When you finish, look at the relative bar heights before moving to the interpret
 ```{r visual-practice-bar-proportion-regime-check}
 grade_this({
   code <- paste(.user_code, collapse = "\n")
-  code_no_comments <- gsub("#[^\r\n]*", "", code)
+  code_no_comments <- gsub('("(?:\\\\.|[^"\\\\])*")|#[^\r\n]*', "\\1", code, perl = TRUE)
   labs_txt <- sub(".*labs\\s*\\(", "", code_no_comments)
 
   show_label <- function(x) {
@@ -976,7 +1005,7 @@ grade_this({
   }
 
   if (is.null(.result)) {
-    fail("Make sure your code produces a plot the grader can check.")
+    fail("Your code did not produce a plot the grader can check. The most common cause is a missing `+` at the end of a line --- without it, the last layer is evaluated on its own and never becomes part of the plot. Also check for unmatched parentheses and label strings missing a quotation mark.")
   }
   if (!inherits(.result, "ggplot")) {
     fail("Your code should return a ggplot object. If you're seeing an error rather than a plot, the most common causes are: a missing `+` at the end of a line, unmatched parentheses, or a label string that is missing its quotation marks.")
@@ -1017,12 +1046,12 @@ grade_this({
   }
 
   fill_value <- bar_layer$aes_params$fill
-  if (is.null(fill_value) || !identical(tolower(fill_value), "red")) {
-    fail("Set `fill = \"red\"` outside `aes()` inside `geom_bar()`.")
+  if (is.null(fill_value) || !identical(tolower(fill_value), "#d55e00")) {
+    fail("Set `fill = \"#D55E00\"` outside `aes()` inside `geom_bar()`.")
   }
 
   if ("fill" %in% names(bar_layer$mapping) || "fill" %in% names(.result$mapping)) {
-    fail("Put `fill = \"red\"` outside `aes()`. The fill color is a fixed setting, not a variable mapping.")
+    fail("Put `fill = \"#D55E00\"` outside `aes()`. The fill color is a fixed setting, not a variable mapping.")
   }
 
   if (!grepl("labs\\s*\\(", code_no_comments)) {
@@ -1111,7 +1140,7 @@ The Explore exercise below applies both techniques to the **racial_majority** ch
 
 **Explore 25: Reorder categories and flip coordinates**
 
-Run the code as given, then try removing `coord_flip()` or the `reorder()` call one at a time to see what each one does.
+Run the code as given, then try removing `coord_flip()` or the `reorder()` call, one at a time, to see what each one does. `coord_flip()` is the last layer, so delete the `+` at the end of the line above it as well --- the `+` joins one layer to the next, and with nothing left to join, R reports an unexpected end of input.
 
 ```{r visual-reorder-and-flip, exercise=TRUE, exercise.cap="Explore 25", fig.alt="Horizontal bar chart of US counties by racial majority, with categories ordered by count from fewest at the bottom to most at the top: Other/No, Hispanic, Black, then White. The White bar extends nearly the full width of the plot while the other three are very short by comparison."}
 ggplot(data = counties,
@@ -1243,7 +1272,7 @@ question("A bar chart of a nominal variable shows four categories. One category 
 
 **Computing the frequency and proportion table** uses a [dplyr]{.package-name} pipeline: `group_by()` separates observations into categories, `summarise()` with `freq = n()` counts the cases in each group, producing a [frequency table]{.important-text}, and `mutate()` with `prop = freq / sum(freq)` converts the counts to proportions. Both `summarise()` and `summarize()` are valid spellings and produce identical results.
 
-**Visualizing a nominal variable** layers [ggplot2]{.package-name} components with `+`: `ggplot()` sets up the data and maps the variable to the x-axis, `geom_bar()` adds a [geom]{.important-text} layer that counts cases and draws bars, `labs()` adds titles and axis labels, and `scale_x_discrete()` replaces stored values with meaningful category labels. Pair each label with the value it replaces, as in `c("0" = "Clinton")`, so the order you list them in cannot matter. Use `factor()` when a variable is stored as numeric codes but should be treated as categorical; character variables and variables already stored as factors do not need it. Fixed visual properties like fill color go outside `aes()`, because they are settings applied to all bars equally rather than mappings from variables.
+**Visualizing a nominal variable** layers [ggplot2]{.package-name} components with `+`: `ggplot()` sets up the data and maps the variable to the x-axis, `geom_bar()` adds a [geom]{.important-text} layer that counts cases and draws bars, `labs()` adds titles and axis labels, and `scale_x_discrete()` replaces stored values with meaningful category labels. Pair each label with the value it replaces, as in `c("0" = "Clinton")`, so the order you list them in cannot matter. Use `factor()` when a variable is stored as numeric codes but should be treated as categorical; character variables and variables already stored as factors do not need it. Fixed visual properties like fill color go outside `aes()`, because they are settings applied to all bars equally rather than mappings from variables. A color can be given as one of R's names or as a hex code, which specifies any color precisely --- this course uses five, beginning with `"#0072B2"`, a strong blue.
 
 **Turning counts into proportions** takes `aes(y = after_stat(prop), group = 1)` inside `geom_bar()`. Check first whether the variable has missing values, because the two chart types need different handling. For a frequency chart, `na.translate = FALSE` inside `scale_x_discrete()` is enough --- hiding one bar changes nothing about the others. For a proportion chart it is not, because the missing cases would still sit in the denominator; filter them out before `ggplot()` with `filter(!is.na(variable))`. The proportions then describe the cases that have a recorded value.
 

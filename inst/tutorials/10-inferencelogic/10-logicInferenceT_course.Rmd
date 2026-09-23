@@ -35,6 +35,11 @@ library(ggplot2)
 library(moderndive)
 library(gridExtra)
 library(gradethis)
+# Okabe-Ito, black left out so the same order serves fills and lines alike:
+# a boxplot draws its median and whiskers in black, and a black fill hides them.
+# Black stays available wherever a color is set directly rather than mapped.
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -58,7 +63,23 @@ gradethis::grade_this({
   }
   obj <- regmatches(msg, regexec("object '([^']+)' not found", msg))[[1]]
   if (length(obj) == 2) {
-    gradethis::fail(paste0("R cannot find anything called `", obj[2], "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
+    nm <- obj[2]
+    usr <- tryCatch(paste(.user_code, collapse = "\n"), error = function(e) "")
+    flat <- gsub(" ", "", usr)
+    cand <- c(regmatches(flat, gregexpr("data=[A-Za-z.][A-Za-z0-9._]*", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*%>%", flat))[[1]],
+              regmatches(flat, gregexpr("[A-Za-z.][A-Za-z0-9._]*[$]", flat))[[1]])
+    cand <- unique(gsub("data=|%>%|[$]", "", cand))
+    owner <- NULL
+    for (d in cand) {
+      hit <- tryCatch(is.data.frame(get(d)) && nm %in% names(get(d)),
+                      error = function(e) FALSE)
+      if (isTRUE(hit)) { owner <- d; break }
+    }
+    if (!is.null(owner)) {
+      gradethis::fail(paste0("`", nm, "` is a variable in **", owner, "**, not an object on its own. Inside `aes()` ggplot looks variables up in the data frame you passed to `data =`, so a bare name works there. Everywhere else --- `annotate()`, `paste0()`, a plain `mean()` --- R has to be told where to look: write `", owner, "$", nm, "`."))
+    }
+    gradethis::fail(paste0("R cannot find anything called `", nm, "`. Check its spelling and capitalization, and check that it is a variable in the data frame your code names."))
   }
   fn <- regmatches(msg, regexec('could not find function "([^"]+)"', msg))[[1]]
   if (length(fn) == 2) {
@@ -67,7 +88,13 @@ gradethis::grade_this({
   if (grepl("unused argument", msg)) {
     gradethis::fail("One of the arguments you gave is not one this function accepts. Check the spelling of each argument name, and check that it sits inside the right function's parentheses.")
   }
-  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. The most common causes are a missing `+` at the end of a line, unmatched parentheses, or a missing comma between arguments. R's message was: ", msgs[1]))
+  if (grepl("grouping factor must have exactly 2 levels", msg)) {
+    gradethis::fail("`t.test()` compares exactly two groups, and the variable you gave it has more than two. Filter the data down to the two categories your hypothesis names before running the test.")
+  }
+  if (grepl("not enough observations", msg)) {
+    gradethis::fail("R could not run the test: at least one group has too few observations. In a formula, the outcome variable goes on the left of the `~` and the grouping variable on the right. If they are reversed, R treats every distinct outcome value as its own group.")
+  }
+  gradethis::fail(paste0("Your code stopped with an error, so it could not be checked. R's message was: ", msgs[1], ". Common causes are a missing comma between arguments, unmatched parentheses, or --- in a plot --- a missing `+` at the end of a line."))
 })
 )--"
 tutorial_options(exercise.checker = gradethis::grade_learnr,
@@ -325,10 +352,10 @@ Before computing the proportion of red balls, let's look at the distribution of 
 
 **Run and observe 5: Plot the sample distribution**
 
-```{r ex-sample-dist, exercise=TRUE, exercise.cap="Run and observe 5", fig.alt="Bar plot of one random sample of 100 balls, with proportion on the y-axis and color on the x-axis. The white bar is the taller of the two at just over 0.6; the red bar reaches just under 0.4."}
+```{r ex-sample-dist, exercise=TRUE, exercise.cap="Run and observe 5", fig.alt="Bar plot of one random sample of 100 balls, with proportion on the y-axis and color on the x-axis. The bar for white balls is the taller of the two at just over 0.6; the bar for red balls reaches just under 0.4."}
 ggplot(virtual_shovel, aes(x = color)) +
   geom_bar(aes(y = after_stat(prop), group = 1),
-           fill = "steelblue", color = "white") +
+           fill = "#0072B2", color = "white") +
   labs(title = "Sample Distribution",
        subtitle = "One random sample of 100 balls",
        x = "Color",
@@ -495,7 +522,7 @@ ggplot(data = virtual_prop_red100,
   geom_histogram(binwidth = 0.02, boundary = 0.4,
                  color = "white") +
   geom_vline(xintercept = mean(virtual_prop_red100$p),
-             color = "red") +
+             color = "#D55E00") +
   labs(title = "Sampling Distribution of the Proportion",
        subtitle = "1,000 random samples of size 100",
        x = "Proportion Red",
@@ -752,7 +779,7 @@ sampling_means  <- data.frame(
 )
 
 p_pop <- ggplot(population_norm, aes(x = value)) +
-  geom_histogram(bins = 30, fill = "lightblue",
+  geom_histogram(bins = 30, fill = "#0072B2",
                  color = "black") +
   labs(title = "1. Population Distribution",
        subtitle = "All 10,000 individuals",
@@ -761,7 +788,7 @@ p_pop <- ggplot(population_norm, aes(x = value)) +
   theme_minimal()
 
 p_samp <- ggplot(sample_norm, aes(x = value)) +
-  geom_histogram(bins = 30, fill = "lightgreen",
+  geom_histogram(bins = 30, fill = "#009E73",
                  color = "black") +
   labs(title = "2. Sample Distribution",
        subtitle = "One random sample of 100 individuals",
@@ -770,16 +797,16 @@ p_samp <- ggplot(sample_norm, aes(x = value)) +
   theme_minimal()
 
 p_sdist <- ggplot(sampling_means, aes(x = mean)) +
-  geom_histogram(bins = 30, fill = "lightsalmon",
+  geom_histogram(bins = 30, fill = "#CC79A7",
                  color = "black") +
   geom_vline(xintercept = mean(sampling_means$mean),
-             color = "red", linewidth = 1) +
+             color = "#D55E00", linewidth = 1) +
   annotate("text",
            x = mean(sampling_means$mean) + 0.1,
            y = 120,
            label = paste0("Mean = ",
                           round(mean(sampling_means$mean), 1)),
-           color = "red", hjust = 0, size = 3) +
+           color = "#D55E00", hjust = 0, size = 3) +
   labs(title = "3. Sampling Distribution of the Mean",
        subtitle = "Mean of each of 1,000 random samples of size 100",
        x = "Sample Mean Income (thousands of dollars)",
@@ -951,7 +978,7 @@ skewed_sampling_means <- data.frame(
 )
 
 p_skew_pop <- ggplot(skewed_population, aes(x = value)) +
-  geom_histogram(bins = 30, fill = "lightblue", color = "black") +
+  geom_histogram(bins = 30, fill = "#0072B2", color = "black") +
   labs(title = "Skewed Population",
        subtitle = "10,000 cases, long right tail",
        x = "Value",
@@ -959,9 +986,9 @@ p_skew_pop <- ggplot(skewed_population, aes(x = value)) +
   theme_minimal()
 
 p_skew_sdist <- ggplot(skewed_sampling_means, aes(x = mean)) +
-  geom_histogram(bins = 30, fill = "lightsalmon", color = "black") +
+  geom_histogram(bins = 30, fill = "#CC79A7", color = "black") +
   geom_vline(xintercept = mean(skewed_population$value),
-             color = "red", linewidth = 1) +
+             color = "#D55E00", linewidth = 1) +
   labs(title = "Sampling Distribution of the Mean",
        subtitle = "1,000 samples of size n = 30",
        x = "Sample Mean",
@@ -1039,36 +1066,39 @@ emp_rule <- tibble(
 ggplot(emp_rule, aes(x = x, y = y)) +
   geom_area(
     data = filter(emp_rule, x >= -3, x <= 3),
-    fill = "#cfe8cf"
+    fill = "#0072B2", alpha = 0.15
   ) +
   geom_area(
     data = filter(emp_rule, x >= -2, x <= 2),
-    fill = "#f6d7a7"
+    fill = "#0072B2", alpha = 0.25
   ) +
   geom_area(
     data = filter(emp_rule, x >= -1, x <= 1),
-    fill = "#c9d9f2"
+    fill = "#0072B2", alpha = 0.35
   ) +
-  geom_line(color = "#d94b5c", linewidth = 1.1) +
-  geom_vline(xintercept = -3:3, color = "#2f7f6f", linewidth = 0.7) +
+  geom_line(color = "#000000", linewidth = 1.1) +
+  geom_vline(xintercept = -3:3, color = "#000000", linewidth = 0.7) +
   annotate(
     "segment", x = -1, xend = 1, y = 0.16, yend = 0.16,
-    color = "#2f7f6f",
+    color = "#000000",
     arrow = arrow(ends = "both", length = unit(0.12, "in"))
   ) +
-  annotate("text", x = 0, y = 0.173, label = "68% of data", size = 4.3) +
+  annotate("label", x = 0, y = 0.173, label = "68% of data", size = 4.3,
+           fill = "#FFFFFF", linewidth = 0) +
   annotate(
     "segment", x = -2, xend = 2, y = 0.105, yend = 0.105,
-    color = "#2f7f6f",
+    color = "#000000",
     arrow = arrow(ends = "both", length = unit(0.12, "in"))
   ) +
-  annotate("text", x = 0, y = 0.118, label = "95% of data", size = 4.3) +
+  annotate("label", x = 0, y = 0.118, label = "95% of data", size = 4.3,
+           fill = "#FFFFFF", linewidth = 0) +
   annotate(
     "segment", x = -3, xend = 3, y = 0.05, yend = 0.05,
-    color = "#2f7f6f",
+    color = "#000000",
     arrow = arrow(ends = "both", length = unit(0.12, "in"))
   ) +
-  annotate("text", x = 0, y = 0.063, label = "99.7% of data", size = 4.3) +
+  annotate("label", x = 0, y = 0.063, label = "99.7% of data", size = 4.3,
+           fill = "#FFFFFF", linewidth = 0) +
   scale_x_continuous(
     breaks = -3:3,
     labels = -3:3
