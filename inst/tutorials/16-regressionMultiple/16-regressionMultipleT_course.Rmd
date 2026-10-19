@@ -131,7 +131,7 @@ model_simple <- lm(dem2p_percent ~ wage_growth, data = counties)
 
 Before running a model, it is worth being clear about why [multiple regression]{.important-text} exists in the first place. There are two central reasons to include additional variables in an additive multiple-regression model. A third possibility --- conditional relationships, where the association between one variable and the outcome depends on the level of another --- requires an interaction term rather than simply adding a variable, and will be introduced in Tutorial 18.
 
-**Spurious relationships.** Sometimes two variables are associated only because a third is related to both, and there is no relationship between them at all. Counties with more coffee shops per person gave Hillary Clinton a higher share of the vote. Nothing about a coffee shop changes how anyone votes --- both are consequences of population density, and dense places differ from sparse ones in ways that matter for elections. Control for density and the coffee-shop association disappears. Not merely shrinks: disappears once density is held constant, because the original association came from their shared relationship with density. A third variable that produces an association like this is called a [confounder]{.important-text}, and the distortion it produces is confounding.
+**Spurious relationships.** Sometimes two variables are associated only because a third is related to both, and there is no relationship between them at all. Suppose you found that counties with more coffee shops per person gave Hillary Clinton a higher share of the vote. Nothing about a coffee shop changes how anyone votes --- both are consequences of population density, and dense places differ from sparse ones in ways that matter for elections. If that is the whole story, controlling for density makes the coffee-shop association disappear. Not merely shrink: disappear, because the original association came from nothing but their shared relationship with density. A third variable that produces an association like this is called a [confounder]{.important-text}, and the distortion it produces is confounding.
 
 ```{r diagram-spurious, echo=FALSE, out.width="46%", fig.align="center", fig.alt="A path diagram with three boxes. A box labeled X2, omitted cause, sits at the left with one arrow to a box labeled X1, explanatory variable, at the upper right, and a second arrow to a box labeled Y, outcome variable, at the lower right. No arrow runs between X1 and Y."}
 knitr::include_graphics("images/spurious.png")
@@ -416,11 +416,11 @@ summary(model1)
 
 The model output reports two versions of $R^2$. The [Multiple R-squared]{.important-text} ($R^2$) has the cleanest interpretation: it is the proportion of the variation in the outcome that the model explains, expressed as a percentage. An $R^2$ of 0.607 means the model explains about 60.7% of the county-to-county variation in Clinton's two-party vote --- the remaining 39.3% is variation the model does not capture.
 
-The [Adjusted R-squared]{.important-text} is a corrected version that penalizes for the number of predictors. Every variable you add to a regression model, even a useless one, will mechanically increase the Multiple $R^2$ at least a tiny bit, just because the model has more flexibility to fit the data. Fitting quirks of these particular data rather than a real relationship is called [overfitting]{.important-text}, and the Adjusted $R^2$ is one guard against it. It subtracts a penalty that grows with the number of predictors, making it less likely to increase unless an added variable genuinely improves fit. In this model the two values are nearly identical --- 0.607 and 0.606 --- because with over 3,100 counties and only six predictors, the penalty is tiny.
+The [Adjusted R-squared]{.important-text} is a corrected version that penalizes for the number of predictors. Every variable you add to a regression model, even a useless one, will mechanically increase the Multiple $R^2$ at least a tiny bit, just because the model has more flexibility to fit the data. Fitting quirks of these particular data rather than a real relationship is called [overfitting]{.important-text}, and the Adjusted $R^2$ is one guard against it. It subtracts a penalty that grows with the number of predictors, so an added variable raises the Adjusted $R^2$ only when it improves fit by more than the penalty costs. In this model the two values are nearly identical --- 0.607 and 0.606 --- because with over 3,100 counties and only six predictors, the penalty is tiny.
 
 For describing how well a model fits, use the Multiple $R^2$ --- it gives the clean "percentage of variation explained" interpretation. Reserve the Adjusted $R^2$ for one specific purpose: comparing models that differ in the number of predictors, where the Multiple $R^2$ would mechanically favor the model with more variables regardless of whether they are genuinely useful.
 
-You have already seen the comparison this matters for. In Run and observe 1 you estimated `model_simple`, with wage growth as the only predictor, and its Multiple $R^2$ was 0.017. This model has six predictors and a Multiple $R^2$ of 0.607. Because the two differ in the number of predictors, the Adjusted $R^2$ is the fairer comparison: 0.017 against 0.606. One condition on any such comparison: the models must be fitted to the same outcome and the same cases, since a different set of dropped observations would change both figures for reasons that have nothing to do with the predictors. Here both tell the same story, since the added variables are doing real work --- but had they been useless, the Multiple $R^2$ would still have risen while the Adjusted $R^2$ would not.
+You have already seen the comparison this matters for. In Run and observe 1 you estimated `model_simple`, with wage growth as the only predictor, and its Multiple $R^2$ was 0.017. This model has six predictors and a Multiple $R^2$ of 0.607. Because the two differ in the number of predictors, the Adjusted $R^2$ is the fairer comparison: 0.017 against 0.606. One condition on any such comparison: the models must be fitted to the same outcome and the same cases, since a different set of dropped observations would change both figures for reasons that have nothing to do with the predictors. Here they nearly are: `model_simple` is fitted to the 3,110 counties with a recorded wage growth, and this model to 3,108, because two more counties are missing a value on one of the controls. A difference of two counties in three thousand cannot move either figure, so the comparison stands. Both tell the same story, since the added variables are doing real work --- but had they been useless, the Multiple $R^2$ would still have risen while the Adjusted $R^2$ would not.
 
 The [residual standard error]{.important-text} complements $R^2$ by giving the estimated standard deviation of the residuals --- the typical distance between observed outcomes and the fitted regression line. Under roughly normal errors, about two-thirds of cases have an observed value within one residual standard error of their fitted value.
 
@@ -565,6 +565,18 @@ grade_this({
   if (!inherits(.result, "summary.lm")) {
     fail("The last line should display the summary. Save the model, then call `summary()` on it so the summary is what prints.")
   }
+  saved <- tryCatch(get("model_gov", envir = .envir_result), error = function(e) NULL)
+  if (!inherits(saved, "lm")) {
+    fail("**model_gov** does not hold a fitted model. Assign the `lm()` call to it, then call `summary()` on **model_gov**.")
+  }
+  saved_coef <- coef(saved)
+  want_coef  <- coef(expected)
+  if (!setequal(names(saved_coef), names(want_coef)) ||
+      !isTRUE(all.equal(as.numeric(saved_coef[order(names(saved_coef))]),
+                        as.numeric(want_coef[order(names(want_coef))]),
+                        tolerance = 1e-6))) {
+    fail("**model_gov** is not the model this exercise asks for. Assign the `lm()` call with **wbgi_cce** as the outcome and **wdi_fertility**, **ipu_l_sw** and **democ_f** as predictors to **model_gov**.")
+  }
   result_coef <- setNames(.result$coefficients[, "Estimate"], rownames(.result$coefficients))
   if (is.null(result_coef)) {
     fail("Make sure you display the results by calling `summary()` on your model object.")
@@ -628,7 +640,7 @@ question("Look at both columns in the table above. Which statements are true? Se
 
 ### What the Reference Category Reveals
 
-The non-significant partial democracy finding is substantively important. It suggests that the corruption advantage of democracy is not a smooth gradient --- partial democracies, which have some competitive elections but lack full civil liberties and rule of law, do not control corruption reliably better than autocracies once we account for development and women's representation. Full democracies do. This finding was completely invisible when Democracy was the reference category.
+The non-significant partial democracy finding is substantively important. It suggests that the corruption advantage of democracy is not a smooth gradient --- partial democracies, which have some competitive elections but lack full civil liberties and rule of law, do not control corruption reliably better than autocracies once we account for development and women's representation. Full democracies do. With Democracy as the reference, no coefficient tested that comparison directly --- the model contained it, but nothing in the output put a standard error and p-value on it. Changing the reference brings it into the table.
 
 One caution about the partial democracy estimate. Only 20 countries fall in that category, against 47 autocracies and 127 democracies, and small groups produce imprecise estimates --- the standard error on that coefficient is wide enough that a moderate difference would be hard to distinguish from zero. "Not statistically distinguishable" is not the same as "identical," and with 20 cases the distinction matters.
 
@@ -703,7 +715,7 @@ question("Which statement correctly describes what the model fit statistics tell
   answer("The Adjusted R-squared of 0.4245 tells us the model explains about 42.45% of the variation in control of corruption",
          message = "The Adjusted R-squared penalizes for the number of predictors and does not have the clean 'percentage of variation explained' interpretation. For that, use the Multiple R-squared of 0.437."),
   answer("An Adjusted R-squared of 0.4245 and a residual standard error of 0.7627 cannot both be correct for the same model, since R-squared must always equal the squared residual standard error",
-         message = "These two statistics measure completely different things and there is no mathematical relationship between them. R-squared is a proportion of variance explained; the residual standard error is a standard deviation measured in the units of the outcome."),
+         message = "These two statistics describe different aspects of fit and are not equal to one another. R-squared is a proportion of variation explained; the residual standard error is a standard deviation measured in the units of the outcome."),
   answer("The Multiple R-squared of 0.437 should be preferred over the Adjusted R-squared of 0.4245 for comparing models with different numbers of predictors",
          message = "It is the other way around: when comparing models with different numbers of predictors, the Multiple R-squared mechanically favors the model with more variables. The Adjusted R-squared penalizes for additional predictors and is the right measure for model comparison."),
   allow_retry = TRUE,
@@ -826,6 +838,11 @@ grade_this({
     fail("Centering subtracts the mean, so your code needs `mean()`.")
   }
 
+  ipu <- tryCatch(get("ipu", envir = .envir_result), error = function(e) NULL)
+  if (!is.data.frame(ipu)) {
+    fail("Build the three variables inside the **ipu** data frame, so the rest of the tutorial can find them.")
+  }
+
   want_el <- factor(ipu$electoral_system,
                     levels = c("plurality_majority", "proportional_representation", "mixed_system"),
                     labels = c("Plurality/Majority", "Proportional", "Mixed"))
@@ -941,6 +958,17 @@ grade_this({
                         as.numeric(want[order(names(want))]),
                         tolerance = 1e-6))) {
     fail("The coefficients do not match the expected model. Check that each predictor is the version named in the prompt and that the data frame is **ipu**.")
+  }
+  saved <- tryCatch(get("model4", envir = .envir_result), error = function(e) NULL)
+  if (!inherits(saved, "lm")) {
+    fail("**model4** does not hold a fitted model. Assign the `lm()` call to it, then call `summary(model4)`.")
+  }
+  saved_coef <- coef(saved)
+  if (!setequal(names(saved_coef), names(want)) ||
+      !isTRUE(all.equal(as.numeric(saved_coef[order(names(saved_coef))]),
+                        as.numeric(want[order(names(want))]),
+                        tolerance = 1e-6))) {
+    fail("**model4** is not the model this exercise asks for. Assign the `lm()` call with **women_percent** as the outcome and **quota_f**, **electoral_f** and **years_c** as predictors to **model4**.")
   }
 
   pass("Correct. The model is estimated with plurality systems as the reference category, which is what makes the electoral-system coefficients readable.")
@@ -1205,7 +1233,7 @@ question("A bivariate regression gives a slope of 2.4 on union density. Adding m
   answer("Union density does not actually matter, since its coefficient shrank",
          message = "It shrank but did not vanish. A coefficient of 0.9 with controls is still an estimated association --- smaller than the bivariate figure, and better isolated."),
   answer("The bivariate slope of 2.4 is the better estimate, since the controls distort the relationship",
-         message = "Controls do not distort the relationship --- they isolate it. The bivariate slope combines union density with whatever it shares with manufacturing employment; the controlled slope describes states alike on manufacturing."),
+         message = "A control chosen for good theoretical reasons separates the relationship rather than distorting it. The bivariate slope combines union density with whatever it shares with manufacturing employment; the controlled slope describes states alike on manufacturing."),
   answer("Manufacturing employment causes the outcome, since adding it changed the union coefficient",
          message = "Nothing here establishes causation. The change shows the two predictors overlap in what they explain, which is a statement about the data, not about what causes what."),
   allow_retry = TRUE,
@@ -1258,7 +1286,7 @@ question("Which statement best captures what multiple regression adds compared t
 
 [Multiple regression]{.important-text} extends simple regression to models with more than one predictor. The formula syntax extends naturally: list each predictor after the `~`, separated by `+`. The `summary()` output is identical in structure to simple regression, just with more rows in the coefficient table.
 
-**Preparing the variables.** A nominal predictor has to be a labeled factor before it enters a model. `factor()` builds one: its `levels` argument sets the category order and so decides the [reference category]{.important-text}, and its `labels` argument supplies the printed names, the two given in the same order. The `levels()` function then lets you inspect the result. `relevel()` changes the reference for one model without altering the variable. [Centering]{.important-text} a continuous predictor, by subtracting its mean, leaves every slope unchanged and moves the intercept to describe a case at the average rather than one at zero. Center when zero lies outside the range the data cover.
+**Preparing the variables.** A nominal predictor has to be a labeled factor before it enters a model. `factor()` builds one: its `levels` argument sets the category order and so decides the [reference category]{.important-text}, and its `labels` argument supplies the printed names, the two given in the same order. The `levels()` function then lets you inspect the result. `relevel()` changes the reference for one model without altering the variable. [Centering]{.important-text} a continuous predictor, by subtracting its mean, leaves the slopes unchanged and moves the intercept to describe a case at the average of that predictor rather than at zero on it. Center when zero lies outside the range the data cover.
 
 **Interpreting the coefficients.** Every coefficient in a multiple regression is a [partial slope]{.important-text}: the expected change in $Y$ for a one-unit increase in that predictor, holding the others constant. That [all else equal]{.important-text} qualifier is what changes between simple and multiple regression, and it changes what you are entitled to say --- a significant coefficient now means the variable is associated with the outcome *even after accounting for* the others in the model. A variable with $k$ categories contributes $k - 1$ coefficients, each comparing one category with the reference. Changing the reference changes which comparisons you can read off; it changes nothing about fit or about the slopes on interval predictors.
 
