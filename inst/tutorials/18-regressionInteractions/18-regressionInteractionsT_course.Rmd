@@ -150,7 +150,7 @@ Two quantities to keep distinct --- this distinction is the most important idea 
 
 [Conditional slope]{.important-text} (also called a **conditional effect**): the estimated slope of one predictor at a specific value or category of another predictor.
 
-The interaction coefficient is not itself a slope. It is what you add to a baseline slope to get the conditional slope at a different value or category. Confusing these two quantities is the most common error students make in this topic.
+The interaction coefficient is not itself a conditional slope. It is what you add to a baseline slope to get the conditional slope at a different value or category. Confusing these two quantities is the most common error students make in this topic.
 
 In both interaction types the logic is the same: begin with a baseline slope and add the contribution represented by the interaction term. The baseline slope is the main-effect coefficient on the interval predictor. The interaction term adjusts that baseline for different values or categories of the other variable.
 
@@ -278,7 +278,7 @@ question("The interaction coefficient in the row labeled **mortality_risk_25_45*
          message = "The interaction term is not a combined effect. The main-effect coefficients describe the relevant slope or category difference at the model's reference condition; the interaction term tells you how much one variable's slope changes with a one-unit increase in the other variable."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: the interaction coefficient is a rate of change in a slope --- how much does the mortality-risk slope change for each one-unit increase in wage growth?"
+  try_again = "The interaction coefficient is a rate of change in a slope --- how much does the mortality-risk slope change for each one-unit increase in wage growth?"
 )
 ```
 
@@ -303,7 +303,7 @@ question("Which statements correctly describe what the coefficients on **mortali
          message = "In an interaction model, the main-effect coefficient on wage growth is its slope when mortality risk equals zero --- not an average or a direct association across all mortality-risk levels. The interaction term means the slope changes with mortality risk."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: in an interaction model, both main-effect coefficients are conditional on the other variable equaling zero."
+  try_again = "In an interaction model, both main-effect coefficients are conditional on the other variable equaling zero."
 )
 ```
 
@@ -337,7 +337,7 @@ question("Using the formula $-2.494 + (-0.139)(\\text{wage growth})$, what is th
          message = "That is the conditional slope at the mean wage growth (4.3) --- the middle row of the table. Substitute 8, not 4.3: -2.494 + (-0.139)(8) = -3.606."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: substitute 8 directly into the formula: $-2.494 + (-0.139)(8)$."
+  try_again = "Substitute 8 directly into the formula: $-2.494 + (-0.139)(8)$."
 )
 ```
 
@@ -520,12 +520,27 @@ grade_this({
   if (is.null(result_coef)) {
     fail("Make sure you display the results by calling `summary()` on your model object.")
   }
-  if (!isTRUE(all.equal(
-    sort(as.numeric(result_coef)),
-    sort(as.numeric(coef(expected))),
-    tolerance = 1e-6))) {
+  # `a * b` and `b * a` are the same model, but R labels the interaction
+  # coefficient a:b in one and b:a in the other, so sort each label's parts
+  # before comparing.
+  norm_nm <- function(nm) vapply(strsplit(nm, ":", fixed = TRUE),
+                                 function(p) paste(sort(p), collapse = ":"),
+                                 character(1))
+  matches <- function(got, want) {
+    ng <- norm_nm(names(got)); nw <- norm_nm(names(want))
+    setequal(ng, nw) &&
+      isTRUE(all.equal(as.numeric(got[order(ng)]),
+                       as.numeric(want[order(nw)]), tolerance = 1e-6))
+  }
+  want_coef <- coef(expected)
+  if (!matches(result_coef, want_coef)) {
     fail("Check your formula. The model should regress **epi_epi** on `rights_f * ipi_tradeopen + hf_efiscore` using the **qog** data.")
   }
+  saved <- tryCatch(get("model_env", envir = .envir_result), error = function(e) NULL)
+  if (!inherits(saved, "lm"))
+    fail("**model_env** does not hold a fitted model. Assign the `lm()` call to it, then call `summary(model_env)`.")
+  if (!matches(coef(saved), want_coef))
+    fail("**model_env** is not the model this exercise asks for. Assign the `lm()` call regressing **epi_epi** on `rights_f * ipi_tradeopen + hf_efiscore` to **model_env**.")
   pass("Correct! Your output carries an interaction row alongside the two constituent terms. That extra row is the whole difference between this model and the additive one.")
 })
 ```
@@ -550,7 +565,7 @@ question("Using the coefficients in your output, what is the slope of **ipi_trad
          message = "The Many Rights slope on **ipi_tradeopen** is simply the **ipi_tradeopen** coefficient plus the interaction coefficient: 4.750 + (-4.629) = 0.121. The rights_fMany Rights coefficient is the intercept gap between groups when trade openness is zero --- it is not part of the slope calculation."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Few Rights slope = **ipi_tradeopen** coefficient directly. Many Rights slope = **ipi_tradeopen** coefficient + interaction coefficient."
+  try_again = "Few Rights slope = **ipi_tradeopen** coefficient directly. Many Rights slope = **ipi_tradeopen** coefficient + interaction coefficient."
 )
 ```
 
@@ -581,7 +596,7 @@ question("The interaction coefficient in the row labeled **rights_fMany Rights**
          message = "The interaction term is not a combined effect. The main-effect coefficients describe the relevant slope or category difference at the model's reference condition; the interaction term tells us how much the trade openness slope differs between the two groups."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: you have already computed both slopes. The interaction coefficient is simply the difference: Many Rights slope minus Few Rights slope."
+  try_again = "You have already computed both slopes. The interaction coefficient is simply the difference: Many Rights slope minus Few Rights slope."
 )
 ```
 
@@ -605,7 +620,7 @@ question("Based on the model's point estimates, at low trade openness (**ipi_tra
          message = "The interaction coefficient (-4.629) nearly equals the Few Rights reference-category slope on **ipi_tradeopen** (4.750) in magnitude, so the resulting Many Rights slope is close to zero. This is not a small adjustment."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: compare the two slopes and think about what different slopes imply for how the predicted gap between the groups changes as trade openness rises."
+  try_again = "Compare the two slopes and think about what different slopes imply for how the predicted gap between the groups changes as trade openness rises."
 )
 ```
 
@@ -625,7 +640,7 @@ question("Based on the t-statistic and p-value for the interaction term **rights
          message = "The p-value gives the probability of observing a difference in slopes this large if the null were true --- not the probability that the null is true. A very small p-value means the data would be highly surprising under the null, not that the null is certainly false."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: the null hypothesis for an interaction term is that the two groups' slopes are equal --- that the difference is zero."
+  try_again = "The null hypothesis for an interaction term is that the two groups' slopes are equal --- that the difference is zero."
 )
 ```
 
@@ -650,7 +665,7 @@ question("Look at the Multiple R-squared, Adjusted R-squared, and the residual s
          message = "The interaction p-value directly tests whether the two estimated slopes differ, whereas R-squared summarizes the model's overall explanatory fit. They answer different questions --- a significant coefficient can coexist with weak overall fit."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: make sure to select all true statements."
+  try_again = "Make sure to select all true statements."
 )
 ```
 
@@ -754,15 +769,28 @@ grade_this({
     cf <- coef(m)
     if (is.matrix(cf)) setNames(cf[, "Estimate"], rownames(cf)) else cf
   }
+  # `a * b` and `b * a` are the same model, but R labels the interaction
+  # coefficient a:b in one and b:a in the other, so sort each label's parts
+  # before comparing.
+  norm_nm <- function(nm) vapply(strsplit(nm, ":", fixed = TRUE),
+                                 function(p) paste(sort(p), collapse = ":"),
+                                 character(1))
   same <- function(a, b) {
     ca <- est(a); cb <- est(b)
-    setequal(names(ca), names(cb)) &&
-      isTRUE(all.equal(as.numeric(ca[order(names(ca))]),
-                       as.numeric(cb[order(names(cb))]), tolerance = 1e-6))
+    na <- norm_nm(names(ca)); nb <- norm_nm(names(cb))
+    setequal(na, nb) &&
+      isTRUE(all.equal(as.numeric(ca[order(na)]),
+                       as.numeric(cb[order(nb)]), tolerance = 1e-6))
   }
-  if (!same(model_rep_additive, want_add))
+  got_add <- tryCatch(get("model_rep_additive", envir = .envir_result), error = function(e) NULL)
+  got_int <- tryCatch(get("model_rep_int", envir = .envir_result), error = function(e) NULL)
+  if (!inherits(got_add, "lm"))
+    fail("**model_rep_additive** does not hold a fitted model. Assign the additive `lm()` call to it.")
+  if (!inherits(got_int, "lm"))
+    fail("**model_rep_int** does not hold a fitted model. Assign the interaction `lm()` call to it.")
+  if (!same(got_add, want_add))
     fail("**model_rep_additive** is not the additive model. Regress **women_percent** on **quota_f**, **electoral_f** and **years_c** joined with `+`, using the **ipu** data.")
-  if (!same(model_rep_int, want_int))
+  if (!same(got_int, want_int))
     fail("**model_rep_int** is not the interaction model. It is the additive model with **electoral_f** and **years_c** joined by `*` instead of `+`.")
   if (!same(.result, want_int))
     fail("The summary displayed is not **model_rep_int**. Call `summary(model_rep_int)` on the last line.")
@@ -793,7 +821,7 @@ question("Using the coefficients in your output, which statement correctly ident
          message = "The interaction coefficients are differences between each non-reference slope and the Plurality slope --- not the non-reference slopes themselves. Add the interaction coefficient to the Plurality slope to get each other category's slope."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: use the same rule as Example 2 --- the reference category (Plurality/Majority) uses the coefficient on **years_c** directly; add the interaction coefficient for each other category."
+  try_again = "Use the same rule as Example 2 --- the reference category (Plurality/Majority) uses the coefficient on **years_c** directly; add the interaction coefficient for each other category."
 )
 ```
 
@@ -804,20 +832,20 @@ Read the three slopes carefully, because the variable runs backwards in time. A 
 **Apply 14: Interpret the interaction coefficients**
 
 ```{r quiz-ipu-interaction, echo=FALSE}
-question("Your output gives a **years_c** coefficient of 0.194, a Proportional interaction coefficient of -0.102, and a Mixed interaction coefficient of -0.232. Which statement correctly describes the three conditional slopes and what they mean?",
-  correct = "Right: Plurality 0.194, Proportional 0.091, Mixed -0.038 --- and the Mixed slope runs the other way.",
-  answer("Plurality: 0.194; Proportional: 0.194 + (-0.102) = 0.091; Mixed: 0.194 + (-0.232) = -0.038",
+question("Your output gives a **years_c** coefficient of 0.1939, a Proportional interaction coefficient of -0.1024, and a Mixed interaction coefficient of -0.2317. Which statement correctly describes the three conditional slopes and what they mean?",
+  correct = "Right: Plurality 0.1939, Proportional 0.0915, Mixed -0.0378 --- and the Mixed slope runs the other way.",
+  answer("Plurality: 0.1939; Proportional: 0.1939 + (-0.1024) = 0.0915; Mixed: 0.1939 + (-0.2317) = -0.0378",
          correct = TRUE,
-         message = "History matters roughly twice as much under plurality rules as under proportional ones: for each year earlier that a parliament first seated a woman, a plurality system is predicted to seat about 0.19 percentage points more women today, and a proportional system about 0.09. That is the direction the institutional argument predicted. The Mixed slope is the surprise --- at -0.038 it runs the other way, so the earlier the first woman arrived, the slightly fewer women are predicted now."),
-  answer("Plurality: 0.194; Proportional: -0.102; Mixed: -0.232",
-         message = "The interaction coefficients are differences from the Plurality slope, not the slopes themselves. The Proportional slope is 0.194 + (-0.102) = 0.091, and the Mixed slope is 0.194 + (-0.232) = -0.038."),
-  answer("Plurality: 0.194; Proportional: 0.194 - (-0.102) = 0.296; Mixed: 0.194 - (-0.232) = 0.426",
-         message = "Add the interaction coefficients, do not subtract them. The Proportional slope is 0.194 + (-0.102) = 0.091; the Mixed slope is 0.194 + (-0.232) = -0.038."),
+         message = "History matters roughly twice as much under plurality rules as under proportional ones: for each year earlier that a parliament first seated a woman, a plurality system is predicted to seat about 0.19 percentage points more women today, and a proportional system about 0.09. That is the direction the institutional argument predicted. The Mixed slope is the surprise --- at -0.0378 it runs the other way, so the earlier the first woman arrived, the slightly fewer women are predicted now."),
+  answer("Plurality: 0.1939; Proportional: -0.1024; Mixed: -0.2317",
+         message = "The interaction coefficients are differences from the Plurality slope, not the slopes themselves. The Proportional slope is 0.1939 + (-0.1024) = 0.0915, and the Mixed slope is 0.1939 + (-0.2317) = -0.0378."),
+  answer("Plurality: 0.1939; Proportional: 0.1939 - (-0.1024) = 0.2963; Mixed: 0.1939 - (-0.2317) = 0.4256",
+         message = "Add the interaction coefficients, do not subtract them. The Proportional slope is 0.1939 + (-0.1024) = 0.0915; the Mixed slope is 0.1939 + (-0.2317) = -0.0378."),
   answer("All three slopes are positive, since both interaction coefficients are smaller in absolute value than the **years_c** coefficient",
-         message = "Check the Mixed calculation: 0.194 + (-0.232) = -0.038, which is negative. The Mixed interaction coefficient is larger in absolute value than the **years_c** coefficient, so it flips the sign of that slope."),
+         message = "Check the Mixed calculation: 0.1939 + (-0.2317) = -0.0378, which is negative. The Mixed interaction coefficient is larger in absolute value than the **years_c** coefficient, so it flips the sign of that slope."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Plurality slope = coefficient on **years_c**. Each other slope = Plurality slope + that category's interaction coefficient. Then check the sign of each."
+  try_again = "Plurality slope = coefficient on **years_c**. Each other slope = Plurality slope + that category's interaction coefficient. Then check the sign of each."
 )
 ```
 
@@ -827,6 +855,10 @@ With two interaction terms, individual p-values test whether each non-reference 
 
 ::: {.caution}
 **A note on power.** An interaction term is estimated from differences between subgroups, so it carries less information than a main effect. That is a reason to read a null result carefully --- failing to reject tells you the data could not distinguish the slopes, not that the slopes are equal --- but it is not a reason to move the threshold. A lower bar does not recover power --- it just accepts more false positives in exchange, and the threshold stays at $\alpha = .05$ here as everywhere else in the course.
+:::
+
+::: {.tip}
+**A note on `anova()`.** Tutorial 13 used `oneway.test()` for a one-way ANOVA, which asks whether the means of an interval variable differ across groups. The function here asks a different question: given two models, where one contains everything the other does plus more, it tests whether the added terms are all zero. Both report an F-statistic, because both compare how much variation a model accounts for against how much it leaves. The name they share comes from that common arithmetic, not from a common question.
 :::
 
 **Practice 15: Joint F-test for the history × electoral system interaction**
@@ -872,8 +904,14 @@ grade_this({
   if (is.null(.result))
     fail("Your code did not produce a result. The `anova()` call should be the last line.")
   want <- anova(model_rep_additive, model_rep_int)
-  if (!isTRUE(all.equal(as.numeric(want$F[2]), as.numeric(.result$F[2]), tolerance = 1e-6)))
-    fail("The comparison does not match the expected one. Check that both objects are the models you fitted in Practice 12.")
+  if (!inherits(.result, "anova") || nrow(.result) != 2L)
+    fail("The last line should display one `anova()` call comparing the two models, so the two-row comparison table is what prints.")
+  if (!isTRUE(all.equal(as.numeric(.result$Df[2]), as.numeric(want$Df[2]), tolerance = 1e-6)))
+    fail("The table compares the models in the wrong direction. Put **model_rep_additive** first, so the added interaction terms count as a gain rather than a loss.")
+  for (col in c("RSS", "F", "Pr(>F)")) {
+    if (!isTRUE(all.equal(as.numeric(want[[col]][2]), as.numeric(.result[[col]][2]), tolerance = 1e-6)))
+      fail("The comparison does not match the expected one. Check that both objects are the models you fitted in Practice 12.")
+  }
   pass("Correct. The F-statistic tests the two interaction terms together, which is a different question from either individual p-value.")
 })
 ```
@@ -889,16 +927,16 @@ question("The joint F-test gives F = 2.49 with p = .086. The Proportional intera
   correct = "Right. The joint test does not clear .05, and the one contrast that does is not the contrast the hypothesis is about.",
   answer("The joint test does not clear .05, and the one contrast that does is not the one the hypothesis names",
          correct = TRUE,
-         message = "The joint test at p = .086 does not provide sufficient evidence to reject equal slopes at .05, and the two kinds of test answer different questions. The joint test at p = .086 does not let us reject equal slopes at .05. Yet the Mixed coefficient at p = .027 does clear it --- a single contrast can be statistically distinguishable even when the two interaction terms are not jointly distinguishable. The joint F-test evaluates both interaction terms simultaneously, whereas each coefficient test evaluates one specific contrast. And the contrast the hypothesis actually names, Proportional versus Plurality, has p = .224."),
+         message = "The joint test at p = .086 does not provide sufficient evidence to reject equal slopes at .05, and the two kinds of test answer different questions. Yet the Mixed coefficient at p = .027 does clear it --- a single contrast can be statistically distinguishable even when the two interaction terms are not jointly distinguishable. The joint F-test evaluates both interaction terms simultaneously, whereas each coefficient test evaluates one specific contrast. And the contrast the hypothesis actually names, Proportional versus Plurality, has p = .224."),
   answer("The interaction is confirmed and the hypothesis supported, because one interaction coefficient is significant",
          message = "A significant coefficient tells you that one slope differs from the reference slope. It does not confirm the hypothesis, which names the Proportional-versus-Plurality contrast --- and that one has p = .224. The significant contrast is the Mixed one, which the argument did not predict."),
   answer("The slopes are equal across electoral systems, because the joint test does not clear .05",
-         message = "Failing to reject is not the same as establishing equality. The joint test says the data cannot distinguish the three slopes at .05. Failing to reject does not establish that the slopes are equal. The estimates themselves --- 0.194, 0.091 and -0.038 --- are not identical; the question is whether the evidence is strong enough to distinguish those differences from sampling variation."),
+         message = "Failing to reject is not the same as establishing equality. The joint test says the data cannot distinguish the three slopes at .05. The estimates themselves --- 0.194, 0.091 and -0.038 --- are not identical; the question is whether the evidence is strong enough to distinguish those differences from sampling variation."),
   answer("Because the Mixed interaction coefficient is significant, mixed systems must have the strongest relationship between history and representation",
          message = "Significance says the Mixed slope differs from the Plurality slope, not that it is larger. The Mixed slope is -0.038, the weakest of the three in magnitude --- and it points in the opposite direction. What is significant is the difference, not the strength."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: the joint test and the individual tests answer different questions. Which contrast does the hypothesis name, and what is its p-value?"
+  try_again = "The joint test and the individual tests answer different questions. Which contrast does the hypothesis name, and what is its p-value?"
 )
 ```
 
@@ -940,7 +978,7 @@ question("Which statements correctly interpret this equation? Select all that ap
          message = "The X1 coefficient (2.8) is the gap between categories when X2 = 0. Because zero is an observed and meaningful endpoint of the scale (no economic anxiety), this coefficient gives the predicted category gap among people reporting no economic anxiety."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: identify the reference category's slope, then add the interaction coefficient to get the non-reference slope. The X1 coefficient is the category gap when X2 = 0."
+  try_again = "Identify the reference category's slope, then add the interaction coefficient to get the non-reference slope. The X1 coefficient is the category gap when X2 = 0."
 )
 ```
 
@@ -962,7 +1000,7 @@ question("Using the formula $-1.8 + 0.4(\\text{education})$, what are the condit
          message = "Check the calculation at education = 16: -1.8 + 0.4(16) = -1.8 + 6.4 = 4.6, not -1.4. The positive interaction coefficient means the slope becomes more positive as education increases, not more negative."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: substitute 8 and 16 separately into the formula $-1.8 + 0.4(\\text{education})$."
+  try_again = "Substitute 8 and 16 separately into the formula $-1.8 + 0.4(\\text{education})$."
 )
 ```
 
@@ -982,7 +1020,7 @@ question("A researcher estimates a model with two predictors and finds both are 
          message = "A prior result is a legitimate reason to test whether an interaction replicates, and that is worth doing. But a finding without an account of why tells you nothing about the form to expect --- which slope should be larger, and where. Only a substantive expectation does that, and it is what lets you say in advance what would count as support."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: think about what distinguishes a principled reason to add an interaction term from a purely statistical one."
+  try_again = "Think about what distinguishes a principled reason to add an interaction term from a purely statistical one."
 )
 ```
 

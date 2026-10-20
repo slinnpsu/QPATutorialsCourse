@@ -31,6 +31,8 @@ library(ggplot2)
 library(gradethis)
 library(stargazer)
 library(sjPlot)
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+options(ggplot2.discrete.fill = cb_colors, ggplot2.discrete.colour = cb_colors)
 # When a submission stops with an R error, the grader never runs, so the
 # student would see R's own message. This translates the errors students hit
 # most often into plain advice. It speaks when they press Submit Answer; Run
@@ -145,7 +147,7 @@ Together, Comparison 1 establishes the starting position and Comparison 2 establ
 Once you have your predicted differences and your plot, the five-component framework from Tutorial 17 applies: describe the pattern (direction and steepness of each line), state the held values (what covariate profile the plot assumes), give specific predicted values (at least two concrete numbers), assess the confidence band (how certain are the predictions), and connect to the hypothesis (does the pattern support the research question). Interaction plots require one additional element: describe how the predicted difference itself changes as the other interacting variable changes --- which group has the steeper line, whether the lines converge, diverge, or cross.
 
 ::: {.tip}
-**Non-parallel lines do not confirm that the interaction is statistically significant.** Non-parallel lines appear whenever an interaction term is in the model, whether or not the interaction reaches conventional significance --- they reflect the fitted point estimates, not the strength of evidence. Non-parallel lines also only appear when the plot displays the two variables that actually interact; plotting a control variable against one of the interacting variables would still produce parallel lines. The coefficient test, not the visual appearance of the lines, indicates how strongly the data support a nonzero interaction.
+**Non-parallel lines do not confirm that the interaction is statistically significant.** Non-parallel fitted lines result from a nonzero estimated interaction coefficient, whether or not that coefficient is statistically significant --- they reflect the fitted point estimates, not the strength of evidence. Non-parallel lines also only appear when the plot displays the two variables that actually interact; plotting a control variable against one of the interacting variables would still produce parallel lines. The coefficient test, not the visual appearance of the lines, indicates how strongly the data support a nonzero interaction.
 :::
 
 ## From Strategy to Code
@@ -178,7 +180,7 @@ The `type = "pred"` argument requests a prediction plot rather than a coefficien
 
 For a single predictor on the x-axis --- `terms = "x"` --- all other predictors are held at their means (for interval variables) or reference category (for factor variables). The caption should always state these held values explicitly: `labs(caption = "Predictions are for...")`, ending with a period.
 
-For two predictors --- `terms = c("x", "grouping")` --- a second variable produces separate lines. If the grouping variable is categorical, one line appears per category, colored and labeled by category name; use `labs(color = "Label")` to rename the legend from the variable name to something readable. If the grouping variable is interval, bracket notation controls which values appear as separate lines: `"variable [meansd]"` automatically draws three lines at the mean minus 1 SD, the mean, and the mean plus 1 SD --- a convenient way to show how the relationship changes across a realistic range without choosing arbitrary values. You can also supply specific values: `"variable [v1, v2, v3]"`.
+For two predictors --- `terms = c("x", "grouping")` --- a second variable produces separate lines. If the grouping variable is categorical, one line appears per category, colored and labeled by category name; use `legend.title = "Label"` inside the call to rename the legend from the variable name to something readable. If the grouping variable is interval, bracket notation controls which values appear as separate lines: `"variable [meansd]"` automatically draws three lines at the mean minus 1 SD, the mean, and the mean plus 1 SD --- a convenient way to show how the relationship changes across a realistic range without choosing arbitrary values. You can also supply specific values: `"variable [v1, v2, v3]"`.
 
 To override any default held value, use the `condition` argument, introduced in Tutorial 17: `condition = list(variable_name = value)`. Example 3 below puts it to work.
 
@@ -294,7 +296,7 @@ question("Your four predicted values give you two predicted differences: the mod
          message = "Check the direction: the interaction coefficient is negative (−0.139), meaning the predicted difference becomes more negative as wage growth increases, not decreases. Subtract within each comparison to verify which gives the larger predicted drop."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: subtract the first predicted value from the second in each comparison. Which comparison gives a larger drop? That group has the steeper mortality risk slope."
+  try_again = "Subtract the first predicted value from the second in each comparison. Which comparison gives a larger drop? That group has the steeper mortality risk slope."
 )
 ```
 
@@ -302,20 +304,29 @@ question("Your four predicted values give you two predicted differences: the mod
 
 After calculating the changing predicted difference numerically, the plot makes it visible across the full range of mortality risk. Using `[meansd]` bracket notation, `plot_model()` automatically draws three lines: one for counties at the mean minus 1 SD of wage growth, one at the mean, and one at the mean plus 1 SD. Non-parallel lines show the interaction directly.
 
+**A note on color.** Every plot in this tutorial uses the same fixed set of colors, defined once in its setup, as in Tutorial 17:
+
+```r
+cb_colors <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+```
+
+These are the five hex codes introduced in Tutorial 4: they stay distinguishable for readers with color-vision deficiency and have enough contrast against a white background, which the default palette does not. Passing `colors = cb_colors` to `plot_model()` uses them in place of its own. It matters most here, where every plot draws several lines and the colors are what tell them apart. If the lines are still hard to distinguish, `colors = "bw"` draws the plot in black and white, separating the groups by line type instead.
+
 **Practice 3: Produce the interaction plot for model_int**
 
-Fill in the blanks to produce the three-line interaction plot, using **model_int** as the model object. The bracket notation `"wage_growth [meansd]"` tells `plot_model()` to show lines at the mean minus 1 SD, mean, and mean plus 1 SD of wage growth. Use `"Wage Growth (%)"` as the color legend label. Three hints are available. Click "Submit Answer" to check your work.
+Fill in the blanks to produce the three-line interaction plot, using **model_int** as the model object. The bracket notation `"wage_growth [meansd]"` tells `plot_model()` to show lines at the mean minus 1 SD, mean, and mean plus 1 SD of wage growth. Use `"Wage Growth (%)"` as the legend title, set with `legend.title =` inside the call. The `colors = cb_colors` argument is already supplied. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predplot-int, exercise=TRUE, exercise.cap="Practice 3", fig.alt="Predicted Clinton two-party vote against mortality risk, with one line for each of three wage-growth values. The horizontal axis runs from 0 to 10 and the vertical axis from about 10 to 50. All three lines fall from left to right, each with a shaded band, and a legend gives the three wage-growth values."}
 library(sjPlot)  # first use in this tutorial; it stays loaded from here on
 ___(model_int,
     type = "pred",
     terms = c("mortality_risk_25_45", "___"),
+    colors = cb_colors,
     title = "Predicted Clinton Vote by Mortality Risk and Wage Growth",
     axis.title = c("Mortality Risk (%)",
-                   "Clinton Two-Party Vote (%)")) +
-  labs(color = "___",
-       caption = "Predictions hold all controls at their means.")
+                   "Clinton Two-Party Vote (%)"),
+    legend.title = "___") +
+  labs(caption = "Predictions hold all controls at their means.")
 ```
 
 ```{r exercise-predplot-int-hint-1}
@@ -325,7 +336,7 @@ ___(model_int,
 # goes on the x-axis. The second term uses bracket notation to show
 # wage_growth at selected values: "wage_growth [meansd]" produces
 # three lines at mean - 1SD, mean, and mean + 1SD automatically.
-# The function name and color legend label are the two remaining blanks.
+# The function name and the legend title are the two remaining blanks.
 ```
 
 ```{r exercise-predplot-int-hint-2}
@@ -333,7 +344,7 @@ ___(model_int,
 # The function is plot_model(). The second term in terms = is
 # "wage_growth [meansd]" --- include the brackets and meansd exactly
 # as shown, inside the quotes with the variable name.
-# The color legend should be labeled "Wage Growth (%)" to match the
+# The legend should be titled "Wage Growth (%)" to match the
 # variable's units.
 ```
 
@@ -341,8 +352,8 @@ ___(model_int,
 # Hint 3 of 3
 # Both variable names go inside terms = c(...), the interval one
 # first. The bracket notation attaches to the second name, inside
-# its quotes. The legend title is set with color = in labs(),
-# alongside the caption.
+# its quotes. The legend title is set with legend.title = inside
+# plot_model(), and labs() carries only the caption.
 ```
 
 ```{r exercise-predplot-int-check}
@@ -360,10 +371,53 @@ grade_this({
     fail("Include **wage_growth** as the grouping variable in terms.")
   if (!grepl("\\[meansd\\]", code_nc))
     fail("Use bracket notation [meansd] with **wage_growth** to show lines at mean ± 1 SD.")
+  if (!grepl("colors\\s*=\\s*cb_colors", code_nc))
+    fail("Keep `colors = cb_colors` so the plot uses the colorblind-safe palette.")
+  if (!grepl("legend\\.title\\s*=", code_nc))
+    fail("Set the legend title with `legend.title =` inside `plot_model()`.")
   if (!grepl("labs\\s*\\(", code_nc))
-    fail("Add a `labs()` layer with color = and caption = arguments.")
+    fail("Add a `labs(caption = \"...\")` layer stating the held values.")
   if (!grepl("Wage Growth (%)", code_nc, fixed = TRUE))
-    fail("Use `labs(color = \"Wage Growth (%)\")` to label the legend, including the unit.")
+    fail("Use `legend.title = \"Wage Growth (%)\"` to title the legend, including the unit.")
+  # The checks above find the prescribed words somewhere in the code. These read
+  # the finished plot, so each label has to be in its right place and the three
+  # wage-growth lines have to actually be drawn.
+  if (!inherits(.result, "ggplot"))
+    fail("Your last line should produce the plot itself, so `plot_model()` is what prints.")
+  bl <- tryCatch(ggplot2::ggplot_build(.result), error = function(e) NULL)
+  if (is.null(bl))
+    fail("The plot could not be built. Check that every argument is inside the `plot_model()` call.")
+  lb <- .result$labels
+  norm <- function(x) if (is.null(x)) "" else gsub("\\s+", " ", paste(as.character(x), collapse = " "))
+  want <- list(
+    title   = "Predicted Clinton Vote by Mortality Risk and Wage Growth",
+    x       = "Mortality Risk (%)",
+    y       = "Clinton Two-Party Vote (%)",
+    colour  = "Wage Growth (%)",
+    caption = "Predictions hold all controls at their means.")
+  if (identical(norm(lb$x), want$y) && identical(norm(lb$y), want$x))
+    fail("Your axis labels are swapped. `axis.title` takes the x-axis label first, then the y-axis label.")
+  what <- c(title = "title", x = "x-axis label", y = "y-axis label",
+            colour = "legend title", caption = "caption")
+  for (f in names(want)) {
+    if (!identical(norm(lb[[f]]), want[[f]]))
+      fail(paste0("The plot's ", what[[f]], " should be \"", want[[f]], "\". Check that it is set in the right place inside this plot."))
+  }
+  if (length(unique(bl$data[[1]]$group)) != 3L)
+    fail("The plot should draw three lines, one for each wage-growth value. Check that the second term is `\"wage_growth [meansd]\"`.")
+  # Both labels can be right while the two names in `terms` are the wrong way
+  # round. `plot_model()` rounds the x-axis outward past the observed data, so
+  # rather than test the span against a tolerance, ask which of the two
+  # variables the plotted span resembles: they sit on very different scales.
+  xr <- tryCatch(range(bl$data[[1]]$x, na.rm = TRUE), error = function(e) c(NA_real_, NA_real_))
+  mf <- tryCatch(model.frame(model_int), error = function(e) NULL)
+  misfit <- function(v) {
+    r <- range(mf[[v]], na.rm = TRUE)
+    max(abs(xr - r)) / max(diff(r), 1e-9)
+  }
+  if (!anyNA(xr) && !is.null(mf) &&
+      misfit("mortality_risk_25_45") > misfit("wage_growth"))
+    fail("**mortality_risk_25_45** belongs on the x-axis, with **wage_growth** producing the three lines. Check the order of the two names in `terms`.")
   pass("Well done. The plot draws one line per wage-growth value, with the controls held at their means as the caption states.")
 })
 ```
@@ -388,7 +442,7 @@ question("Which statement best describes how the predicted drop in Clinton's vot
          message = "They do converge at first --- but only until about 5% mortality risk, where they cross. Past that point the gap reopens with the ranking reversed, so the difference does not disappear. It changes sign."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: which line falls most steeply from left to right? And check whether the lines stay in the same order across the whole plot."
+  try_again = "Which line falls most steeply from left to right? And check whether the lines stay in the same order across the whole plot."
 )
 ```
 
@@ -397,7 +451,7 @@ question("Which statement best describes how the predicted drop in Clinton's vot
 ```{r quiz-predplot-int-values, echo=FALSE}
 question("Using the mean wage growth line, approximately what is the predicted Clinton vote at mortality risk = 2.5 and at mortality risk = 7.5? What does the caption tell you is held constant?",
   correct = "Right. About 35% at low mortality risk and about 20% at high --- a drop of roughly 15 points. All controls at their means.",
-  answer("At mortality risk 2.5 the predicted vote is about 35% and at 7.5 about 20% --- a drop of roughly 15 points",
+  answer("About 35% at mortality risk 2.5 and about 20% at 7.5 --- a drop of 15 points, with all controls held at their means",
          correct = TRUE,
          message = "Reading from the blue (mean wage growth) line: at mortality risk 2.5 the predicted vote is near 35%, and at 7.5 it is near 20%. The 15-point drop across a realistic range of mortality risk makes the predicted difference concrete. The caption confirms that college graduation rate, Hispanic, white, and Black percentages are all held at their means."),
   answer("The plot does not show specific values --- only the direction of the relationship can be read from it",
@@ -408,7 +462,7 @@ question("Using the mean wage growth line, approximately what is the predicted C
          message = "All three lines slope downward --- none is flat. Trace the mean wage growth line (blue) from mortality risk 2.5 to 7.5 and read the y-axis values at each point."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: find mortality risk = 2.5 on the x-axis, trace up to the blue (mean) line, and read the y-axis. Repeat at mortality risk = 7.5."
+  try_again = "Find mortality risk = 2.5 on the x-axis, trace up to the blue (mean) line, and read the y-axis. Repeat at mortality risk = 7.5."
 )
 ```
 
@@ -428,7 +482,7 @@ question("Look at the confidence bands in the plot. Where are the expected vote 
          message = "Confidence bands in a prediction plot reflect uncertainty around the expected outcome at each specific predictor profile, not overall model fit. R-squared is a single number summarizing overall fit; the bands vary across the x-axis depending on data density and the covariance structure of the estimates."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: look at the left side of the plot versus the right side. Where are the bands narrowest, indicating more precise estimates of the expected vote share? Where do the bands widen, indicating less precision?"
+  try_again = "Look at the left side of the plot versus the right side. Where are the bands narrowest, indicating more precise estimates of the expected vote share? Where do the bands widen, indicating less precision?"
 )
 ```
 
@@ -586,6 +640,11 @@ grade_this({
 
   # Evaluate each call rather than matching its text, so 7.77 and
   # mean(qog$ipi_tradeopen, na.rm = TRUE) are both accepted.
+  n_pred <- suppressWarnings(vapply(pcalls, function(cl) {
+    length(tryCatch(as.numeric(eval(cl)), error = function(e) NA_real_))
+  }, numeric(1)))
+  if (any(n_pred != 1))
+    fail("Each `predict()` call should describe one country and return one predicted value. Check that the data frame in `newdata =` has a single row.")
   got <- suppressWarnings(vapply(pcalls, function(cl) {
     v <- tryCatch(as.numeric(eval(cl))[1], error = function(e) NA_real_)
     if (length(v) == 0L) NA_real_ else v
@@ -620,7 +679,7 @@ question("Your four predicted values show the interaction pattern concretely. Wh
          message = "Comparison 1 shows Few Rights countries are predicted to outperform Many Rights countries at mean trade openness. The advantage of political rights is largest at low trade openness; as trade rises, the steep Few Rights slope closes and reverses the gap."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: Comparison 1 shows position (who leads at the mean); Comparison 2 shows trajectory (how steep is the Few Rights slope). What does each tell you?"
+  try_again = "Comparison 1 shows position (who leads at the mean); Comparison 2 shows trajectory (how steep is the Few Rights slope). What does each tell you?"
 )
 ```
 
@@ -634,6 +693,7 @@ Before looking at the full interaction, let's see the Few Rights predicted assoc
 plot_model(model_env,
            type = "pred",
            terms = "ipi_tradeopen",
+           colors = cb_colors,
            title = "Predicted Environmental Performance by Trade Openness",
            axis.title = c("Trade Openness (1-10)",
                           "Environmental Performance Index"),
@@ -657,7 +717,7 @@ question("The prediction plot shows a steep upward line for Few Rights countries
          message = "The interaction term creates a different estimated association for each group, which is why the two groups do not share a single slope."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: what does the caption tell you about which group this plot shows?"
+  try_again = "What does the caption tell you about which group this plot shows?"
 )
 ```
 
@@ -671,9 +731,11 @@ There are two ways to display the interaction: categorical variable on the x-axi
 plot_model(model_env,
            type = "pred",
            terms = c("rights_f", "ipi_tradeopen"),
+           colors = cb_colors,
            title = "Environmental Performance by Rights Status",
            axis.title = c("Political Rights Status",
-                          "Environmental Performance Index")) +
+                          "Environmental Performance Index"),
+           legend.title = "Trade Openness (1-10)") +
   labs(caption = "Predictions are for countries with average economic freedom.")
 ```
 
@@ -695,7 +757,7 @@ question("The plot shows predicted values for Few Rights and Many Rights countri
          message = "They show related but not identical information. This orientation gives snapshots at three trade values; the continuous orientation shows the full range for each group."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: how many trade openness values can you read from this plot? What would you need to see the slope across the full range?"
+  try_again = "How many trade openness values can you read from this plot? What would you need to see the slope across the full range?"
 )
 ```
 
@@ -705,7 +767,7 @@ With **ipi_tradeopen** on the x-axis and **rights_f** producing separate lines, 
 
 **Practice 13: Produce the interaction plot**
 
-Write the complete `plot_model()` call from scratch, using **model_env** as the model object. Use the title \"Predicted Environmental Performance\\nby Trade Openness and Rights Status\" --- the `\n` breaks it across two lines so it is not cut off at the width of the plot, the x-axis label \"Trade Openness (1-10)\", the y-axis label \"Environmental Performance Index\", and the caption \"Predictions are for countries with average economic freedom.\" `plot_model()` maps the grouping variable to the color aesthetic, so without a `color =` argument in `labs()`, the variable name appears as the legend title. Use `labs(color = "Rights Status", caption = "...")` to set both. Four hints are available. Click "Submit Answer" to check your work.
+Write the complete `plot_model()` call from scratch, using **model_env** as the model object. Set `colors = cb_colors`. Use the title \"Predicted Environmental Performance\\nby Trade Openness and Rights Status\" --- the `\n` breaks it across two lines so it is not cut off at the width of the plot, the x-axis label \"Trade Openness (1-10)\", the y-axis label \"Environmental Performance Index\", and the caption \"Predictions are for countries with average economic freedom.\" Without a `legend.title =` argument the variable name appears as the legend title, so set `legend.title = "Rights Status"` inside the call and add the caption with `labs(caption = "...")`. Four hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predplot-int2, exercise=TRUE, exercise.cap="Practice 13", fig.alt="Predicted environmental performance against trade openness, with one line for each rights status. The horizontal axis runs from about 2 to 10 and the vertical axis from about 20 to 70. Each line has a shaded band, and a legend names the two categories, Few Rights and Many Rights."}
 
@@ -725,7 +787,9 @@ Write the complete `plot_model()` call from scratch, using **model_env** as the 
 # Give terms both variable names in a character vector, interval first.
 # No bracket notation is needed here, because the second variable is a
 # two-category factor rather than an interval variable.
-# Chain labs(color = "Rights Status", caption = "...") after with +.
+# Set colors = cb_colors inside the call.
+# Set legend.title = "Rights Status" inside the call, then chain
+# labs(caption = "...") after it with +.
 ```
 
 ```{r exercise-predplot-int2-hint-3}
@@ -735,15 +799,15 @@ Write the complete `plot_model()` call from scratch, using **model_env** as the 
 # so it is not cut off at the width of the plot.
 # Prescribed x-axis label: "Trade Openness (1-10)"
 # Prescribed y-axis label: "Environmental Performance Index"
-# Prescribed legend title (color =): "Rights Status"
+# Prescribed legend title (legend.title =): "Rights Status"
 # Prescribed caption: "Predictions are for countries with average economic freedom."
 ```
 
 ```{r exercise-predplot-int2-hint-4}
 # Hint 4 of 4
-# One plot_model() call with the model, type, terms, title and
-# axis.title, then a labs() layer chained with + that sets both the
-# legend title (color =) and the caption. Every string comes from the
+# One plot_model() call with the model, type, terms, colors, title,
+# axis.title and legend.title, then a labs() layer chained with + that
+# carries the caption. Every string comes from the
 # prescribed list above and must be typed exactly.
 ```
 
@@ -779,9 +843,13 @@ grade_this({
   if (!grepl("Environmental Performance Index", code_nc, fixed = TRUE))
     fail("Use \"Environmental Performance Index\" as the y-axis label.")
   if (!grepl("labs\\s*\\(", code_nc))
-    fail("Add a `labs()` layer with color = and caption = arguments.")
+    fail("Add a `labs(caption = \"...\")` layer stating the held values.")
+  if (!grepl("colors\\s*=\\s*cb_colors", code_nc))
+    fail("Set `colors = cb_colors` so the plot uses the colorblind-safe palette.")
+  if (!grepl("legend\\.title\\s*=", code_nc))
+    fail("Set the legend title with `legend.title =` inside `plot_model()`.")
   if (!grepl("Rights Status", code_nc, fixed = TRUE))
-    fail("Use labs(color = \"Rights Status\") to set the legend title.")
+    fail("Use `legend.title = \"Rights Status\"` to set the legend title.")
   if (!grepl("Predictions are for countries with average economic freedom.", code_nc, fixed = TRUE))
     fail("Use the prescribed caption ending with a period.")
 
@@ -816,7 +884,7 @@ grade_this({
 
 ```{r quiz-int2-interpret, echo=FALSE}
 question_checkbox(
-  "Look at the interaction plot with trade openness on the x-axis. Which statements correctly describe what it shows?",
+  "Look at the interaction plot with trade openness on the x-axis. Which statements correctly describe what it shows? Select all that apply.",
   answer("The two lines are not parallel --- the visual signature of an interaction",
          correct = TRUE,
          message = "Non-parallel lines are exactly what an interaction looks like in a prediction plot. The interaction coefficient quantifies the difference in the two estimated associations; the plot makes it visible across the full range."),
@@ -868,32 +936,33 @@ lm(women_percent ~ quota_f + electoral_f * years_c, data = ipu)
 
 Three lines are easier to read once you have a few points on them. Take three positions on the history scale --- 40 years below the average, at the average, and 40 years above it --- and compute the predicted representation for each electoral system at each.
 
+`plot_model()` draws the predicted values; `get_model_data()` returns them. It takes the same arguments --- the model, `type = "pred"`, and a `terms` argument naming the predictors --- and instead of a picture gives you the table the picture is drawn from, with a confidence interval around each predicted value.
+
 **Practice 15: Compute predicted values across the three electoral systems**
 
-Complete the `newdata` frame so that it covers all three levels of **electoral_f** at each of the three values of **years_c**, holding **quota_f** at "No quota". Two hints are available. Click "Submit Answer" to check your work.
+Complete the call so it returns the predicted values for all three levels of **electoral_f** at three positions on the history scale --- forty years below the average, at the average, and forty above --- holding **quota_f** at the no-quota level. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predict-ipu, exercise=TRUE, exercise.cap="Practice 15"}
-nd <- expand.grid(
-  quota_f     = factor("___", levels = levels(ipu$quota_f)),
-  electoral_f = factor(levels(ipu$electoral_f), levels = levels(ipu$electoral_f)),
-  years_c     = c(___, ___, ___))
-
-cbind(nd, fit = round(predict(model_rep_int, newdata = nd), 2))
+get_model_data(model_rep_int,
+               type = "pred",
+               terms = c("years_c [___, ___, ___]", "electoral_f"),
+               condition = list(quota_f = "___"))
 ```
 
 ```{r exercise-predict-ipu-hint-1}
 # Hint 1 of 2
-# You need nine predicted values --- each electoral system at each
-# of three points on the history scale --- with quota status held
-# constant throughout. Think about how to build that set of
-# combinations without writing nine separate calls.
+# The bracket notation is the one from Practice 3, now naming
+# particular values rather than meansd: write them inside the
+# quotes, separated by commas. The three positions are described
+# in the paragraph above, and years_c is centered, so the average
+# is zero.
 ```
 
 ```{r exercise-predict-ipu-hint-2}
 # Hint 2 of 2
-# The three history values are described in the paragraph above:
-# forty years below the average, at the average, and forty above.
-# Remember that the variable is centered, so the average is zero.
+# condition holds a predictor at one value while the others vary.
+# quota_f has two levels, "No quota" and "Quota" --- the comparison
+# here is among countries without a quota.
 ```
 
 ```{r exercise-predict-ipu-check}
@@ -903,39 +972,47 @@ grade_this({
   if (grepl("=\\s*[TF](?![A-Za-z._0-9])", code_nc, perl = TRUE)) {
     fail("Write `TRUE` and `FALSE` in full. R accepts `T` and `F` as shorthand, but these tutorials do not: `TRUE` and `FALSE` are reserved words and always mean what you expect, while `T` and `F` are ordinary object names that other code can overwrite --- after which an argument set to `T` or `F` quietly means something else. Replace them with `TRUE` and `FALSE` and submit again.")
   }
+  if (!grepl("get_model_data\\s*\\(", code_nc))
+    fail("Use `get_model_data()` to return the predicted values.")
+  if (!grepl("get_model_data\\s*\\(\\s*model_rep_int\\b", code_nc))
+    fail("Pass **model_rep_int** as the model object.")
+  if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
+    fail("Set `type = \"pred\"`.")
+  if (!grepl("years_c", code_nc))
+    fail("Name **years_c** as the first term, with the three history values in brackets.")
+  if (!grepl("electoral_f", code_nc))
+    fail("Name **electoral_f** as the second term, so every level appears.")
+  if (!grepl("\\[\\s*-40\\s*,\\s*0\\s*,\\s*40\\s*\\]", code_nc))
+    fail("The three history values are -40, 0 and 40, written inside the brackets after **years_c**: `\"years_c [-40, 0, 40]\"`.")
+  if (!grepl("condition\\s*=", code_nc))
+    fail("Use `condition =` to hold **quota_f** at one level.")
   if (!grepl("No quota", code_nc, fixed = TRUE))
     fail("Hold **quota_f** at \"No quota\".")
-  if (!grepl("-40", code_nc) || !grepl("40", code_nc))
-    fail("The three history values are -40, 0 and 40 --- forty years below the average, at it, and forty above.")
-  if (is.null(.result) || !is.data.frame(.result))
-    fail("Your last line should display the data frame of predictions.")
-  if (nrow(.result) != 9)
-    fail("The result should have nine rows: three electoral systems at each of three history values.")
 
-  want <- expand.grid(electoral_f = levels(ipu$electoral_f),
-                      years_c     = c(-40, 0, 40),
-                      quota_f     = factor("No quota", levels = levels(ipu$quota_f)))
-  want$predicted <- as.numeric(predict(model_rep_int, newdata = want))
+  # The checks above find the required pieces in the submission. These read the
+  # table that was actually returned.
   got <- .result
-  key <- function(d) {
-    cols <- c("electoral_f", "years_c")
-    if (!all(cols %in% names(d))) return(NULL)
-    paste(as.character(d$electoral_f), round(as.numeric(d$years_c), 6))
-  }
-  if (is.null(key(got)))
-    fail("The frame needs an **electoral_f** column and a **years_c** column, one row per combination.")
+  if (!is.data.frame(got))
+    fail("Your last line should display the table `get_model_data()` returns, so the table is what prints.")
+  if (!all(c("x", "predicted", "group") %in% names(got)))
+    fail("The result does not look like the table `get_model_data()` returns. Check that the call is the last line, with nothing wrapped around it.")
+  if (nrow(got) != 9)
+    fail("The table should have nine rows: three electoral systems at each of three history values.")
+  want <- sjPlot::get_model_data(model_rep_int, type = "pred",
+                                 terms = c("years_c [-40, 0, 40]", "electoral_f"),
+                                 condition = list(quota_f = "No quota"))
+  key <- function(d) paste(as.character(d$group), round(as.numeric(d$x), 6))
   if (!setequal(key(got), key(want)))
-    fail("The nine rows are not the nine combinations asked for: each of the three levels of **electoral_f** at **years_c** of -40, 0 and 40.")
-  num <- vapply(got, function(cl) is.numeric(cl) && !all(cl %in% c(-40, 0, 40)), logical(1))
-  if (!any(num))
-    fail("The frame has no column of predicted values. Add the predictions from **model_rep_int** to the grid.")
+    fail("The nine rows are not the nine combinations asked for: each level of **electoral_f** at **years_c** of -40, 0 and 40.")
   ord <- match(key(want), key(got))
-  pr  <- as.numeric(got[[which(num)[1]]])[ord]
-  if (!isTRUE(all.equal(pr, want$predicted, tolerance = 1e-4)))
-    fail("The predicted values do not match **model_rep_int** at those profiles. Check that **quota_f** is held at \"No quota\" and that the model is **model_rep_int**.")
-  pass("Right. The grid holds quota status fixed and varies electoral system and centred history, so every row is a country profile the model can predict for.")
+  if (!isTRUE(all.equal(as.numeric(got$predicted)[ord], as.numeric(want$predicted), tolerance = 1e-4)))
+    fail("The predicted values do not match **model_rep_int** at those profiles. Check that **quota_f** is held at \"No quota\".")
+
+  pass("Right. The same `terms` argument that draws the plot returns the table behind it, one row per country profile.")
 })
 ```
+
+The columns are named for the role each one plays in the plot rather than for the variable it holds. Reading left to right: **x** carries the values of the first variable in `terms`, here **years_c**; **predicted** is the predicted percentage of women; **std.error** is the standard error of that prediction; and **conf.low** and **conf.high** give the 95% confidence interval built from it, the same interval the plot shades. The column that says which electoral system each row belongs to is **group**, and it sits at the far right --- wider than the output window, so use the arrow in the table's header to bring it into view. You can ignore the **group_col** column.
 
 Read the nine values by electoral system rather than by row. Under plurality rules the predictions rise from 10.83 to 18.59 to 26.34: the earlier a parliament first seated a woman, the more women it is predicted to seat now. Under mixed rules they fall, from 25.86 to 24.35 to 22.84. At 40 years below the average --- a parliament whose first woman arrived around 2006 --- mixed systems lead plurality systems by 15 percentage points. At 40 above, around 1926, plurality systems lead by 3.5.
 
@@ -943,7 +1020,7 @@ Read the nine values by electoral system rather than by row. Under plurality rul
 
 **Practice 16: Produce the three-line interaction plot**
 
-Write the complete `plot_model()` call from scratch, using **model_rep_int**. Put **years_c** on the x-axis and use **electoral_f** to produce the three lines. Use the title \"Predicted Women's Representation by History and Electoral System\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", the legend title \"Electoral System\", and the caption \"Predictions are for countries with no gender quota.\" Three hints are available. Click "Submit Answer" to check your work.
+Write the complete `plot_model()` call from scratch, using **model_rep_int**. Put **years_c** on the x-axis and use **electoral_f** to produce the three lines. Set `colors = cb_colors`. Use the title \"Predicted Women's Representation by History and Electoral System\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", the legend title \"Electoral System\" set with `legend.title =`, and the caption \"Predictions are for countries with no gender quota.\" Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predplot-ipu, exercise=TRUE, exercise.cap="Practice 16", fig.alt="Predicted percent women against centered years since the first woman entered parliament, with one line for each electoral system. The horizontal axis runs from about -60 to 60 and the vertical axis from 0 to about 40. Each line has a shaded band, and a legend names the three systems."}
 
@@ -961,15 +1038,16 @@ Write the complete `plot_model()` call from scratch, using **model_rep_int**. Pu
 # Hint 2 of 3
 # Set type = "pred", and give terms both variable names in a character
 # vector rather than one name.
+# Set colors = cb_colors inside the call.
 # axis.title takes a character vector: c("x label", "y label").
-# Chain a labs() layer after the call with + to set the legend
-# title and the caption.
+# Set the legend title with legend.title = inside the call, and
+# chain a labs() layer after it with + for the caption.
 ```
 
 ```{r exercise-predplot-ipu-hint-3}
 # Hint 3 of 3
-# In labs(), the legend title is set with color = because
-# plot_model() maps the grouping variable to the color aesthetic.
+# The legend title is set with legend.title = inside plot_model(),
+# alongside title and axis.title.
 # The prescribed caption is:
 # "Predictions are for countries with no gender quota."
 ```
@@ -999,8 +1077,12 @@ grade_this({
     fail("Use the prescribed title: \"Predicted Women's Representation by History and Electoral System\".")
   if (!grepl("Predicted Percent Women", code_nc, fixed = TRUE))
     fail("Use \"Predicted Percent Women\" as the y-axis label.")
+  if (!grepl("legend\\.title\\s*=", code_nc))
+    fail("Set the legend title with `legend.title =` inside `plot_model()`.")
   if (!grepl("Electoral System", code_nc, fixed = TRUE))
-    fail("Use labs(color = \"Electoral System\") to set the legend title.")
+    fail("Use `legend.title = \"Electoral System\"` to set the legend title.")
+  if (!grepl("colors\\s*=\\s*cb_colors", code_nc))
+    fail("Set `colors = cb_colors` so the plot uses the colorblind-safe palette.")
   if (!grepl("Predictions are for countries with no gender quota.", code_nc, fixed = TRUE))
     fail("Use the prescribed caption: \"Predictions are for countries with no gender quota.\"")
 
@@ -1019,6 +1101,9 @@ grade_this({
                                    gsub("\\s+", " ", want)))
       fail(paste0("The plot's ", what, " is not the prescribed one. Check that it is set inside this plot rather than elsewhere in your code."))
   }
+  chk("title", "Predicted Women's Representation by History and Electoral System", "title")
+  chk("x", "Years Since First Woman (centered)", "x-axis label")
+  chk("y", "Predicted Percent Women", "y-axis label")
   chk("colour", "Electoral System", "legend title")
   chk("caption", "Predictions are for countries with no gender quota.", "caption")
   if (length(unique(bl$data[[1]]$group)) != nlevels(ipu$electoral_f))
@@ -1039,11 +1124,12 @@ plot_model(model_rep_int,
            type = "pred",
            terms = c("years_c", "electoral_f"),
            condition = list(quota_f = "Quota"),
+           colors = cb_colors,
            title = "Predicted Women's Representation by History and Electoral System",
            axis.title = c("Years Since First Woman (centered)",
-                          "Predicted Percent Women")) +
-  labs(color = "Electoral System",
-       caption = "Predictions are for countries with a gender quota.")
+                          "Predicted Percent Women"),
+           legend.title = "Electoral System") +
+  labs(caption = "Predictions are for countries with a gender quota.")
 ```
 
 Compare this to the plot you produced. All three lines sit about 6.9 percentage points higher --- the Quota coefficient. Nothing else moves: the three slopes are unchanged, and the lines still cross at the same place. That is what it means for **quota_f** to be outside the interaction. It shifts the level of every line and changes the relationship of none of them.
@@ -1066,7 +1152,7 @@ question("The plurality and mixed lines cross inside the plot. Which statement b
          message = "The x-axis is not time passing. It is how long ago each parliament first seated a woman, compared across countries. A negative slope means that among mixed-system countries, those that seated their first woman longer ago have fewer women now --- a comparison between countries, not a trend within any one of them."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: look at the direction of each line, not just where they meet."
+  try_again = "Look at the direction of each line, not just where they meet."
 )
 ```
 
@@ -1075,7 +1161,7 @@ question("The plurality and mixed lines cross inside the plot. Which statement b
 ::: {.research-example}
 The three-line plot shows what a table of interaction coefficients cannot. Under plurality rules, the earlier a parliament first seated a woman, the more women it is predicted to seat today --- from about 11% for a parliament whose first woman arrived around 2006 to about 26% for one dating back to 1926. Under proportional rules the same relationship holds but is shallower, running from about 22% to about 30%. Under mixed rules it runs the other way: from about 26% down to about 23%.
 
-The consequence is that the mixed line is overtaken twice rather than a gap simply widening. Among parliaments that first seated a woman recently, mixed systems are predicted to have the highest representation and plurality systems the lowest, a spread of about 15 percentage points. Proportional systems pass mixed at a parliament whose first woman arrived around 1978, and plurality systems pass it around 1941. Both crossings fall well inside the data, which reaches back to 1907. Among parliaments with the longest histories the ordering has fully reversed: mixed systems are predicted lowest, about 3.5 points below plurality and 7 below proportional.
+The consequence is that the mixed line is overtaken twice rather than a gap simply widening. Among parliaments that first seated a woman recently, mixed systems are predicted to have the highest representation and plurality systems the lowest, a spread of about 15 percentage points. Proportional systems pass mixed at a parliament whose first woman arrived around 1978, and plurality systems pass it around 1941. Both crossings fall well inside the data: mixed-system parliaments here first seated a woman between 1919 and 2003, and the two crossings sit at 1941 and 1978. Among parliaments with the longest histories the ordering has fully reversed: mixed systems are predicted lowest, about 3.5 points below plurality and 7 below proportional.
 
 What the plot does not do is explain the mixed-system pattern. Tutorial 18 found that this is the one contrast the data distinguish clearly, and also the one the institutional argument says least about. Seeing it as a line makes the finding harder to overlook, which is a reason to plot predictions rather than only report coefficients --- but a picture of an unexplained pattern is still an unexplained pattern.
 :::
@@ -1101,7 +1187,7 @@ question("Given that both interacting predictors are interval variables, which p
          message = "Prediction plots are informative regardless of significance --- they show the estimated pattern from the fitted model. The joint F-test informs how strongly you can interpret the pattern, not whether to plot it."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: with two interval variables, what replaces the 'group' concept from the categorical x interval strategy?"
+  try_again = "With two interval variables, what replaces the 'group' concept from the categorical x interval strategy?"
 )
 ```
 
@@ -1123,7 +1209,7 @@ question("What does the `[meansd]` notation produce, and how should the three li
          message = "The legend labels are the GDP per capita values at which the three lines are drawn. Each line then shows the full foreign aid relationship at that GDP level."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: what does the bracket notation tell `plot_model()` to do with the second variable in terms = ?"
+  try_again = "What does the bracket notation tell `plot_model()` to do with the second variable in terms = ?"
 )
 ```
 
@@ -1134,7 +1220,7 @@ The three lines in the responsiveness plot are not perfectly parallel --- the li
 ```{r quiz-cyu-significance, echo=FALSE}
 question("How would you correct this claim?",
   correct = "Right. Non-parallel fitted lines appear with any nonzero estimated interaction --- significance requires the coefficient test.",
-  answer("Non-parallel fitted lines appear whenever an interaction term is in the model, significant or not",
+  answer("Non-parallel fitted lines can appear even when the interaction coefficient is not statistically significant",
          correct = TRUE,
          message = "A nonzero estimated interaction always produces non-parallel point-estimate lines. Statistical significance is determined by the t-statistic and p-value on the interaction term, not by the visual appearance of the lines."),
   answer("The colleague is correct --- non-parallel lines can only arise when the interaction coefficient is significantly different from zero",
@@ -1145,7 +1231,7 @@ question("How would you correct this claim?",
          message = "The plot is informative about the estimated pattern --- it just cannot establish statistical significance. The right correction is to clarify what the plot shows and what the coefficient test adds."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Hint: what produces non-parallel lines in a prediction plot? Does the interaction need to be significant for that to happen?"
+  try_again = "What produces non-parallel lines in a prediction plot? Does the interaction need to be significant for that to happen?"
 )
 ```
 
@@ -1161,9 +1247,9 @@ The same two tools, `predict()` and `plot_model()`, work for additive and intera
 
 4. **For interval × interval interactions:** choose two or three meaningful values of one variable and for each, compute the [predicted difference]{.important-text} between a low and a high value of the other variable. The within-pair difference is the model-implied predicted difference at that level of the other variable. Comparing those differences across chosen values shows how the interaction changes the relationship. In the plot, use `terms = c("x_axis_var", "other_var [meansd]")` to show three lines automatically at mean ± 1 SD. Non-parallel lines make the changing predicted difference directly visible.
 
-5. **For categorical × interval interactions:** the [predicted comparison]{.important-text} runs two ways --- across categories at a representative value of the interval predictor, and across the range of the interval predictor within each category. In the plot, put the interval variable on the x-axis and use the categorical variable to produce colored lines --- one per category, however many there are. Non-parallel lines make the changing predicted differences directly visible. Use `labs(color = "Label")` to rename the color legend.
+5. **For categorical × interval interactions:** the [predicted comparison]{.important-text} runs two ways --- across categories at a representative value of the interval predictor, and across the range of the interval predictor within each category. In the plot, put the interval variable on the x-axis and use the categorical variable to produce colored lines --- one per category, however many there are. Non-parallel lines make the changing predicted differences directly visible. Use `legend.title = "Label"` inside the call to rename the legend.
 
-6. **Non-parallel fitted lines appear whenever an interaction term is in the model**, whether or not the interaction is statistically significant. The plot shows the estimated pattern; the coefficient test indicates how strongly the data support a nonzero interaction. A predictor that is in the model but **not** part of the interaction behaves differently: changing its held value with `condition` shifts every line by the same amount and changes none of their slopes.
+6. **Non-parallel fitted lines appear when the estimated interaction coefficient is nonzero**, whether or not that coefficient is statistically significant. The plot shows the estimated pattern; the coefficient test indicates how strongly the data support a nonzero interaction. A predictor that is in the model but **not** part of the interaction behaves differently: changing its held value with `condition` shifts every line by the same amount and changes none of their slopes.
 
 7. **A complete interpretation of an interaction plot covers:** the pattern for each group or line (direction and steepness), the held values, specific predicted values and their differences, the confidence bands, and the connection to the hypothesis. When the fitted lines cross, check where. A crossing inside the observed range of the x-axis variable means the ordering of the groups actually reverses within the data --- a substantive finding. A crossing that would occur only beyond the observed range is an extrapolation rather than a finding. Either way it is a feature of the point estimates, and the confidence bands show how uncertain the predicted outcomes are near the crossing --- they are not a test of it. Whether the interaction itself is supported comes from the coefficient test, or the joint test when a factor contributes several interaction terms.
 
