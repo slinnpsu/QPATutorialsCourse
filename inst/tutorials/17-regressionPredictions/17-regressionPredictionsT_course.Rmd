@@ -127,7 +127,7 @@ Predicted values translate the fitted regression into concrete [model-implied co
 
 Which predictors should you examine? Your research question decides, not the software. You vary the predictor whose relationship with the outcome you are trying to communicate, and everything else is held constant at values you choose and report.
 
-In this tutorial you will use two tools. `predict()` answers one what-if question at a time: specify a complete set of predictor values, and it returns the model's expected outcome for cases with that profile. `plot_model(type = "pred")` shows many such predictions at once --- across the full range of an interval predictor, or one for each level of a factor --- with the uncertainty visible alongside them.
+In this tutorial you will use two tools. `predict()` answers one what-if question at a time: specify a complete set of predictor values, and it returns the model's expected outcome for cases with that profile. `plot_model(type = "pred")` shows many such predictions at once --- across the full range of an interval predictor, or one for each category of a categorical predictor --- with the uncertainty visible alongside them.
 
 ### The Workflow
 
@@ -155,7 +155,7 @@ The data frame **states** describes every U.S. state as of 2010 and contains the
 - **p.liberal**: proportion of state residents identifying as liberal
 - **nonwhite**: proportion of state residents who are not white
 - **povrate**: state poverty rate (percent)
-- **region_censusf**: a four-category factor --- South (reference), West, Midwest, Northeast
+- **region_censusf**: a four-category variable --- South (reference), West, Midwest, Northeast
 
 Every variable is recorded for all 50 states except **hs_dem_prop_all**, which is missing for Nebraska --- its legislature is unicameral and officially nonpartisan, so there is no Democratic proportion of lower-house seats to record. That leaves 49 states in the model below.
 
@@ -260,7 +260,7 @@ The `stargazer()` function from the [stargazer]{.package-name} package was intro
 - **`title =`** --- the table title, as a character string
 - **`dep.var.labels =`** --- the label for the outcome-variable column header
 
-- **`covariate.labels =`** --- a character vector of row labels for the predictors, in the order the rows appear in the table. Interval predictors appear in formula order. A factor contributes one row per category except the reference, which is omitted from the output and from the labels, so a three-category factor contributes two. Those rows follow the factor's own level order, which `levels()` will show you: the first level is the reference, and the rest appear in the order they are stored
+- **`covariate.labels =`** --- a character vector of row labels for the predictors, in the order the rows appear in the table. Interval predictors appear in formula order. A categorical predictor contributes one row per category except the reference, which is omitted from the output and from the labels, so a three-category predictor contributes two. Those rows follow the factor's own level order, which `levels()` will show you: the first level is the reference, and the rest appear in the order they are stored
 :::
 
 **Practice 2: Produce a stargazer table for fit1**
@@ -333,7 +333,7 @@ The hypothesis concerns liberalism. The most direct way to make the liberalism c
 
 `predict()` does that. It takes the model object and a `newdata` argument --- a data frame describing the exact case you want a prediction for. Every predictor in the model must appear in `newdata`, named exactly as it is in the formula, so here that means all four: **p.liberal**, **nonwhite**, **povrate** and **region_censusf**.
 
-Predictors you are not varying are held at their means, which is what `mean(..., na.rm = TRUE)` does. A factor cannot be held at a mean, so it is set to one of its levels --- and it has to be supplied as a factor carrying all the levels the model knows, not as a bare string: `factor("South", levels = levels(states$region_censusf))`. The prediction comes back in the units of the outcome, a proportion of seats on a 0-to-1 scale.
+Predictors you are not varying are held at their means, which is what `mean(..., na.rm = TRUE)` does. A categorical predictor cannot be held at a mean, so it is set to one of its categories --- and it has to be supplied as a factor carrying all the levels the model knows, not as a bare string: `factor("South", levels = levels(states$region_censusf))`. The prediction comes back in the units of the outcome, a proportion of seats on a 0-to-1 scale.
 
 **Run and observe 3: Compute predicted Democratic seat share at two levels of p.liberal**
 
@@ -387,8 +387,8 @@ The `predict()` calls answered one specific what-if at one value of **p.liberal*
 
 - **`type = "pred"`** requests predicted values. You have to set it: the default, `type = "est"`, produces a coefficient plot instead
 - **`terms =`** names the predictor(s) to display. Variable names are always **character strings in quotes** --- unlike bare R variable names. Three forms:
-    - `terms = "x"` --- one variable on the x-axis; all other predictors are held at their means (interval) or reference category (factor)
-    - `terms = c("x", "grouping")` --- second variable produces separate lines; if a **factor**, one line per level colored and labeled by level name; if an **interval variable**, lines at selected values (default: mean minus 1 SD, mean, and mean plus 1 SD; override with bracket notation: `"variable [v1, v2]"`)
+    - `terms = "x"` --- one variable on the x-axis; all other predictors are held at their means (interval) or reference category (categorical)
+    - `terms = c("x", "grouping")` --- second variable produces separate lines; if **categorical**, one line per category colored and labeled by category name; if an **interval variable**, lines at selected values (default: mean minus 1 SD, mean, and mean plus 1 SD; override with bracket notation: `"variable [v1, v2]"`)
     - `terms = c("x", "grouping", "facet")` --- third variable produces separate panels, one per level or selected value
 - **`axis.title = c("x label", "y label")`** labels the axes --- x-axis first, then y-axis
 - **`show.data = TRUE/FALSE`** overlays the raw observations; useful when N is small enough for individual points to be readable
@@ -596,7 +596,7 @@ ___(fit1,
 # Hint 1 of 3
 # A prediction plot sweeps one predictor across its range and shows
 # what the model expects at each point along it. When the predictor
-# that varies is a factor there is no range to sweep --- only a few
+# that varies is categorical there is no range to sweep --- only a few
 # separate categories, each with its own predicted value.
 ```
 
@@ -605,7 +605,7 @@ ___(fit1,
 # The argument that controls what kind of plot you get is type =.
 # For a prediction plot, its value is "pred".
 # The argument that controls the x-axis variable is terms =.
-# Set it to the name of the factor variable, in quotes.
+# Set it to the name of the categorical variable, in quotes.
 # Prescribed axis labels: x = "Census Region", y = "Proportion of Democratic House Seats"
 # Prescribed caption: "Predictions are for states with average poverty rate,
 #   proportion liberal, and proportion non-white."
@@ -881,8 +881,8 @@ In Tutorial 16 you estimated a model asking whether proportional electoral syste
 The data frame **ipu** contains one row for each of 193 national legislatures --- the lower house where a parliament is bicameral, the single chamber where it is not. Chamber composition is current as of August 2026, when these data were collected from the Inter-Parliamentary Union. Of the 193 legislatures, **electoral_system** is missing for 15, **women_percent** for 8, **gender_quota** for 1, and **years_since_first_woman** for none. The variables in this model are:
 
 - **women_percent**: percentage of seats held by women (0--100)
-- **quota_f**: a two-category factor --- **No quota** (reference category) and **Quota**
-- **electoral_f**: a three-category factor --- **Plurality/Majority** (reference category), **Proportional**, and **Mixed**
+- **quota_f**: a two-category variable --- **No quota** (reference category) and **Quota**
+- **electoral_f**: a three-category variable --- **Plurality/Majority** (reference category), **Proportional**, and **Mixed**
 - **years_c**: years since the first woman entered that parliament, centered at its mean of 60.3 years
 
 The theoretical argument is institutional. Proportional systems let a party balance its list, putting women in winnable positions without displacing anyone in particular; plurality systems ask the same party to nominate a woman in a specific district against a specific opponent. Gender quotas and the length of women's parliamentary history are included as controls because both are plausibly related to electoral rules and to representation.
@@ -911,7 +911,7 @@ Write the complete `stargazer()` call from scratch, passing **model_rep** as the
 # Hint 1 of 3
 # The same table as before, for a different model. You supply the
 # format, a title, a name for the outcome column, and one readable
-# label per predictor row --- and a factor contributes one row for
+# label per predictor row --- and a categorical predictor contributes one row for
 # each category beyond its reference, not one row in total.
 ```
 
@@ -1275,7 +1275,7 @@ Write the complete `plot_model()` call from scratch, using **model_rep** as the 
 # Hint 3 of 3
 # One plot_model() call with the model, type, terms, colors, title and
 # axis.title, then a labs() layer chained with + for the caption.
-# terms names the factor, so the plot shows one predicted value per
+# terms names the categorical variable, so the plot shows one predicted value per
 # category. Every string comes from the prescribed list above.
 ```
 
@@ -1363,7 +1363,7 @@ question("Look at the electoral system prediction plot. Which statement best des
 
 ### Choosing Held Values: The `condition` Argument
 
-By default, `plot_model()` holds all predictors not on the x-axis at their means (for interval variables) or reference category (for factor variables). The parliamentary history plot above used No quota as the reference category for **quota_f** --- that is what the caption says. But what if the research question is specifically about countries that have adopted a quota? The predicted level of representation will differ when the model is evaluated for a country with a quota, even though the history slope remains the same in this additive model.
+By default, `plot_model()` holds all predictors not on the x-axis at their means (for interval variables) or reference category (for categorical variables). The parliamentary history plot above used No quota as the reference category for **quota_f** --- that is what the caption says. But what if the research question is specifically about countries that have adopted a quota? The predicted level of representation will differ when the model is evaluated for a country with a quota, even though the history slope remains the same in this additive model.
 
 The `condition` argument lets you override the defaults explicitly:
 
@@ -1375,11 +1375,11 @@ plot_model(model_rep, type = "pred", terms = "years_c",
 `condition` takes a **named list**: `condition = list(variable_name = value)`. Note the contrast with `terms =`: in `terms`, variable names are **quoted strings** (e.g., `"quota_f"`); in `condition`, variable names are **unquoted list element names** (e.g., `quota_f = ...`). The value specifies what to hold that variable at:
 
 - For an **interval variable**: supply a number, e.g., `condition = list(years_c = 0)` or `condition = list(years_c = 20)`. Anything that returns a single value works, so `condition = list(years_c = mean(ipu$years_c, na.rm = TRUE))` holds it at its mean --- which here is 0, because **years_c** is centered
-- For a **factor variable**: supply a character string in quotes matching a factor level exactly, e.g., `condition = list(quota_f = "Quota")`
+- For a **categorical variable**: supply a character string in quotes matching a category name exactly, e.g., `condition = list(quota_f = "Quota")`
 - For **multiple variables**: `condition = list(var1 = value1, var2 = value2)`
 
 ::: {.tip}
-**Choose held values deliberately.** The defaults (means for interval variables, reference category for factor variables) provide a standardized comparison case, but they are not necessarily substantively typical of any real observation. If you are studying how representation accumulates in countries that have adopted quotas, conditioning on No quota produces a plot that answers a different question. The caption is your contract with the reader --- it must accurately state what the plot is showing, and the values you choose should reflect the context the research question concerns.
+**Choose held values deliberately.** The defaults (means for interval variables, reference category for categorical variables) provide a standardized comparison case, but they are not necessarily substantively typical of any real observation. If you are studying how representation accumulates in countries that have adopted quotas, conditioning on No quota produces a plot that answers a different question. The caption is your contract with the reader --- it must accurately state what the plot is showing, and the values you choose should reflect the context the research question concerns.
 :::
 
 **Run and observe 22: The same plot at two quota settings**
@@ -1655,9 +1655,9 @@ Predicted values translate the model's estimated associations into concrete [mod
 
 2. **`predict()` requires a `newdata` data frame with every predictor named and typed exactly as in the model.** For factor variables, the recommended approach is `factor("level", levels = levels(data$variable))` --- this explicitly attaches the full level set and avoids edge cases where R cannot determine the levels from context. The output is in the units of the outcome variable.
 
-3. **`plot_model(type = "pred", terms = "variable")` shows predicted values for one predictor**, holding all others at their means or reference category --- a line across the full range for an interval predictor, a point with a confidence interval for each level of a factor. `axis.title` takes x first, then y. The variable name in `terms` must be in quotes --- unlike most R arguments. Always add `labs(caption = "...")` to state the [held values]{.important-text}.
+3. **`plot_model(type = "pred", terms = "variable")` shows predicted values for one predictor**, holding all others at their means or reference category --- a line across the full range for an interval predictor, a point with a confidence interval for each category of a categorical predictor. `axis.title` takes x first, then y. The variable name in `terms` must be in quotes --- unlike most R arguments. Always add `labs(caption = "...")` to state the [held values]{.important-text}.
 
-4. **The `condition` argument overrides the default held values.** `condition = list(variable_name = value)` holds the named variable at a specific value. Variable names in `condition` are **unquoted** list element names (unlike `terms =`, where names are quoted strings). Values are numbers for interval variables or quoted strings for factor variable levels. Use it when the default held values do not correspond to the context your research question concerns. The caption must always state what values were used.
+4. **The `condition` argument overrides the default held values.** `condition = list(variable_name = value)` holds the named variable at a specific value. Variable names in `condition` are **unquoted** list element names (unlike `terms =`, where names are quoted strings). Values are numbers for interval variables or quoted category names for categorical variables. Use it when the default held values do not correspond to the context your research question concerns. The caption must always state what values were used.
 
 5. **`terms = c("x", "grouping_variable")` shows the relationship for multiple groups simultaneously.** In an additive model, the result is [parallel lines]{.important-text} --- the x-variable has the same estimated slope in every group. Parallel lines are the visual signature of an additive model, not a coincidence. `plot_model()` has additional capabilities not covered here --- a third variable in `terms` produces faceted panels, and bracket notation like `[meansd]` or `[value1, value2]` controls which specific values are shown for any term. These features become useful in the tutorials that follow --- Tutorials 19 and 21 build on them.
 

@@ -466,13 +466,13 @@ The data frame **qog** contains country-level data from multiple sources, drawn 
 
 - **wdi_fertility**: the total fertility rate --- the expected number of children per woman, observed from 1.17 to 7.09 --- standing in here for economic development
 - **ipu_l_sw**: the percentage of seats in the national legislature held by women
-- **democ_f**: a three-category factor in which **Autocracy** = lowest democracy level, **Partial Democracy** = middle, and **Democracy** = highest
+- **democ_f**: a three-category variable in which **Autocracy** = lowest democracy level, **Partial Democracy** = middle, and **Democracy** = highest
 
 The three regime categories are unevenly sized --- 47 autocracies, 20 partial democracies and 127 democracies. That matters later: the partial democracy group is small, and small groups produce imprecise estimates.
 
 ### Choosing a Reference Category
 
-Before estimating a model with a categorical predictor, it is worth thinking about which category to use as the [reference category]{.important-text}. The choice matters because every factor coefficient measures the difference between one category and the reference category --- so the question you can answer directly depends on which category you omit. If Democracy is the reference, you can compare both Autocracy and Partial Democracy to Democracy, but you cannot directly test whether Autocracy and Partial Democracy differ from each other. If Autocracy is the reference, you get both comparisons to the lowest level --- which is usually what we want when asking whether more democracy produces better outcomes. The variable **democ_f** has already been created with three labels. Let's check which category R is treating as the reference.
+Before estimating a model with a categorical predictor, it is worth thinking about which category to use as the [reference category]{.important-text}. The choice matters because every coefficient on a categorical predictor measures the difference between one category and the reference category --- so the question you can answer directly depends on which category you omit. If Democracy is the reference, you can compare both Autocracy and Partial Democracy to Democracy, but you cannot directly test whether Autocracy and Partial Democracy differ from each other. If Autocracy is the reference, you get both comparisons to the lowest level --- which is usually what we want when asking whether more democracy produces better outcomes. The variable **democ_f** has already been created with three labels. Let's check which category R is treating as the reference.
 
 **Run and observe 13: Check the levels of democ_f**
 
@@ -487,7 +487,7 @@ But you should always check, and you should think about whether the default serv
 To do this, we need to tell `lm()` to use Democracy as the reference category for this model only. Instead of writing just `democ_f` in the formula, we write `relevel(democ_f, ref = "Democracy")` in its place. The `relevel()` function takes two arguments: the factor variable and `ref =` naming the new reference category. The change is temporary --- it applies only to this model and does not permanently alter the variable.
 
 ::: {.caution}
-**This model's output will look different from the ones you have seen.** R builds the name of a factor coefficient by gluing the variable name to the level name, so **democ_f** plus Partial Democracy becomes `democ_fPartial Democracy`. Wrapping a `relevel()` call around the variable makes it longer still: `relevel(democ_f, ref = "Democracy")Partial Democracy`. Names that wide leave no room for four columns of numbers, so `summary()` splits the coefficients table into two blocks --- `Estimate` and `Std. Error` first, then `t value` and `Pr(>|t|)` below, with the row names repeated in each. Nothing is wrong when that happens. Find the row you want in the first block for the estimate and its standard error, then find the same row name in the second block for the test statistic and p-value. The model in Practice 15 uses **democ_f** directly, with no `relevel()` call, so its names are short and its table prints in the usual single block.
+**This model's output will look different from the ones you have seen.** R builds the name of each coefficient row by gluing the variable name to the category name, so **democ_f** plus Partial Democracy becomes `democ_fPartial Democracy`. Wrapping a `relevel()` call around the variable makes it longer still: `relevel(democ_f, ref = "Democracy")Partial Democracy`. Names that wide leave no room for four columns of numbers, so `summary()` splits the coefficients table into two blocks --- `Estimate` and `Std. Error` first, then `t value` and `Pr(>|t|)` below, with the row names repeated in each. Nothing is wrong when that happens. Find the row you want in the first block for the estimate and its standard error, then find the same row name in the second block for the test statistic and p-value. The model in Practice 15 uses **democ_f** directly, with no `relevel()` call, so its names are short and its table prints in the usual single block.
 :::
 
 **Run and observe 14: Estimate the corruption model with Democracy as the reference category**
@@ -499,7 +499,7 @@ model_gov_dem <- lm(wbgi_cce ~ wdi_fertility + ipu_l_sw +
 summary(model_gov_dem)
 ```
 
-Look at the two factor coefficients. With **Democracy** as the reference, both **Partial Democracy** (−0.667, p < .001) and **Autocracy** (−0.681, p < .001) appear significantly worse --- and at first glance, they look almost equally bad. Now let's run the model with **Autocracy** as the reference and see if that impression holds.
+Look at the two **democ_f** coefficients. With **Democracy** as the reference, both **Partial Democracy** (−0.667, p < .001) and **Autocracy** (−0.681, p < .001) appear significantly worse --- and at first glance, they look almost equally bad. Now let's run the model with **Autocracy** as the reference and see if that impression holds.
 
 ### Estimate the Regression
 
@@ -525,7 +525,7 @@ summary(model_gov)
 ```{r exercise-multipleregression-governance-hint-2}
 # Hint 2 of 2
 # The outcome is wbgi_cce and the data frame is qog.
-# You have two continuous variables and one factor variable
+# You have two continuous variables and one categorical variable
 # as predictors. democ_f is already in the environment.
 # Assign your model to model_gov, then call summary() on it.
 ```
@@ -587,7 +587,7 @@ grade_this({
     tolerance = 1e-6))) {
     fail("Check that your model includes **wbgi_cce** as the outcome and **wdi_fertility**, **ipu_l_sw**, and **democ_f** as predictors, using the qog data.")
   }
-  pass("Correct! With Autocracy as the reference, each factor coefficient now compares a regime type against autocracies rather than against full democracies.")
+  pass("Correct! With Autocracy as the reference, each **democ_f** coefficient now compares a regime type against autocracies rather than against full democracies.")
 })
 ```
 
@@ -611,9 +611,9 @@ stargazer(model_gov_dem, model_gov,
           omit.stat = c("f", "ser"))
 ```
 
-Look carefully at both columns. You can verify directly from the table which rows are identical across the two models and which differ. Look at the factor coefficients and the constants before answering.
+Look carefully at both columns. You can verify directly from the table which rows are identical across the two models and which differ. Look at the **democ_f** coefficients and the constants before answering.
 
-**Apply 16: Interpret the factor coefficients**
+**Apply 16: Interpret the democ_f coefficients**
 
 ```{r quiz-interpret-democ-governance, echo=FALSE}
 question("Look at both columns in the table above. Which statements are true? Select all that apply.",
@@ -629,8 +629,8 @@ question("Look at both columns in the table above. Which statements are true? Se
          message = "In column (2) the reference category is Autocracy, so the constant gives the predicted value for autocracies at X = 0. Compare to column (1): there the reference is Democracy, so the constant (0.835) gives the predicted value for full democracies at X = 0 --- a different quantity entirely."),
   answer("The constant in column (1), 0.835, gives the predicted average control of corruption score for full democracies",
          message = "The constant gives the predicted value of the outcome when all other variables are zero --- not the average for the reference category across the real data. Since full democracy is the reference in column (1), the constant is the predicted corruption score for full democracies only when fertility rate = 0 and women's representation = 0, values no country actually has."),
-  answer("The choice of reference category changes the coefficients on **wdi_fertility** and **ipu_l_sw** as well as the factor rows",
-         message = "Look at the Fertility Rate and Women in Legislature rows in both columns --- the values are identical. The reference category choice only affects the intercept and the factor coefficient rows, not the interval variable estimates."),
+  answer("The choice of reference category changes the coefficients on **wdi_fertility** and **ipu_l_sw** as well as the **democ_f** rows",
+         message = "Look at the Fertility Rate and Women in Legislature rows in both columns --- the values are identical. The reference category choice only affects the intercept and the **democ_f** rows, not the interval variable estimates."),
   type = "learnr_checkbox",
   allow_retry = TRUE,
   random_answer_order = TRUE,
@@ -657,9 +657,9 @@ sd(qog$ipu_l_sw, na.rm = TRUE)
 
 The output shows standard deviations of about 1.32 children per woman for **wdi_fertility** and about 12.2 percentage points for **ipu_l_sw**. With a slope of -0.335 on the fertility rate, a one-sd difference of 1.32 gives an expected change of 1.32 × (−0.335) = −0.44 points on the corruption scale. With a slope of 0.0121 on women's representation, a one-sd difference of 12.2 gives 12.2 × 0.0121 = 0.15 points. In this fitted model a one-standard-deviation difference in development corresponds to about three times the predicted outcome difference that a one-standard-deviation difference in women's representation does --- and note that this comparison is only possible because we scaled each slope by its own variable's spread. Comparing -0.335 to 0.0121 directly would tell you nothing, since one is measured in children per woman and the other in percentage points.
 
-The factor variable **democ_f** works differently. Its coefficients describe a discrete jump from one named category to another --- the Democracy and Partial Democracy coefficients already express the most natural comparison: how much better do those countries control corruption than autocracies, controlling for fertility and women's representation. There is no standard deviation to scale by because the variable doesn't vary continuously.
+The categorical variable **democ_f** works differently. Its coefficients describe a discrete jump from one named category to another --- the Democracy and Partial Democracy coefficients already express the most natural comparison: how much better do those countries control corruption than autocracies, controlling for fertility and women's representation. There is no standard deviation to scale by because the variable doesn't vary continuously.
 
-For factor variables, the right question is how large the gap is relative to the outcome's distribution. Run the code below to see the distribution of **wbgi_cce**.
+For categorical predictors, the right question is how large the gap is relative to the outcome's distribution. Run the code below to see the distribution of **wbgi_cce**.
 
 **Run and observe 18: Distribution of the corruption outcome**
 
@@ -981,7 +981,7 @@ grade_this({
 
 ```{r quiz-interpret-ipu, echo=FALSE}
 question("Which statements about the estimated coefficients are correct? Select all that apply.",
-  correct = "Right. Each factor coefficient is a comparison against plurality systems, and the intercept now describes a country at the average length of history.",
+  correct = "Right. Each **electoral_f** coefficient is a comparison against plurality systems, and the intercept now describes a country at the average length of history.",
   answer("Countries using proportional representation are estimated to have about 7.77 percentage points more women than countries using plurality systems",
          correct = TRUE,
          message = "This is the comparison the hypothesis specifies. The comparison is against plurality systems because that is the reference category you set."),
@@ -1038,7 +1038,7 @@ question("What do the p-values tell us about the hypothesis and the controls? Se
          message = "Neither coefficient compares those two categories. Both compare against plurality systems, the reference. Testing proportional against mixed would require refitting with a different reference category."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Three statements are correct. Remember what every factor coefficient is a comparison against."
+  try_again = "Three statements are correct. Remember what every coefficient on a categorical predictor is a comparison against."
 )
 ```
 
@@ -1249,7 +1249,7 @@ question("A researcher models legislative productivity on a four-category measur
   correct = "Right. Every coefficient is a comparison with the reference, so the comparison you want has to be one of them.",
   answer("Refit the model with unified Republican control as the reference, so divided government is compared with it directly",
          correct = TRUE,
-         message = "Each factor coefficient compares one category with the reference. Neither of the two she cares about is currently the reference, so neither coefficient describes the comparison she wants."),
+         message = "Each coefficient on a categorical predictor compares one category with the reference. Neither of the two she cares about is currently the reference, so neither coefficient describes the comparison she wants."),
   answer("Compare the two coefficients directly --- whichever is larger identifies the more productive arrangement",
          message = "Comparing the two numbers gives no test of the difference between them. Refitting with unified Republican control as the reference produces that comparison as a coefficient, with its own standard error and p-value."),
   answer("Read it from the existing output --- the two coefficients are already there",
@@ -1258,7 +1258,7 @@ question("A researcher models legislative productivity on a four-category measur
          message = "Dropping the reference category removes those cases from the model entirely. The reference is not excluded from the analysis --- it is the baseline every other coefficient is measured against."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "What is every factor coefficient a comparison with?"
+  try_again = "What is every coefficient on a categorical predictor a comparison with?"
 )
 ```
 
@@ -1290,7 +1290,7 @@ question("Which statement best captures what multiple regression adds compared t
 
 **Interpreting the coefficients.** Every coefficient in a multiple regression is a [partial slope]{.important-text}: the expected change in $Y$ for a one-unit increase in that predictor, holding the others constant. That [all else equal]{.important-text} qualifier is what changes between simple and multiple regression, and it changes what you are entitled to say --- a significant coefficient now means the variable is associated with the outcome *even after accounting for* the others in the model. A variable with $k$ categories contributes $k - 1$ coefficients, each comparing one category with the reference. Changing the reference changes which comparisons you can read off; it changes nothing about fit or about the slopes on interval predictors.
 
-**Judging effect size.** A statistically significant coefficient is not necessarily an important one, so judge the [effect]{.important-text} on the scale the outcome is measured in. For a continuous predictor, multiply the slope by one standard deviation of that predictor to get the expected change across a typical difference. For a factor, the coefficient is already the whole difference between two categories --- compare it with the standard deviation of the outcome to see how large that difference is.
+**Judging effect size.** A statistically significant coefficient is not necessarily an important one, so judge the [effect]{.important-text} on the scale the outcome is measured in. For a continuous predictor, multiply the slope by one standard deviation of that predictor to get the expected change across a typical difference. For a categorical predictor, the coefficient is already the whole difference between two categories --- compare it with the standard deviation of the outcome to see how large that difference is.
 
 **Assessing fit.** The [Multiple R-squared]{.important-text} gives the share of variation the model accounts for. The [Adjusted R-squared]{.important-text} penalizes for the number of predictors, so it does not automatically rise whenever one is added --- a guard against [overfitting]{.important-text}, and the right statistic for comparing models of different sizes, provided they are fitted to the same outcome and the same cases. The [residual standard error]{.important-text} answers a different question, in the units of the outcome: how far a typical case falls from the fitted line.
 
