@@ -115,6 +115,50 @@ ipu$quota_f <- factor(ipu$gender_quota, levels = c(FALSE, TRUE),
 ipu$years_c <- ipu$years_since_first_woman -
                mean(ipu$years_since_first_woman, na.rm = TRUE)
 model_rep_int <- lm(women_percent ~ quota_f + electoral_f * years_c, data = ipu)
+
+# Reads the terms = argument actually passed to plot_model(), so a grader can
+# compare it with what the exercise asked for. A text search cannot: the string
+# "electoral_f" is present in terms = c("electoral_f", "quota_f") as well.
+# Bracket notation is normalized, so "x[all]" and "x [all]" are the same term.
+qpa_norm_terms <- function(x) {
+  x <- trimws(x)
+  x <- gsub("\\s*\\[\\s*", " [", x)
+  x <- gsub("\\s*\\]", "]", x)
+  gsub("\\s+", " ", x)
+}
+
+qpa_plot_terms <- function(user_code) {
+  code  <- paste(user_code, collapse = "\n")
+  exprs <- tryCatch(as.list(parse(text = code)), error = function(e) NULL)
+  if (is.null(exprs)) return(NULL)
+  out <- NULL
+  walk <- function(x) {
+    if (!is.call(x)) return(invisible(NULL))
+    if (identical(deparse(x[[1]])[1], "plot_model") && is.null(out)) {
+      args <- as.list(x)[-1]
+      nm   <- names(args)
+      if (!is.null(nm) && any(nm == "terms"))
+        out <<- tryCatch(qpa_norm_terms(as.character(eval(args[[which(nm == "terms")[1]]]))),
+                         error = function(e) NULL)
+    }
+    for (part in as.list(x)[-1]) walk(part)
+  }
+  for (e in exprs) walk(e)
+  out
+}
+
+qpa_terms_msg <- function(got, want) {
+  as_arg <- function(v)
+    if (length(v) == 1) paste0("`terms = \"", v, "\"`")
+    else paste0("`terms = c(\"", paste(v, collapse = "\", \""), "\")`")
+  if (length(got) > length(want))
+    return(paste0("Your call passes ", as_arg(got), ". Every variable named in `terms` varies in the plot: a second name draws a separate series for it rather than holding it constant, and the caption you wrote states that it was held. Use ", as_arg(want), "."))
+  if (length(got) == length(want) && setequal(got, want))
+    return(paste0("The right variables in the wrong order. The first name in `terms` goes on the x-axis and the second draws one series per category. Use ", as_arg(want), "."))
+  if (!identical(gsub("\\s*\\[[^]]*\\]", "", got), gsub("\\s*\\[[^]]*\\]", "", want)))
+    return(paste0("Your call passes ", as_arg(got), ". Use ", as_arg(want), "."))
+  paste0("The variables are right but the bracket notation is not. Brackets after a variable name tell `plot_model()` which values to draw that variable at. Use ", as_arg(want), ".")
+}
 ```
 
 ## The Prediction Strategy for Interaction Models
@@ -367,10 +411,11 @@ grade_this({
     fail("Use `plot_model()` to produce the prediction plot.")
   if (!grepl("plot_model\\s*\\(\\s*model_int\\b", code_nc))
     fail("Pass **model_int** as the model object.")
-  if (!grepl("wage_growth", code_nc))
-    fail("Include **wage_growth** as the grouping variable in terms.")
-  if (!grepl("\\[meansd\\]", code_nc))
-    fail("Use bracket notation [meansd] with **wage_growth** to show lines at mean ± 1 SD.")
+  tm <- qpa_plot_terms(.user_code)
+  if (is.null(tm))
+    fail("Name the argument that takes the two variable names.")
+  if (!identical(tm, c("mortality_risk_25_45", "wage_growth [meansd]")))
+    fail(qpa_terms_msg(tm, c("mortality_risk_25_45", "wage_growth [meansd]")))
   if (!grepl("colors\\s*=\\s*cb_colors", code_nc))
     fail("Keep `colors = cb_colors` so the plot uses the colorblind-safe palette.")
   if (!grepl("legend\\.title\\s*=", code_nc))
@@ -824,12 +869,11 @@ grade_this({
     fail("Pass **model_env** as the model object.")
   if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
     fail("Set type = \"pred\".")
-  if (!grepl("ipi_tradeopen", code_nc))
-    fail("Include **ipi_tradeopen** in terms (as the first variable --- x-axis).")
-  if (!grepl("rights_f", code_nc))
-    fail("Include **rights_f** in terms (as the second variable --- separate lines).")
-  if (regexpr("ipi_tradeopen", code_nc) > regexpr("rights_f", code_nc))
-    fail("**ipi_tradeopen** should come first in terms (x-axis), and **rights_f** second. Check the order inside c(...).")
+  tm <- qpa_plot_terms(.user_code)
+  if (is.null(tm))
+    fail("Name the argument that takes the two variable names.")
+  if (!identical(tm, c("ipi_tradeopen", "rights_f")))
+    fail(qpa_terms_msg(tm, c("ipi_tradeopen", "rights_f")))
   if (!grepl("Predicted Environmental Performance\\nby Trade Openness and Rights Status", code_nc, fixed = TRUE)) {
     if (grepl("Predicted Environmental Performance by Trade Openness and Rights Status", code_nc, fixed = TRUE)) {
       fail("The title is right but it needs the line break. Type `\\n` where the prescribed title has it --- without it the title is wider than the plot and gets cut off.")
@@ -1065,12 +1109,11 @@ grade_this({
     fail("Pass **model_rep_int** as the model object --- the interaction model, not the additive one.")
   if (!grepl("type\\s*=\\s*['\"]pred['\"]", code_nc))
     fail("Set type = \"pred\".")
-  if (!grepl("years_c", code_nc) || !grepl("electoral_f", code_nc))
-    fail("Include both **years_c** and **electoral_f** in terms.")
-  yc <- regexpr("years_c", code_nc, fixed = TRUE)[1]
-  ef <- regexpr("electoral_f", code_nc, fixed = TRUE)[1]
-  if (yc > ef)
-    fail("**years_c** should come first in terms (x-axis) and **electoral_f** second (separate lines).")
+  tm <- qpa_plot_terms(.user_code)
+  if (is.null(tm))
+    fail("Name the argument that takes the two variable names.")
+  if (!identical(tm, c("years_c", "electoral_f")))
+    fail(qpa_terms_msg(tm, c("years_c", "electoral_f")))
   if (!grepl("Years Since First Woman \\(centered\\)", code_nc))
     fail("Use \"Years Since First Woman (centered)\" as the x-axis label.")
   if (!grepl("Predicted Women's Representation by History and Electoral System", code_nc, fixed = TRUE))
