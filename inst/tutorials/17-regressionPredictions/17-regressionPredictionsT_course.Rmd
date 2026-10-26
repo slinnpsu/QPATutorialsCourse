@@ -124,7 +124,18 @@ qpa_norm_terms <- function(x) {
   x <- trimws(x)
   x <- gsub("\\s*\\[\\s*", " [", x)
   x <- gsub("\\s*\\]", "]", x)
-  gsub("\\s+", " ", x)
+  x <- gsub("\\s*,\\s*", ", ", x)
+  x <- gsub("\\s+", " ", x)
+  # Canonicalize numbers inside brackets so .7, 0.7 and 0.70 all compare equal.
+  # Non-numeric contents such as [all] and [meansd] are left untouched.
+  vapply(x, function(s) {
+    br <- regmatches(s, regexpr("\\[[^]]*\\]", s))
+    if (!length(br)) return(s)
+    parts <- trimws(strsplit(substr(br, 2L, nchar(br) - 1L), ",")[[1]])
+    nums  <- suppressWarnings(as.numeric(parts))
+    if (anyNA(nums)) return(s)
+    sub("\\[[^]]*\\]", paste0("[", paste(as.character(nums), collapse = ", "), "]"), s)
+  }, character(1), USE.NAMES = FALSE)
 }
 
 qpa_plot_terms <- function(user_code) {
@@ -165,9 +176,9 @@ qpa_terms_msg <- function(got, want) {
 
 Tutorials 15 and 16 estimate regression models, interpret their coefficients, test hypotheses, and assess model fit. That work produces a table of numbers, and a good table is worth having: each coefficient gives the direction and size of a predictor's relationship with the outcome, holding everything else constant --- the [effect]{.important-text} of that predictor.
 
-But suppose you are studying what predicts voter turnout across counties. How much higher is predicted turnout in a wealthy county than in a poor one, holding unemployment constant? A coefficient gives you the per-unit rate. It does not tell you how large the difference is across the range of incomes counties actually have, in units a reader can picture. That is what predictions are for.
+But suppose you are studying what predicts voter turnout across counties. How much higher is predicted turnout in a wealthy county than in a poor one, holding unemployment constant? A coefficient gives you the per-unit rate. It does not tell you how large the difference is across the range of incomes counties actually have, in units a reader can picture. That is the work predictions do.
 
-Predicted values translate the fitted regression into concrete [model-implied comparisons]{.important-text}. You specify a profile of predictor values and ask what outcome the model expects, on average, for cases with those characteristics. This is an [expected outcome]{.important-text}: the average predicted for cases with that profile, not the exact outcome any individual case will have. Compare two profiles that differ in one predictor while holding the others fixed, and you can see how the expected outcome changes. With the observational data used in these tutorials, such comparisons describe how expected outcomes differ across specified predictor values --- not what would happen if we deliberately changed one of them.
+Predicted values translate the fitted regression into concrete [model-implied comparisons]{.important-text}. You specify a profile of predictor values and ask what outcome the model predicts, on average, for cases with those characteristics. This is an [expected outcome]{.important-text}: the average predicted for cases with that profile, not the exact outcome any individual case will have. Compare two profiles that differ in one predictor while holding the others fixed, and you can see how the expected outcome changes. With the observational data used in these tutorials, such comparisons describe how expected outcomes differ across specified predictor values --- not what would happen if we deliberately changed one of them.
 
 Which predictors should you examine? Your research question decides, not the software. You vary the predictor whose relationship with the outcome you are trying to communicate, and everything else is held constant at values you choose and report.
 
@@ -175,7 +186,7 @@ In this tutorial you will use two tools. `predict()` answers one what-if questio
 
 ### The Workflow
 
-Everything in Tutorials 15 and 16 builds toward this moment: a model is estimated, its coefficients interpreted, its hypotheses tested, and its fit assessed. This tutorial does not replace that work. It extends it by translating selected parts of the fitted model into concrete comparisons that are easier to communicate.
+Tutorials 15 and 16 covered estimating a model, interpreting its coefficients, testing its hypotheses and assessing its fit. This tutorial does not replace that work. It extends that work by translating selected parts of the fitted model into concrete comparisons that are easier to communicate.
 
 The workflow this tutorial follows has three steps. We begin with a **regression table** --- not because tables are exciting, but because the table documents the complete model. Every coefficient is there, with its standard error and its significance. Any reader who wants to verify the analysis or build on it starts here. The coefficient table establishes the estimated relationships, their uncertainty, and model fit. Predictions then translate selected parts of that table into comparisons across substantively meaningful values.
 
@@ -386,9 +397,9 @@ grade_this({
 
 The hypothesis concerns liberalism. The most direct way to make the liberalism coefficient concrete is to compare the model's prediction for a state with a lower liberal proportion to one with a higher liberal proportion, holding everything else constant.
 
-`predict()` does that. It takes the model object and a `newdata` argument --- a data frame describing the exact case you want a prediction for. Every predictor in the model must appear in `newdata`, named exactly as it is in the formula, so here that means all four: **p.liberal**, **nonwhite**, **povrate** and **region_censusf**.
+`predict()` does that. It takes the model object and a `newdata` argument --- a data frame describing the exact case you want predicted. Every predictor in the model must appear in `newdata`, named exactly as it is in the formula, so here that means all four: **p.liberal**, **nonwhite**, **povrate** and **region_censusf**.
 
-Predictors you are not varying are held at their means, which is what `mean(..., na.rm = TRUE)` does. A categorical predictor cannot be held at a mean, so it is set to one of its categories --- and it has to be supplied as a factor carrying all the levels the model knows, not as a bare string: `factor("South", levels = levels(states$region_censusf))`. The prediction comes back in the units of the outcome, a proportion of seats on a 0-to-1 scale.
+Predictors you are not varying are held at their means, which is what `mean(..., na.rm = TRUE)` does. A categorical predictor cannot be held at a mean, so it is set to one of its categories --- and it has to be supplied as a factor that has all the levels present when the model was fitted, not as a bare string: `factor("South", levels = levels(states$region_censusf))`. The prediction comes back in the units of the outcome, a proportion of seats on a 0-to-1 scale.
 
 **Run and observe 3: Compute predicted Democratic seat share at two levels of p.liberal**
 
@@ -446,8 +457,9 @@ The `predict()` calls answered one specific what-if at one value of **p.liberal*
     - `terms = c("x", "grouping")` --- second variable produces separate lines; if **categorical**, one line per category colored and labeled by category name; if an **interval variable**, lines at selected values (default: mean minus 1 SD, mean, and mean plus 1 SD; override with bracket notation: `"variable [v1, v2]"`)
     - `terms = c("x", "grouping", "facet")` --- third variable produces separate panels, one per level or selected value
 - **`axis.title = c("x label", "y label")`** labels the axes --- x-axis first, then y-axis
+- **`legend.title = "..."`** titles the legend when a second variable in `terms` separates the lines; without it the legend is labelled with the variable name rather than with what the variable measures
 - **`show.data = TRUE/FALSE`** overlays the raw observations; useful when N is small enough for individual points to be readable
-- **`labs(caption = "...")`** adds a caption stating the held values; since `plot_model()` returns a ggplot object, any ggplot layer works with `+`. The caption tells the reader what covariate profile the predictions are for --- always list the held values in a complete sentence ending with a period, e.g., `"Predictions are for Southern states with average poverty rate and proportion non-white."`
+- **`labs(caption = "...")`** adds a caption stating the held values; since `plot_model()` returns a ggplot object, any ggplot layer works with `+`. The caption tells the reader which covariate profile the predictions describe --- always list the held values in a complete sentence ending with a period, e.g., \"Predictions are for Southern states with average poverty rate and proportion non-white.\"
 
 Run the code below and examine the output --- the direction of the line, the shaded band, the individual points, and the caption --- before reading the explanation that follows.
 
@@ -463,7 +475,7 @@ In your own work you would define that vector yourself --- the one line above is
 
 **Run and observe 5: Produce a prediction plot for state liberalism**
 
-```{r exercise-predplot-liberal-tryit, exercise=TRUE, exercise.cap="Run and observe 5", fig.alt="Predicted proportion of Democratic House seats against the proportion of liberal residents, with the observed states plotted as individual points behind the line. The horizontal axis runs from 0.0 to about 0.6 and the vertical axis from about 0.25 to above 1.00. A straight line rises from left to right with a shaded band that widens toward both ends of the range."}
+```{r exercise-predplot-liberal-tryit, exercise=TRUE, exercise.cap="Run and observe 5", fig.alt="Predicted proportion of Democratic House seats against the proportion of liberal residents, with the observed states plotted as individual points behind the line. A straight line rises from left to right: the predicted value is about 0.45 at a liberal proportion of 0.1, about 0.63 at 0.3 and about 0.80 at 0.5. A shaded confidence band follows the line, running about 0.47 to 0.61 at 0.2 and widening toward both ends, about 0.58 to 1.03 at 0.5. Observed liberal proportions run from about 0.11 to 0.50."}
 library(sjPlot)  # first use in this tutorial; it stays loaded from here on
 plot_model(fit1,
            type = "pred",
@@ -500,7 +512,7 @@ You now have what a complete interpretation needs: a fitted model, two specific 
 
 The five questions below walk through each component in turn. The prediction plot is reproduced here for reference.
 
-```{r fit1-predplot-ref, echo=FALSE, message=FALSE, fig.alt="Predicted proportion of Democratic House seats against the proportion of liberal residents. The horizontal axis runs from 0.0 to about 0.6 and the vertical axis from about 0.25 to above 1.00. A straight line rises from left to right, with a shaded band that widens toward both ends."}
+```{r fit1-predplot-ref, echo=FALSE, message=FALSE, fig.alt="Predicted proportion of Democratic House seats against the proportion of liberal residents. A straight line rises from left to right: the predicted value is about 0.45 at a liberal proportion of 0.1, 0.54 at 0.2, 0.63 at 0.3, 0.71 at 0.4, 0.80 at 0.5 and 0.89 at 0.6. A shaded confidence band follows the line, narrowest through the middle of the range at about 0.47 to 0.61 at 0.2, and widening toward both ends to about 0.22 to 0.51 at 0.0 and about 0.60 to 1.18 at 0.6."}
 plot_model(fit1,
            type = "pred",
            terms = "p.liberal",
@@ -626,7 +638,7 @@ Those five components are the parts. Written out, they read as a single paragrap
 *Predicted Democratic seat share rises with the liberal proportion of a state's public --- the relationship is positive and roughly linear across the observed range. Predictions hold the proportion non-white and the poverty rate at their means and assume a Southern state; a Northeastern state at the same liberal proportion would be predicted about 13 percentage points higher, but the estimated liberalism association would be the same. A state at a liberal proportion of 0.2 is predicted to have about 54% of its house seats held by Democrats; one at 0.4, about 71%. The confidence band is moderately wide, so the predicted values are best read as approximate rather than exact. The positive relationship is consistent with the hypothesis that more liberal publics elect more Democratic legislators.*
 :::
 
-All five components appear in the prose without being labeled. That is the standard this tutorial asks you to meet.
+All five components appear in the prose without being labeled. That is the standard for a complete interpretation in this course.
 
 
 ## How Much Do Census Regions Differ?
@@ -637,7 +649,7 @@ The `predict()` calls showed a regional gap. Seeing all four regions at once mak
 
 Produce the plot and examine it carefully before answering the interpretation question that follows. Set `colors = cb_colors`. Use the title \"Predicted Democratic House Seat Share by Census Region\", the x-axis label \"Census Region\", the y-axis label \"Proportion of Democratic House Seats\", and the caption \"Predictions are for states with average poverty rate, proportion liberal, and proportion non-white.\" Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-region, exercise=TRUE, exercise.cap="Practice 11", fig.alt="Four predicted proportions of Democratic House seats, one for each census region, each drawn as a point with a vertical confidence interval. The categories are labeled South, West, Midwest and Northeast, and the vertical axis spans roughly 0.45 to 0.75."}
+```{r exercise-predplot-region, exercise=TRUE, exercise.cap="Practice 11", fig.alt="Four predicted proportions of Democratic House seats, one for each census region, each drawn as a point with a vertical confidence interval. South is about 0.53, interval 0.47 to 0.60; West about 0.52, interval 0.45 to 0.59; Midwest about 0.54, interval 0.46 to 0.61; Northeast about 0.66, interval 0.57 to 0.75. The Northeast point is the highest of the four, and its interval overlaps each of the other three."}
 ___(fit1,
     ___ = "pred",
     ___ = "region_censusf",
@@ -650,7 +662,7 @@ ___(fit1,
 ```{r exercise-predplot-region-hint-1}
 # Hint 1 of 3
 # A prediction plot sweeps one predictor across its range and shows
-# what the model expects at each point along it. When the predictor
+# what the model predicts at each point along it. When the predictor
 # that varies is categorical there is no range to sweep --- only a few
 # separate categories, each with its own predicted value.
 ```
@@ -765,17 +777,17 @@ question("Look at the regional prediction plot. Which statement best describes w
 )
 ```
 
-## How Do Liberalism and Region Work Together?
+## How Far Apart Are the Regions at the Same Level of Liberalism?
 
-The liberalism and region plots each varied one predictor. A two-variable plot extends this: it shows whether predicted Democratic seat share is systematically higher or lower in some regions than others after accounting for liberalism, and whether the estimated association of liberalism with seat share is the same size across regions.
+The liberalism and region plots each varied one predictor. A two-variable plot extends this: it shows how far apart the regions are at any given level of liberalism, and it makes an assumption of the additive model visible in the shape of the figure.
 
 Setting `terms` to a vector of two variable names produces this plot: the first variable goes on the x-axis, and the second variable's levels appear as separate colored lines.
 
 **Apply 13: Produce a two-variable prediction plot for liberalism and region**
 
-Put **p.liberal** on the x-axis, with a separate line for each region, and notice whether the four lines are parallel --- that parallelism is a finding about the model, not just a visual feature. Use the title \"Predicted Democratic House Seat Share by Liberalism and Region\", the x-axis label \"Proportion Liberal\", the y-axis label \"Proportion of Democratic House Seats\", and the caption \"Predictions are for states with average poverty rate and proportion non-white.\" Set `colors = cb_colors`, set the legend title with `legend.title = "Census Region"`, and add the caption with `labs(caption = "...")`. Four hints are available. Click "Submit Answer" to check your work.
+Put **p.liberal** on the x-axis, with a separate line for each region, and notice that the four lines are parallel --- that parallelism is a finding about the model, not just a visual feature. Use the title \"Predicted Democratic House Seat Share by Liberalism and Region\", the x-axis label \"Proportion Liberal\", the y-axis label \"Proportion of Democratic House Seats\", and the caption \"Predictions are for states with average poverty rate and proportion non-white.\" Set `colors = cb_colors`, set the legend title with `legend.title = "Census Region"`, and add the caption with `labs(caption = "...")`. Four hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-twovar, exercise=TRUE, exercise.cap="Apply 13", fig.alt="Four straight lines, one per census region, showing the predicted proportion of Democratic House seats against the proportion of liberal residents. Each rises from left to right across a horizontal axis running from 0.0 to about 0.6, each with its own shaded band, and a legend names the four regions."}
+```{r exercise-predplot-twovar, exercise=TRUE, exercise.cap="Apply 13", fig.alt="Four straight lines, one per census region, showing predicted proportion of Democratic House seats against the proportion of liberal residents. All four rise from left to right with the same slope. At a liberal proportion of 0.1 the predicted values are about 0.45 for the South, 0.44 for the West, 0.46 for the Midwest and 0.58 for the Northeast; at 0.5 they are about 0.80, 0.79, 0.81 and 0.93. Each line has its own shaded band, all four bands widen toward the right, and they overlap throughout. A legend names the four regions."}
 ___(fit1,
     ___ = "pred",
     ___ = c("p.liberal", "region_censusf"),
@@ -899,7 +911,7 @@ grade_this({
 Notice also that the Northeast's band is wide near the top of the range, yet the Northeast coefficient is significant: a wide band says those predicted values are imprecise, not that the regional difference is in doubt.
 :::
 
-The four lines are parallel. That is not a coincidence --- it is what an additive model produces. As the multiple regression reading puts it, an additive model assumes a common slope: the model estimates a single slope for **p.liberal** and applies it in every region, while the region terms only shift the line up or down. The vertical distances between the lines are the region coefficients: the Northeast line runs consistently above the others, while South, West, and Midwest cluster closely together. [Parallel lines]{.important-text} tell you that the x-axis predictor has the same estimated slope in every group. A model in which that slope differed from region to region is an interaction model, and Tutorial 18 takes it up.
+The four lines are parallel. That is not a coincidence --- it is what an additive model produces. As the multiple regression reading puts it, an additive model assumes a common slope: the model estimates a single slope for **p.liberal** and applies it in every region, while the region terms only shift the line up or down. The vertical distances between the lines are the region coefficients: the Northeast line runs consistently above the others, while South, West, and Midwest cluster closely together. [Parallel lines]{.important-text} tell you that the x-axis predictor has the same estimated slope in every group. A model in which that slope differed from region to region is an interaction model, which is the subject of Tutorial 18.
 
 **Apply 14: Interpret the liberalism-by-region plot**
 
@@ -925,12 +937,12 @@ question("Look at the two-variable plot. Which statement best describes what the
 
 The model confirms the hypothesis: states with more liberal public opinion do have higher proportions of Democratic state house seats, even after controlling for racial composition, poverty, and region. A 20-percentage-point increase in the liberal proportion of the electorate predicts a proportion of Democratic seats about 0.18 higher --- a substantive association, visible in the slope of the prediction plot, and significant (p = .013).
 
-The regional finding is worth dwelling on. The Northeast stands apart from the other three even after controlling for ideology, and it is the only region whose coefficient the model distinguishes from zero (0.128, p = .047). The West and Midwest are not significantly different from the South --- and the West is in fact predicted lowest of the four, marginally below the South, despite a reputation that would suggest otherwise. What makes the Northeast distinct here is not just a more liberal electorate, since the gap persists with liberalism held constant.
+The regional finding deserves a closer look. The Northeast stands apart from the other three even after controlling for ideology, and it is the only region whose coefficient the model distinguishes from zero (0.128, p = .047). The West and Midwest are not significantly different from the South --- and the West is in fact predicted lowest of the four, marginally below the South, despite a reputation that would suggest otherwise. What makes the Northeast distinct here is not just a more liberal electorate, since the gap persists with liberalism held constant.
 
 A complete interpretation of this plot reads like this:
 
 ::: {.research-example}
-*As the proportion of liberal state residents increases, the predicted proportion of Democratic house seats rises in a straight line across the full observed range of the variable. Predictions are for Southern states with average poverty rate and proportion non-white; a Northeastern state at the same liberalism level would be predicted to have about 0.13 higher proportion of Democratic seats, but the liberalism slope would be identical. At a liberal proportion of 0.2, the model predicts about 0.54; at 0.4, about 0.71 --- a difference of about 0.18 for a 20-point shift in the liberal electorate. The confidence band is moderately wide, narrower in the middle of the range where most states are concentrated, and widens at the extremes. This is consistent with the hypothesis that more liberal states will tend to have a higher proportion of Democratic house seats, even after controlling for racial composition, poverty, and region.*
+*As the proportion of liberal state residents increases, the predicted proportion of Democratic house seats rises in a straight line across the full observed range of the variable. Predictions are for Southern states with average poverty rate and proportion non-white; a Northeastern state at the same liberalism level would be predicted to have about 0.13 higher proportion of Democratic seats, but the liberalism slope would be identical. At a liberal proportion of 0.2, the model predicts about 0.54; at 0.4, about 0.71 --- a difference of about 0.18 for a 20-point shift in the liberal electorate. The confidence band is moderately wide, narrower in the middle of the range where most states are concentrated, and widens at the extremes. This pattern is consistent with the hypothesis that more liberal states will tend to have a higher proportion of Democratic house seats, even after controlling for racial composition, poverty, and region.*
 :::
 
 ## What Do Electoral Rules Predict for Women's Representation?
@@ -1039,7 +1051,7 @@ The Proportional coefficient tells you the direction and size of the electoral-s
 
 **Apply 16: Compute predicted percentages for two electoral systems**
 
-Fill in the blanks to complete the first `predict()` call for a country with a plurality/majority system, then write the second call for a country with proportional representation from scratch. For both calls, set **quota_f** to \"No quota\" and **years_c** to 0, which is the average length of history because the variable is centered. Remember that both **quota_f** and **electoral_f** are factors. The recommended approach is to use `factor("level", levels = levels(ipu$electoral_f))` so that the factor levels are specified explicitly. Three hints are available. Click "Submit Answer" to check your work.
+Complete the code for the first `predict()` call for a country with a plurality/majority system, then write the second call for a country with proportional representation from scratch. For both calls, set **quota_f** to \"No quota\" and **years_c** to 0, which is the average length of history because the variable is centered. Remember that both **quota_f** and **electoral_f** are factors. The recommended approach is to use `factor("level", levels = levels(ipu$electoral_f))` so that the factor levels are specified explicitly. Three hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-predict-rep, exercise=TRUE, exercise.cap="Apply 16"}
 # Call 1: Plurality/Majority, no quota, average history
@@ -1097,18 +1109,6 @@ grade_this({
   exprs <- tryCatch(as.list(parse(text = code_nc)), error = function(e) NULL)
   if (is.null(exprs))
     fail("Your code could not be parsed. Check for a missing comma or bracket.")
-  is_pred <- function(x) {
-    if (is.call(x) && identical(deparse(x[[1]]), "<-") && length(x) == 3L) x <- x[[3]]
-    is.call(x) && identical(deparse(x[[1]]), "predict")
-  }
-  as_pred <- function(x) {
-    if (is.call(x) && identical(deparse(x[[1]]), "<-") && length(x) == 3L) x[[3]] else x
-  }
-  pcalls <- lapply(Filter(is_pred, exprs), as_pred)
-  if (length(pcalls) != 2)
-    fail(paste0("Write two `predict()` calls, one per electoral system. Your code has ",
-                length(pcalls), "."))
-
   prof <- data.frame(
     quota_f     = factor(c("No quota", "No quota"), levels = levels(ipu$quota_f)),
     electoral_f = factor(c("Plurality/Majority", "Proportional"),
@@ -1116,27 +1116,41 @@ grade_this({
     years_c     = c(0, 0))
   want <- as.numeric(predict(model_rep, newdata = prof))
 
-  # Evaluate each call rather than matching its text, so any equivalent way of
-  # writing the same profile is accepted.
-  n_pred <- suppressWarnings(vapply(pcalls, function(cl) {
-    v <- tryCatch(as.numeric(eval(cl)), error = function(e) NA_real_)
-    length(v)
-  }, numeric(1)))
-  if (any(n_pred != 1))
-    fail("Each `predict()` call should describe one country and return one predicted value. Check that the data frame in `newdata =` has a single row.")
-  got <- suppressWarnings(vapply(pcalls, function(cl) {
-    v <- tryCatch(as.numeric(eval(cl))[1], error = function(e) NA_real_)
-    if (length(v) == 0L) NA_real_ else v
-  }, numeric(1)))
+  # Run the submission the way R does and collect the predicted values it
+  # actually displays, so any equivalent way of writing the same profiles is
+  # accepted and predictions that are only stored are not mistaken for shown.
+  is_assign <- function(x)
+    is.call(x) && deparse(x[[1]]) %in% c("<-", "=", "<<-") && length(x) == 3L
+  has_pred <- function(x) any(grepl("\\bpredict\\s*\\(", deparse(x)))
+  env       <- new.env(parent = environment())
+  pred_objs <- character(0)
+  got       <- numeric(0)
+  for (e in exprs) {
+    v <- tryCatch(withVisible(eval(e, env)), error = function(er) NULL)
+    if (is.null(v)) next
+    if (is_assign(e)) {
+      if (has_pred(e[[3]])) pred_objs <- union(pred_objs, deparse(e[[2]]))
+      next
+    }
+    if (isTRUE(v$visible) &&
+        (has_pred(e) || (is.name(e) && deparse(e) %in% pred_objs)))
+      got <- c(got, suppressWarnings(as.numeric(v$value)))
+  }
+  if (length(got) == 0L)
+    fail("Your code computes the predicted values but never displays them. Assigning a prediction to an object with `<-` stores it silently, so nothing is printed and there are no percentages to compare. Either drop the assignments, or add the object names on their own lines so both predicted values appear in the output.")
+  if (anyNA(got))
+    fail("One of your predictions came back as `NA` rather than a number. That happens when a value in `newdata =` is not one R recognizes: a blank left in place, or a level name for **quota_f** or **electoral_f** spelled differently from the levels in the data. Check the values in each prediction.")
+  if (length(got) != 2L)
+    fail(paste0("Your code should display two predicted values, one per electoral system. It displays ", length(got), "."))
   labels <- c("a country with a Plurality/Majority system, no quota and an average-length history",
               "a country with Proportional representation, no quota and an average-length history")
   for (i in seq_len(2)) {
-    if (is.na(got[i]) || abs(got[i] - want[i]) > 0.05)
-      fail(paste0("Call ", i, " does not give the predicted percent women for ", labels[i],
-                  ". Check **quota_f**, **electoral_f** and **years_c** in that call."))
+    if (abs(got[i] - want[i]) > 0.05)
+      fail(paste0("The ", c("first", "second")[i], " prediction does not give the predicted percent women for ",
+                  labels[i], ". Check **quota_f**, **electoral_f** and **years_c** in that prediction."))
   }
 
-  pass("Right. Two `predict()` calls identical except for the electoral system isolate exactly the comparison the hypothesis is about.")
+  pass("Right. Two predictions identical except for the electoral system isolate exactly the comparison the hypothesis is about.")
 })
 ```
 
@@ -1184,13 +1198,13 @@ plot_model(yourmodel,
 
 Write the complete `plot_model()` call from scratch, using **model_rep** as the model object. Set `colors = cb_colors`. Use the title \"Predicted Women's Representation by Length of Parliamentary History\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", and the caption \"Predictions are for plurality/majority countries with no gender quota.\" Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-years, exercise=TRUE, exercise.cap="Practice 18", fig.alt="Predicted percent women against years since the first woman entered parliament, centered so that zero is the average. The horizontal axis runs from about -60 to 60 and the vertical axis from about 10 to 30. A straight line rises from left to right, with a shaded band that widens toward both ends."}
+```{r exercise-predplot-years, exercise=TRUE, exercise.cap="Practice 18", fig.alt="Predicted percent women against years since the first woman entered parliament, centered so that zero is the average. A straight line rises from left to right: about 12.2 percent at minus 60 years, 15.0 at minus 30, 17.8 at zero, 20.6 at 30 and 23.4 at 60. A shaded confidence band follows the line, narrowest at the center at about 14.8 to 20.7, and widening toward both ends to about 7.5 to 16.8 at minus 60 and about 17.8 to 29.1 at 60. Observed centered years run from about minus 55 to 59."}
 
 ```
 
 ```{r exercise-predplot-years-hint-1}
 # Hint 1 of 3
-# A prediction plot shows what the model expects across the whole
+# A prediction plot shows what the model predicts across the whole
 # observed range of one predictor, with everything else fixed. Two
 # decisions follow from that: which predictor varies, and what the
 # reader is told about the values the others were held at.
@@ -1318,7 +1332,7 @@ The two `predict()` calls showed the representation gap between a country with a
 
 Write the complete `plot_model()` call from scratch, using **model_rep** as the model object and **electoral_f** on the x-axis. Set `colors = cb_colors`. Use the title \"Predicted Women's Representation by Electoral System\", the x-axis label \"Electoral System\", the y-axis label \"Predicted Percent Women\", and the caption \"Predictions are for countries with no gender quota and average parliamentary history.\" Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-electoral, exercise=TRUE, exercise.cap="Practice 20", fig.alt="Three predicted percentages of women, one for each electoral system, each drawn as a point with a vertical confidence interval. The categories are labeled Plurality/Majority, Proportional and Mixed, and the vertical axis spans roughly 15 to 30."}
+```{r exercise-predplot-electoral, exercise=TRUE, exercise.cap="Practice 20", fig.alt="Three predicted percentages of women, one for each electoral system, each drawn as a point with a vertical confidence interval. Plurality/Majority is about 17.8 percent, interval 14.8 to 20.7; Proportional about 25.6 percent, interval 21.8 to 29.4; Mixed about 23.3 percent, interval 18.8 to 27.9. The Proportional interval does not overlap the Plurality/Majority interval. The Mixed interval overlaps both of the other two."}
 
 ```
 
@@ -1459,7 +1473,7 @@ plot_model(model_rep, type = "pred", terms = "years_c",
 
 The two calls below are identical except for one argument. The first takes the default, which holds **quota_f** at its reference category; the second conditions on countries with a gender quota. Run them and compare what changes and what does not before answering.
 
-```{r exercise-predplot-years-quota, exercise=TRUE, exercise.cap="Run and observe 22", fig.alt="Two plots of the same relationship between predicted percent women and centered years since the first woman entered parliament. In both, the horizontal axis runs from about -60 to 60 and a straight line rises from left to right with a widening shaded band. The second line, for countries with a gender quota, sits about seven percentage points above the first throughout, and the two lines have the same slope."}
+```{r exercise-predplot-years-quota, exercise=TRUE, exercise.cap="Run and observe 22", fig.alt="Two plots of predicted percent women against centered years since the first woman entered parliament, one above the other. In the first, for countries with no gender quota, a straight line rises from about 12.2 percent at minus 60 years to about 23.4 percent at 60. In the second, for countries with a gender quota, a straight line rises from about 19.5 percent at minus 60 years to about 30.7 percent at 60. Each line has a shaded confidence band that widens toward both ends of the range."}
 # The default: quota_f sits at its reference category, No quota
 plot_model(model_rep,
            type = "pred",
@@ -1502,7 +1516,7 @@ question("Compare the two plots above. Which statement best describes what chang
 )
 ```
 
-## How Do Electoral System and History Work Together?
+## Where Do the Three Electoral Systems Stand Across the Range of History?
 
 The single-variable plots show parliamentary history and electoral system separately. A two-variable plot combines them: **years_c** on the x-axis, **electoral_f** producing three separate lines, one per electoral system. This lets you see all three trajectories at once and compare the level differences across the full range of history.
 
@@ -1510,7 +1524,7 @@ The single-variable plots show parliamentary history and electoral system separa
 
 Write the complete `plot_model()` call from scratch, using **model_rep** as the model object. Put **years_c** on the x-axis and use **electoral_f** to produce separate lines. Use the title \"Predicted Women's Representation by History and Electoral System\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", and the caption \"Predictions are for countries with no gender quota.\" Set `colors = cb_colors`, set the legend title with `legend.title = "Electoral System"`, and add the caption with `labs(caption = "...")`. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-twovar-rep, exercise=TRUE, exercise.cap="Apply 24", fig.alt="Three straight lines, one per electoral system, showing predicted percent women against centered years since the first woman entered parliament. Each rises from left to right across a horizontal axis running from about -60 to 60, each with its own shaded band, and a legend names the three systems."}
+```{r exercise-predplot-twovar-rep, exercise=TRUE, exercise.cap="Apply 24", fig.alt="Three straight lines, one per electoral system, showing predicted percent women against centered years since the first woman entered parliament. All three rise from left to right with the same slope. At minus 50 years the predicted values are about 13.1 percent for Plurality/Majority, 20.9 for Proportional and 18.6 for Mixed; at 50 years they are about 22.5, 30.2 and 28.0. Each line has its own shaded band --- at minus 50, about 9.0 to 17.2 for Plurality/Majority and about 15.7 to 26.1 for Proportional --- and the bands overlap throughout. A legend names the three systems."}
 
 ```
 
@@ -1726,7 +1740,7 @@ Predicted values translate the model's estimated associations into concrete [mod
 
 5. **`terms = c("x", "grouping_variable")` shows the relationship for multiple groups simultaneously.** In an additive model, the result is [parallel lines]{.important-text} --- the x-variable has the same estimated slope in every group. Parallel lines are the visual signature of an additive model, not a coincidence. `plot_model()` has additional capabilities not covered here --- a third variable in `terms` produces faceted panels, and bracket notation like `[meansd]` or `[value1, value2]` controls which specific values are shown for any term. These features become useful in the tutorials that follow --- Tutorials 19 and 21 build on them.
 
-6. **A slope is the effect of its predictor.** [Effect]{.important-text} is used here in the statistical sense --- the expected change in the outcome for a one-unit increase, holding the others constant. It carries no claim that one variable causes the other.
+6. **A slope is the effect of its predictor.** [Effect]{.important-text} is used here in the statistical sense --- the expected change in the outcome for a one-unit increase, holding the others constant. The term implies nothing about whether one variable causes the other.
 
 7. **A complete interpretation covers five things:** the pattern, the held values, specific predicted values and their difference, the [confidence interval]{.important-text} (the shaded band around the line, showing uncertainty in the expected outcome), and the connection to the hypothesis. Wide confidence intervals show that the expected outcomes are estimated less precisely at the displayed predictor profiles. The overlap between two intervals is not an interval for their difference, so it is not a significance test of the difference between predictions.
 

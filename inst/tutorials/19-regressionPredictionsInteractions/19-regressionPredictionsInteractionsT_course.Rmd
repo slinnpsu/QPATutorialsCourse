@@ -124,7 +124,18 @@ qpa_norm_terms <- function(x) {
   x <- trimws(x)
   x <- gsub("\\s*\\[\\s*", " [", x)
   x <- gsub("\\s*\\]", "]", x)
-  gsub("\\s+", " ", x)
+  x <- gsub("\\s*,\\s*", ", ", x)
+  x <- gsub("\\s+", " ", x)
+  # Canonicalize numbers inside brackets so .7, 0.7 and 0.70 all compare equal.
+  # Non-numeric contents such as [all] and [meansd] are left untouched.
+  vapply(x, function(s) {
+    br <- regmatches(s, regexpr("\\[[^]]*\\]", s))
+    if (!length(br)) return(s)
+    parts <- trimws(strsplit(substr(br, 2L, nchar(br) - 1L), ",")[[1]])
+    nums  <- suppressWarnings(as.numeric(parts))
+    if (anyNA(nums)) return(s)
+    sub("\\[[^]]*\\]", paste0("[", paste(as.character(nums), collapse = ", "), "]"), s)
+  }, character(1), USE.NAMES = FALSE)
 }
 
 qpa_plot_terms <- function(user_code) {
@@ -173,7 +184,7 @@ Note that interactions are symmetric: either variable can go on the x-axis or se
 
 ### When Both Interacting Predictors Are Interval Variables
 
-Both variables vary continuously, so there are no natural groups to compare across. Instead, you choose specific, meaningful values of one variable to use as anchors --- typically the 25th percentile, mean, and 75th percentile. At each anchor, you ask: when the other variable moves from low to high, how much does the predicted outcome change? That difference is the model's answer to "how strong is the association here?" Comparing those differences across your chosen anchors reveals whether and how the interaction changes the relationship.
+Both variables vary continuously, so there are no natural groups for comparison. Instead, you choose specific, meaningful values of one variable to use as anchors --- typically the 25th percentile, mean, and 75th percentile. At each anchor, you ask: when the other variable moves from low to high, how much does the predicted outcome change? That difference is the model's answer to "how strong is the association here?" Comparing those differences across your chosen anchors reveals whether and how the interaction changes the relationship.
 
 For the plot, you put one variable on the x-axis and show the other at selected values as separate lines. A shorthand explained in the "From Strategy to Code" section automatically draws three lines at the mean minus 1 SD, the mean, and the mean plus 1 SD. If the lines are not parallel --- if the association is steeper for one line than for another --- the interaction is visible directly.
 
@@ -212,7 +223,7 @@ predict(model_object, newdata = data.frame(
 
 The output is a single number in the units of the outcome variable.
 
-How you specify each predictor's value depends on its type. For an interval variable, supply a number directly --- `wage_growth = 4.3` --- or use `mean(data$variable, na.rm = TRUE)` to hold it at the sample mean. For a categorical variable coded as a factor, use `factor("Level Name", levels = levels(data$variable))`. Factor variables in R carry metadata about all their possible levels; the explicit `factor()` construction attaches the full level set that the model expects, which avoids edge cases where R cannot determine the levels from context alone.
+How you specify each predictor's value depends on its type. For an interval variable, supply a number directly --- `wage_growth = 4.3` --- or use `mean(data$variable, na.rm = TRUE)` to hold it at the sample mean. For a categorical variable coded as a factor, use `factor("Level Name", levels = levels(data$variable))`. Factor variables in R carry metadata about all their possible levels; the explicit `factor()` construction attaches the full level set that the model predicts, which avoids edge cases where R cannot determine the levels from context alone.
 
 To compare two cases, write two separate `predict()` calls, changing only the values that differ between them. Everything else stays identical.
 
@@ -358,9 +369,9 @@ These are the five hex codes introduced in Tutorial 4: they stay distinguishable
 
 **Practice 3: Produce the interaction plot for model_int**
 
-Fill in the blanks to produce the three-line interaction plot, using **model_int** as the model object. The bracket notation `"wage_growth [meansd]"` tells `plot_model()` to show lines at the mean minus 1 SD, mean, and mean plus 1 SD of wage growth. Use `"Wage Growth (%)"` as the legend title, set with `legend.title =` inside the call. The `colors = cb_colors` argument is already supplied. Three hints are available. Click "Submit Answer" to check your work.
+Complete the code to produce the three-line interaction plot, using **model_int** as the model object. The bracket notation `"wage_growth [meansd]"` tells `plot_model()` to show lines at the mean minus 1 SD, mean, and mean plus 1 SD of wage growth. Use `"Wage Growth (%)"` as the legend title, set with `legend.title =` inside the call. The `colors = cb_colors` argument is already supplied. Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-int, exercise=TRUE, exercise.cap="Practice 3", fig.alt="Predicted Clinton two-party vote against mortality risk, with one line for each of three wage-growth values. The horizontal axis runs from 0 to 10 and the vertical axis from about 10 to 50. All three lines fall from left to right, each with a shaded band, and a legend gives the three wage-growth values."}
+```{r exercise-predplot-int, exercise=TRUE, exercise.cap="Practice 3", fig.alt="Predicted Clinton two-party vote against mortality risk, with one line for each of three wage-growth values, about -0.4, 4.3 and 9.0. All three lines fall from left to right. At a mortality risk of 2.5 the predicted vote is about 33.2 percent on the lowest wage-growth line, 35.1 on the middle line and 37.0 on the highest; at 7.5 it is about 21.0, 19.6 and 18.3, so the order of the three lines at 2.5 is reversed at 7.5 and the lines cross between those points. The shaded bands are narrow at the left, about 34.6 to 35.6 on the middle line at 2.5, and wider at the right, about 17.0 to 22.3 at 7.5. Observed mortality risk runs from about 1.1 to 8.4. A legend gives the three wage-growth values."}
 library(sjPlot)  # first use in this tutorial; it stays loaded from here on
 ___(model_int,
     type = "pred",
@@ -663,18 +674,6 @@ grade_this({
   exprs <- tryCatch(as.list(parse(text = code_nc)), error = function(e) NULL)
   if (is.null(exprs))
     fail("Your code could not be parsed. Check for a missing comma or bracket.")
-  is_pred <- function(x) {
-    if (is.call(x) && identical(deparse(x[[1]]), "<-") && length(x) == 3L) x <- x[[3]]
-    is.call(x) && identical(deparse(x[[1]]), "predict")
-  }
-  as_pred <- function(x) {
-    if (is.call(x) && identical(deparse(x[[1]]), "<-") && length(x) == 3L) x[[3]] else x
-  }
-  pcalls <- lapply(Filter(is_pred, exprs), as_pred)
-  if (length(pcalls) != 4)
-    fail(paste0("Write four `predict()` calls, one per predicted value: two for Comparison 1 and ",
-                "two for Comparison 2. Your code has ", length(pcalls), "."))
-
   mn   <- mean(qog$hf_efiscore, na.rm = TRUE)
   prof <- data.frame(
     rights_f      = factor(c("Few Rights", "Many Rights", "Few Rights", "Few Rights"),
@@ -683,25 +682,44 @@ grade_this({
     hf_efiscore   = mn)
   want <- as.numeric(predict(model_env, newdata = prof))
 
-  # Evaluate each call rather than matching its text, so 7.77 and
-  # mean(qog$ipi_tradeopen, na.rm = TRUE) are both accepted.
-  n_pred <- suppressWarnings(vapply(pcalls, function(cl) {
-    length(tryCatch(as.numeric(eval(cl)), error = function(e) NA_real_))
-  }, numeric(1)))
-  if (any(n_pred != 1))
-    fail("Each `predict()` call should describe one country and return one predicted value. Check that the data frame in `newdata =` has a single row.")
-  got <- suppressWarnings(vapply(pcalls, function(cl) {
-    v <- tryCatch(as.numeric(eval(cl))[1], error = function(e) NA_real_)
-    if (length(v) == 0L) NA_real_ else v
-  }, numeric(1)))
+  # Run the submission the way R does and collect the predicted values it
+  # actually displays, in the order they appear. This accepts any equivalent
+  # way of writing the same profiles -- 7.77 or mean(qog$ipi_tradeopen,
+  # na.rm = TRUE), four calls or fewer calls carrying several rows each --
+  # while a prediction that is only stored is not mistaken for one shown.
+  # Values are taken only from predict() calls, so anything else the student
+  # prints is not counted as a predicted value.
+  is_assign <- function(x)
+    is.call(x) && deparse(x[[1]]) %in% c("<-", "=", "<<-") && length(x) == 3L
+  has_pred <- function(x) any(grepl("\\bpredict\\s*\\(", deparse(x)))
+  env       <- new.env(parent = environment())
+  pred_objs <- character(0)
+  got       <- numeric(0)
+  for (e in exprs) {
+    v <- tryCatch(withVisible(eval(e, env)), error = function(er) NULL)
+    if (is.null(v)) next
+    if (is_assign(e)) {
+      if (has_pred(e[[3]])) pred_objs <- union(pred_objs, deparse(e[[2]]))
+      next
+    }
+    if (isTRUE(v$visible) &&
+        (has_pred(e) || (is.name(e) && deparse(e) %in% pred_objs)))
+      got <- c(got, suppressWarnings(as.numeric(v$value)))
+  }
+  if (length(got) == 0L)
+    fail("Your code computes the predicted values but never displays them. Assigning a prediction to an object with `<-` stores it silently, so nothing is printed and there are no predicted values to compare. Either drop the assignments, or add the object names on their own lines so all four predicted values appear in the output.")
+  if (anyNA(got))
+    fail("One of your predictions came back as `NA` rather than a number. That happens when a value in `newdata =` is not one R recognizes: a blank left in place, or a level name for **rights_f** spelled differently from the levels in the data. Supply it as `factor(\"Few Rights\", levels = levels(qog$rights_f))`.")
+  if (length(got) != 4L)
+    fail(paste0("Your code should display four predicted values: two for Comparison 1 and two for Comparison 2. It displays ", length(got), "."))
   labels <- c("Few Rights at average trade openness",
               "Many Rights at average trade openness",
               "Few Rights at **ipi_tradeopen** 6.9",
               "Few Rights at **ipi_tradeopen** 9.4")
   for (i in seq_len(4)) {
-    if (is.na(got[i]) || abs(got[i] - want[i]) > 0.05)
-      fail(paste0("Call ", i, " does not give the predicted value for ", labels[i],
-                  ", with **hf_efiscore** held at its mean. Check the profile in that call."))
+    if (abs(got[i] - want[i]) > 0.05)
+      fail(paste0("Predicted value ", i, " does not match the one for ", labels[i],
+                  ", with **hf_efiscore** held at its mean. The four values are compared in the order the two comparisons are described above, so check both that profile and the order they appear in."))
   }
 
   pass("Right. Four predicted values, one for each combination of rights status and trade openness.")
@@ -734,7 +752,7 @@ Before looking at the full interaction, let's see the Few Rights predicted assoc
 
 **Run and observe 9: Few Rights predicted association**
 
-```{r exercise-predplot-trade, exercise=TRUE, exercise.cap="Run and observe 9", fig.alt="Predicted environmental performance against trade openness. The horizontal axis runs from about 2 to 10 and the vertical axis from about 20 to 70. A straight line rises from left to right, with a shaded band that is widest at the left."}
+```{r exercise-predplot-trade, exercise=TRUE, exercise.cap="Run and observe 9", fig.alt="Predicted environmental performance against trade openness for Few Rights countries. A straight line rises from left to right: about 32.9 at a trade openness of 2, 42.4 at 4, 51.9 at 6, 61.4 at 8 and 70.9 at 10. A shaded confidence band follows the line, widest at the left at about 20.8 to 45.1 at a trade openness of 2, and narrowing toward the right to about 67.1 to 74.7 at 10. Observed trade openness runs from 1 to 10."}
 plot_model(model_env,
            type = "pred",
            terms = "ipi_tradeopen",
@@ -772,12 +790,12 @@ There are two ways to display the interaction: categorical variable on the x-axi
 
 **Run and observe 11: Rights status on the x-axis**
 
-```{r exercise-predplot-int1, exercise=TRUE, exercise.cap="Run and observe 11", fig.alt="Predicted environmental performance with political rights status on the horizontal axis, in two categories labeled Few Rights and Many Rights. At each category three predicted values are plotted as points with vertical confidence intervals, one for each of the three trade-openness values named in the legend. The vertical axis spans roughly 45 to 72."}
+```{r exercise-predplot-int1, exercise=TRUE, exercise.cap="Run and observe 11", fig.alt="Predicted environmental performance with political rights status on the horizontal axis, in two categories labeled Few Rights and Many Rights. At each category three predicted values are plotted as points with vertical confidence intervals, one for each of three trade-openness values, about 5.8, 7.8 and 9.8. For Few Rights the predictions are about 50.9, interval 45.2 to 56.5; about 60.3, interval 57.3 to 63.3; and about 69.8, interval 66.3 to 73.3. For Many Rights they are about 53.3, interval 50.4 to 56.3; about 53.6, interval 51.2 to 56.0; and about 53.8, interval 50.3 to 57.4. A legend gives the three trade-openness values."}
 plot_model(model_env,
            type = "pred",
            terms = c("rights_f", "ipi_tradeopen"),
            colors = cb_colors,
-           title = "Environmental Performance by Rights Status",
+           title = "Predicted Environmental Performance by Rights Status",
            axis.title = c("Political Rights Status",
                           "Environmental Performance Index"),
            legend.title = "Trade Openness (1-10)") +
@@ -814,7 +832,7 @@ With **ipi_tradeopen** on the x-axis and **rights_f** producing separate lines, 
 
 Write the complete `plot_model()` call from scratch, using **model_env** as the model object. Set `colors = cb_colors`. Use the title \"Predicted Environmental Performance\\nby Trade Openness and Rights Status\" --- the `\n` breaks it across two lines so it is not cut off at the width of the plot, the x-axis label \"Trade Openness (1-10)\", the y-axis label \"Environmental Performance Index\", and the caption \"Predictions are for countries with average economic freedom.\" Without a `legend.title =` argument the variable name appears as the legend title, so set `legend.title = "Rights Status"` inside the call and add the caption with `labs(caption = "...")`. Four hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-int2, exercise=TRUE, exercise.cap="Practice 13", fig.alt="Predicted environmental performance against trade openness, with one line for each rights status. The horizontal axis runs from about 2 to 10 and the vertical axis from about 20 to 70. Each line has a shaded band, and a legend names the two categories, Few Rights and Many Rights."}
+```{r exercise-predplot-int2, exercise=TRUE, exercise.cap="Practice 13", fig.alt="Predicted environmental performance against trade openness, with one line for each rights status. The Few Rights line rises steeply, from about 32.9 at a trade openness of 2 to about 70.9 at 10, a slope of about 4.8 points per unit. The Many Rights line is nearly flat, from about 52.9 at 2 to about 53.9 at 10, a slope of about 0.1 per unit. The two lines cross at a trade openness of about 6.3. Each line has a shaded band; at a trade openness of 2 the Few Rights band runs about 20.8 to 45.1 and the Many Rights band about 46.5 to 59.2. A legend names the two categories, Few Rights and Many Rights."}
 
 ```
 
@@ -1026,7 +1044,10 @@ grade_this({
     fail("Name **years_c** as the first term, with the three history values in brackets.")
   if (!grepl("electoral_f", code_nc))
     fail("Name **electoral_f** as the second term, so every level appears.")
-  if (!grepl("\\[\\s*-40\\s*,\\s*0\\s*,\\s*40\\s*\\]", code_nc))
+  br_vals <- suppressWarnings(as.numeric(trimws(strsplit(
+    gsub("^\\[|\\]$", "",
+         regmatches(code_nc, regexpr("\\[[^]]*\\]", code_nc))[1]), ",")[[1]])))
+  if (length(br_vals) != 3 || anyNA(br_vals) || !setequal(br_vals, c(-40, 0, 40)))
     fail("The three history values are -40, 0 and 40, written inside the brackets after **years_c**: `\"years_c [-40, 0, 40]\"`.")
   if (!grepl("condition\\s*=", code_nc))
     fail("Use `condition =` to hold **quota_f** at one level.")
@@ -1066,7 +1087,7 @@ Read the nine values by electoral system rather than by row. Under plurality rul
 
 Write the complete `plot_model()` call from scratch, using **model_rep_int**. Put **years_c** on the x-axis and use **electoral_f** to produce the three lines. Set `colors = cb_colors`. Use the title \"Predicted Women's Representation by History and Electoral System\", the x-axis label \"Years Since First Woman (centered)\", the y-axis label \"Predicted Percent Women\", the legend title \"Electoral System\" set with `legend.title =`, and the caption \"Predictions are for countries with no gender quota.\" Three hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predplot-ipu, exercise=TRUE, exercise.cap="Practice 16", fig.alt="Predicted percent women against centered years since the first woman entered parliament, with one line for each electoral system. The horizontal axis runs from about -60 to 60 and the vertical axis from 0 to about 40. Each line has a shaded band, and a legend names the three systems."}
+```{r exercise-predplot-ipu, exercise=TRUE, exercise.cap="Practice 16", fig.alt="Predicted percent women against centered years since the first woman entered parliament, with one line for each electoral system, for countries with no gender quota. The Plurality/Majority line rises from about 7.0 percent at minus 60 years to about 18.6 at zero and about 30.2 at 60. The Proportional line rises from about 20.4 to about 25.9 to about 31.4. The Mixed line falls slightly, from about 26.6 to about 24.3 to about 22.1. The Plurality/Majority and Mixed lines cross at about 25 years. At minus 60 the shaded bands run about minus 0.5 to 14.5 for Plurality/Majority, 12.9 to 27.9 for Proportional and 15.6 to 37.6 for Mixed; at 60 they run about 20.5 to 39.9, 25.1 to 37.7 and 12.1 to 32.0. A legend names the three systems."}
 
 ```
 
@@ -1162,7 +1183,7 @@ grade_this({
 
 **Run and observe 17: The same plot for quota countries**
 
-```{r exercise-predplot-ipu-quota, exercise=TRUE, exercise.cap="Run and observe 17", fig.alt="The same three electoral-system lines for countries with a gender quota. The horizontal axis runs from about -60 to 60 and the vertical axis from about 10 to 45, with a shaded band around each line and a legend naming the three systems."}
+```{r exercise-predplot-ipu-quota, exercise=TRUE, exercise.cap="Run and observe 17", fig.alt="The same three electoral-system lines for countries with a gender quota. The Plurality/Majority line rises from about 13.8 percent at minus 60 years to about 25.4 at zero and about 37.1 at 60. The Proportional line rises from about 27.3 to about 32.8 to about 38.3. The Mixed line falls slightly, from about 33.5 to about 31.2 to about 28.9. The Plurality/Majority and Mixed lines cross at about 25 years, the same place as in the previous plot. At minus 60 the shaded bands run about 5.1 to 22.5 for Plurality/Majority, 20.5 to 34.1 for Proportional and 22.5 to 44.5 for Mixed. A legend names the three systems."}
 plot_model(model_rep_int,
            type = "pred",
            terms = c("years_c", "electoral_f"),
@@ -1206,7 +1227,7 @@ The three-line plot shows what a table of interaction coefficients cannot. Under
 
 The consequence is that the mixed line is overtaken twice rather than a gap simply widening. Among parliaments that first seated a woman recently, mixed systems are predicted to have the highest representation and plurality systems the lowest, a spread of about 15 percentage points. Proportional systems pass mixed at a parliament whose first woman arrived around 1978, and plurality systems pass it around 1941. Both crossings fall well inside the data: mixed-system parliaments here first seated a woman between 1919 and 2003, and the two crossings sit at 1941 and 1978. Among parliaments with the longest histories the ordering has fully reversed: mixed systems are predicted lowest, about 3.5 points below plurality and 7 below proportional.
 
-What the plot does not do is explain the mixed-system pattern. Tutorial 18 found that this is the one contrast the data distinguish clearly, and also the one the institutional argument says least about. Seeing it as a line makes the finding harder to overlook, which is a reason to plot predictions rather than only report coefficients --- but a picture of an unexplained pattern is still an unexplained pattern.
+What the plot does not do is explain the mixed-system pattern. Tutorial 18 found that this is the one contrast the data distinguish clearly, and also the one on which the institutional argument is least specific. Seeing it as a line makes the finding harder to overlook, which is a reason to plot predictions rather than only report coefficients --- but a picture of an unexplained pattern is still an unexplained pattern.
 :::
 
 

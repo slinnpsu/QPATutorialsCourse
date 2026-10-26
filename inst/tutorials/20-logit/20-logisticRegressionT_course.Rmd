@@ -127,21 +127,19 @@ model_ghg <- glm(policy_ghgcap2024 ~ ideology_conservative2024 +
 
 ## The Logistic Function and the Log-Odds Scale
 
-When we study binary political outcomes, we often have reason to expect that a change in a predictor will not produce the same change in probability everywhere. Consider whether a state has an open carry gun law and how that probability might vary with the percentage of residents who identify as Republican. Across the 50 states, Republican identification ranges from about 11% to 46%. We might expect states with more Republican residents to be more likely to have an open carry law. But imagine how you would draw that relationship. Where relatively few residents identify as Republican, an increase in Republican identification might make little difference: political support for an open carry law may still be too limited to secure its adoption. As Republican identification grows, however, additional support might make a much larger difference, particularly where the balance of political forces is close enough for a change to matter. Eventually, in states where an open carry law is already highly likely, further increases in Republican identification might again make relatively little difference. The result is an S-shaped relationship: probability rises slowly at first, more rapidly in the middle, and then slowly again as it approaches one.
+When we study binary political outcomes, we often have reason to expect that a change in a predictor will not produce the same change in probability everywhere. Consider whether a state has an open carry gun law and how that probability might vary with the percentage of residents who identify as Republican. Across the 50 states, Republican identification ranges from about 11% to 46%. We might expect states with more Republican residents to be more likely to have an open carry law --- but not by the same amount at every starting point. Where few residents identify as Republican, support may be too limited for an increase to matter; where the balance of political forces is close, the same increase may matter a great deal; and where an open carry law is already highly likely, it may again make little difference. The result is the S-shaped relationship the reading describes: probability rises slowly at first, more rapidly in the middle, and then slowly again as it approaches one. A straight line, which moves the probability by the same amount everywhere and has no upper or lower limit, cannot produce it.
 
-Linear regression cannot produce that shape, for two reasons. The line it fits changes the probability by the same amount at every starting point: a five-point increase in Republican identification would move the probability exactly as far among states with few Republican residents as among states where the balance of political forces is close, and exactly as far again among states where an open carry law is already likely. The reasoning above says those three changes should not be equal at all. The line also has no upper or lower limit, so a substantial share of cases receive predicted probabilities below 0 or above 1 --- numbers that cannot be probabilities at all.
+[Logistic regression]{.important-text} solves the problem by fitting the straight line to a different quantity. Write $p_i$ for the probability that $Y_i = 1$, coding the outcome 1 for the category whose probability you want and 0 for the other. The [log-odds]{.important-text} of the outcome, $\log(p_i/(1-p_i))$, have no upper or lower limit, so a straight line can run as far as it needs to on that scale without producing anything impossible. That is where the model puts it:
 
-[Logistic regression]{.important-text} solves both problems by fitting the straight line to a different quantity. Write $p_i$ for the probability that $Y_i = 1$, coding the outcome 1 for the category whose probability you want and 0 for the other. The ratio $p_i/(1-p_i)$ is the **odds** of the outcome --- how likely it is to happen measured against how likely it is not --- and the logarithm of that ratio is the [log-odds]{.important-text}. Unlike a probability, the log-odds have no upper or lower limit: as $p_i$ approaches 1 they grow without bound, and as $p_i$ approaches 0 they fall without bound. A straight line can run as far as it needs to on that scale without producing anything impossible. So that is where the model puts it:
+$$\log\left(\frac{p_i}{1 - p_i}\right) = \alpha + \beta_1 X_1 + \beta_2 X_2 + \cdots$$
 
-$$\log\left(\frac{p_i}{1 - p_i}\right) = \alpha + \beta_1 X_{1i} + \beta_2 X_{2i} + \cdots$$
+The right-hand side is an ordinary linear equation, the same form Tutorials 15 and 16 estimated. This is what logistic regression actually fits, and the coefficients are estimated on that scale.
 
-The right-hand side is an ordinary linear equation, the same form Tutorials 15 and 16 estimated. This is what logistic regression actually fits, and it is where the coefficients come from.
+Log-odds are not intuitive. An expected change in the log-odds of the outcome for a one-unit change in a predictor is not something most people find helpful, so the model is turned back around. Solving that equation for the probability, and putting in the estimates a fitted model produces, gives the [logistic function]{.important-text} --- which is how a fitted logistic regression returns a predicted probability:
 
-Log-odds are not intuitive. An expected change in the log-odds of the outcome for a one-unit change in a predictor is not something most people find helpful, so the model is turned back around. Solving that equation for $p_i$ gives the [logistic function]{.important-text}:
+$$\hat{p}_i = \frac{\exp(\hat{\alpha} + \hat{\beta}_1 X_1 + \hat{\beta}_2 X_2 + \cdots)}{1 + \exp(\hat{\alpha} + \hat{\beta}_1 X_1 + \hat{\beta}_2 X_2 + \cdots)}$$
 
-$$p_i = \Pr(Y_i = 1) = \frac{\exp(\alpha + \beta_1 X_{1i} + \beta_2 X_{2i} + \cdots)}{1 + \exp(\alpha + \beta_1 X_{1i} + \beta_2 X_{2i} + \cdots)}$$
-
-where $\exp$ denotes $e$ raised to a power. The quantity in the parentheses is the log-odds --- the whole right-hand side of the equation above --- and this expression is the operation that converts it back into a probability. Whatever that quantity is, however large or small, dividing $\exp$ of it by one plus $\exp$ of it returns a value strictly between 0 and 1. That is why the curve approaches 0 and 1 without ever reaching them, and the S-shape follows from it: the same step along the log-odds scale produces a large change in probability near the middle, where the probability is far from both bounds, and a small one near the ends, where it is close to one of them. The curve's exact position and steepness depend on the intercept and the coefficients estimated from the data --- there is nothing special about the middle of the predictor's range.
+where $\exp$ denotes $e$ raised to a power and the hats mark estimated rather than true values. The quantity inside the parentheses is the estimated log-odds --- the right-hand side of the equation above, with the estimates in place of $\alpha$ and the $\beta$ terms --- and this expression converts it back into a probability, always returning a value strictly between 0 and 1. The curve's exact position and steepness depend on the intercept and coefficients estimated from the data; there is nothing special about the middle of the predictor's range.
 
 That is the model. Fitted to the states, it reproduces the shape the reasoning predicted. A logistic regression of open carry laws on Republican identification, using data from 2010, predicts essentially no chance of an open carry law at 15% Republican and about 2% at 20% --- nearly flat at the low end. At 25% the predicted probability is about 29%. At 30% it is 91%. By 35% it is essentially certain. That is a 62 percentage point difference between 25% and 30% --- a single five-point step --- against differences of 2 and 9 points at the two extremes, which is the varying effect a straight line could not produce. The figure below traces the fitted curve across the full range of Republican identification.
 
@@ -158,7 +156,7 @@ Those two equations are the same model written on two scales, and that fact gove
 
 ## Estimating, Interpreting and Evaluating a Logistic Regression
 
-A fitted logistic regression reports its results on the log-odds scale. The estimates are the $\alpha$ and $\beta$ terms from the log-odds equation above, so each one gives the change in the log-odds of the outcome for a one-unit increase in its predictor, holding the others constant. The log-odds are also called the *logit*, which is why logistic regression is often called a *logit model* and its coefficients *logit coefficients*; both names appear in published work. Working on that scale changes what the results can tell you. Direction and statistical significance read as they did in Tutorials 15 and 16. Size does not.
+A fitted logistic regression reports its results on the log-odds scale. The estimates are $\hat{\alpha}$ and the $\hat{\beta}$ terms from the log-odds equation above, so each one gives the change in the log-odds of the outcome for a one-unit increase in its predictor, holding the others constant. Working on that scale changes what the results can tell you. Direction and statistical significance read as they did in Tutorials 15 and 16. Size does not.
 
 As in Tutorials 15 through 19, we use *predictor*, *predicts* and *effect* in their statistical sense throughout; none of them by itself implies that one variable causes the other.
 
@@ -168,7 +166,7 @@ A note on scale. A quantity that runs from 0 to 1 --- a probability, or a propor
 
 The `glm()` function estimates logistic regression in R. Its formula and `data` arguments work exactly like `lm()`: the outcome variable goes on the left of `~`, the predictors go on the right separated by `+`, and `data =` tells R where to find them. The critical difference is the argument `family = "binomial"`, which tells R that the outcome is binary and that the logistic function should be used to model it. Without this argument, `glm()` fits the ordinary linear regression you have already used. Assign the result to a named object with `<-`, then pass that object to `summary()` to display the results.
 
-The `summary()` output has the same general structure as `lm()`: a coefficients table with one row per non-intercept coefficient --- a categorical predictor contributes one row for each non-reference category --- each showing an estimate, a standard error, a test statistic, and a p-value. Two things differ. The test statistic column is labeled `z value` rather than `t value`, for the reason given above, and the bottom of the output reports different quantities.
+The `summary()` output has the same general structure as `lm()`: a coefficients table with one row per non-intercept coefficient --- a categorical predictor contributes one row for each non-reference category --- each showing an estimate, a standard error, a test statistic, and a p-value. Two things differ. The test statistic column is labeled `z value` rather than `t value`, and the bottom of the output reports different quantities.
 
 `glm()`, `summary()` and `predict()` are part of base R --- no `library()` call is needed for those functions.
 
@@ -182,13 +180,13 @@ That last point is the one most often got wrong. In linear regression, a slope o
 
 The intercept is the one exception to that limitation. It sits above the other rows and works as it does in linear regression: it is the model's prediction when every interval predictor equals zero and every categorical predictor is at its reference category. For that particular case the intercept *is* the whole linear combination, every other term having dropped out, so it is the one number in the table that the logistic function can be applied to on its own --- and doing so returns the predicted probability for a case with those values. Whether that is worth doing depends on whether such a case could exist. Often it cannot, which is why the intercept row is usually read as part of the model's construction rather than as a finding.
 
-One further quantity appears constantly in published logistic regression results, and it is worth recognizing even though these tutorials do not use it. Applying `exp()` to a coefficient converts it from log-odds into an **odds ratio**: the multiplicative change in the odds of the outcome for a one-unit increase in the predictor. An odds ratio of 1 means no relationship, a ratio above 1 means the odds go up, and a ratio below 1 means they go down. What an odds ratio does not give you is a change in probability. The odds scale is no more intuitive than the log-odds scale, and neither one answers the question raised above --- how much the probability moves for a case you actually care about. That is why these tutorials go from coefficients straight to predicted probabilities and skip the odds scale. When an odds ratio appears in published work, read it as a statement about odds, not about probabilities.
+The reading introduces one further quantity, the **odds ratio**, which published work reports constantly and these tutorials do not use. The odds scale is no more intuitive than the log-odds scale, and neither one answers the question raised above --- how much the probability moves for a case that actually interests you. That is why these tutorials go from coefficients straight to predicted probabilities and skip the odds scale. When an odds ratio appears in published work, read it as a statement about odds, not about probabilities.
 
 ### Evaluating the Model
 
 Logistic regression does not report the ordinary $R^2$ used in linear regression. There are several ways to evaluate logistic models, but none provides a direct replacement for the familiar $R^2$ interpretation. Here we examine one particular aspect of model performance: how accurately the model classifies cases into the two outcome categories. We use a [confusion matrix]{.important-text} --- a cross-tabulation of predicted against actual outcomes --- and compare its accuracy with the null model, which always predicts the most common outcome.
 
-Below the coefficients table you will see three more lines: the null deviance, the residual deviance, and the AIC. These are statistics used to build measures of model fit and to compare competing models. We do not cover them here, because none of them can be read on its own --- each needs a second model to compare against.
+Below the coefficients table you will see three more lines: the null deviance, the residual deviance, and the AIC. These are statistics used to build measures of model fit and to compare competing models. We do not cover them here, because none of them can be read on its own --- each requires a comparison with a second model.
 
 ### The Two Examples
 
@@ -208,7 +206,7 @@ Together, these perspectives motivate the following model. The data frame **coun
 - **mortality_risk_25_45**: the estimated percentage risk that a person who has reached age 25 will die before reaching age 45 --- a measure of community-level health and distress. Rising premature mortality over this period has been linked in part to what researchers call "deaths of despair" --- drug overdoses, suicide and alcohol-related illness --- though this variable measures mortality risk from all causes rather than those specifically; counties with higher mortality risk should be more likely to support Trump
 - **prop_college_grad**: the proportion of residents aged 25 or older who hold a bachelor's degree or higher --- college-educated voters were less receptive to Trump's campaign appeals, which were directed at voters who felt economically and culturally left behind and who research shows were disproportionately less educated; counties with higher college graduation rates should be less likely to give Trump a majority
 - **prop_white**: the proportion of county residents who are white --- consistent with Sides et al., counties with higher proportions of white residents were expected to be more receptive to Trump's campaign
-- **rural_cat**: a three-category variable distinguishing Urban, Intermediate and Rural counties, with `"Urban"` as the reference category --- rural communities faced more acute economic dislocation and cultural distance from the urban Democratic coalition
+- **rural_cat**: a three-category variable distinguishing Urban, Intermediate and Rural counties, with Urban as the reference category --- rural communities faced more acute economic dislocation and cultural distance from the urban Democratic coalition
 
 Every variable in **counties** describes the county as of 2016, apart from **wage_growth**, which measures change over the twelve months ending in the third quarter of that year.
 
@@ -239,9 +237,6 @@ summary(model_trump)
 
 ### Interpret the Coefficients
 
-The rules from the previous section apply here: direction from the sign, statistical significance from the z-value and p-value, and nothing about size from the magnitude. What follows works through this particular table.
-
-
 **Practice 2: Identify the direction of each relationship**
 
 Look at the coefficients table in your output before answering.
@@ -268,7 +263,7 @@ question("Which of the following statements correctly describe what the coeffici
 )
 ```
 
-Because `"Urban"` is the reference category, **rural_cat** contributes two rows to the table rather than three, and neither is a coefficient for rurality as a whole. Each reports a comparison between one category and Urban, which has no row of its own.
+Because Urban is the reference category, **rural_cat** contributes two rows to the table rather than three, and neither is a coefficient for rurality as a whole. Each reports a comparison between one category and Urban, which has no row of its own.
 
 **Practice 3: Interpret the rural_cat coefficients**
 
@@ -337,7 +332,7 @@ question("Which of these statements are correct? Select all that apply.",
          correct = TRUE,
          message = "z = -0.526, p = .599, so we fail to reject: no strong evidence that intermediate counties differ from urban ones. `rural_catRural` is positive and significant against that same Urban reference. Both comparisons are against Urban, so putting them together does not tell you whether Rural and Intermediate differ from each other --- that is the comparison the table never reports."),
   answer("We fail to reject the null hypothesis for `rural_catRural` --- the data do not provide strong evidence that rural counties were more likely to give Trump a majority than urban counties after controlling for the other variables",
-         message = "The z-statistic for `rural_catRural` is 2.141 and the p-value is 0.032, so at the conventional .05 level we reject rather than fail to reject. Completely rural counties were more likely to give Trump a majority than urban counties even after controlling for education, racial composition, wage growth, and mortality risk."),
+         message = "The z-statistic for `rural_catRural` is 2.141 and the p-value is .032, so at the conventional .05 level we reject rather than fail to reject. Completely rural counties were more likely to give Trump a majority than urban counties even after controlling for education, racial composition, wage growth, and mortality risk."),
   answer("We reject the null hypothesis for all four of these predictors, since every coefficient is far from zero",
          message = "Three of the four. `rural_catIntermediate` gives z = -0.526 and p = .599, and distance from zero is not the test --- it is distance measured against the standard error."),
   allow_retry = TRUE,
@@ -348,8 +343,7 @@ question("Which of these statements are correct? Select all that apply.",
 
 ### Present the Results
 
-With the analysis complete, present the results in a publication-quality table using `stargazer()`. The function was introduced in Tutorial 16 and works the same way here. Use the title `"County-Level Predictors of Trump Majority in 2016"` and the outcome-variable label `"Trump Majority (1 = Yes)"`. The six covariate labels for this model are `"Rural County"`, `"Proportion White"`, `"Wage Growth (%)"`, `"Intermediate County"`, `"Mortality Risk, Ages 25-45 (%)"` and `"Proportion College Graduates"`. Determine the correct order from your model output above.
-
+With the analysis complete, present the results in a publication-quality table using `stargazer()`. The function was introduced in Tutorial 16 and works the same way here.
 
 ::: {.caution}
 **Getting the label order wrong puts the wrong label on the wrong coefficient.** Always check the order of predictors in the `summary()` output, and note which categories appear as separate rows, before writing your labels.
@@ -357,7 +351,7 @@ With the analysis complete, present the results in a publication-quality table u
 
 **Practice 6: Produce a labeled stargazer table**
 
-Fill in the blanks to produce a table with the prescribed labels. Two hints are available. Click "Submit Answer" to check your work.
+Complete the code to produce the table. Use the title \"County-Level Predictors of Trump Majority in 2016\" and the outcome-variable label \"Trump Majority (1 = Yes)\". The six covariate labels are \"Rural County\", \"Proportion White\", \"Wage Growth (%)\", \"Intermediate County\", \"Mortality Risk, Ages 25-45 (%)\" and \"Proportion College Graduates\" --- determine the correct order from your model output above. Two hints are available. Click "Submit Answer" to check your work.
 
 ```{r exercise-stargazer-trump, exercise=TRUE, exercise.cap="Practice 6"}
 library(stargazer)  # first use in this tutorial; it stays loaded from here on
@@ -456,60 +450,44 @@ In your own work, load a package the first time you need one of its functions.
 
 Coefficients tell you direction and significance. To say how different the probability of a Trump majority actually is between two counties, you need [predicted probabilities]{.important-text}. The `predict()` function with `type = "response"` returns them. It carries out both steps of the model: it combines the intercept and the county's predictor values into a single value on the log-odds scale, then puts that value through the logistic function, which returns a probability between 0 and 1. Without `type = "response"`, `predict()` stops at the log-odds.
 
-Pass the fitted model as the first argument, and a `newdata` data frame giving a value for every predictor in the model, named and typed exactly as in the formula. Every predictor needs a value because the logistic function converts the whole linear combination at once; leave one out and there is no complete case to convert. For factor predictors we use `factor("level", levels = levels(data$variable))`, so the new value explicitly carries the same levels as the variable the model was fitted on. R can often infer them from a bare character string, but writing them out makes the factor structure visible and protects against a level the model never saw.
+Pass the fitted model as the first argument, and a `newdata` data frame giving a value for every predictor in the model, named and typed exactly as in the formula. Every predictor needs a value because the logistic function converts the whole linear combination at once; leave one out and there is no complete case to convert. For categorical predictors we use `factor("level", levels = levels(data$variable))`, so the new value explicitly carries the levels used when the model was fitted. R can often infer them from a bare character string, but writing them out makes the factor structure visible and protects against a level the model never saw.
 
-Which cases you choose is the substantive decision. Vary the predictor whose relationship you want to communicate, and hold the others at values that describe a county worth talking about. Unlike linear regression, where a one-unit change in a predictor moves the outcome by the same amount whatever the other predictors are, the size of a probability change here depends on where the case sits on the S-curve. So the values you hold constant are part of the finding rather than background to it.
+Which cases you choose is the substantive decision, and there is no neutral choice. Holding the other predictors at their means is the common default, and it is a choice like any other: it puts the comparison wherever the average case happens to fall on the curve. Unlike linear regression, where a one-unit difference in a predictor corresponds to the same difference in the outcome whatever the other predictors are held at, the size of a probability difference here depends on where the case sits on the S-curve. The values you hold constant are therefore part of the finding rather than background to it. Choose the values your claim is about, state them, and remember that a different choice would give a different size.
 
 **Run and observe 7: Obtain a predicted probability**
 
-The county profile below represents an urban county with a relatively high proportion of college graduates (0.35), a moderate proportion of white residents (0.65), average wage growth (4.3%), and low mortality risk (2.5%). Run the code to obtain the predicted probability of a Trump majority for this county.
+The coefficient on mortality risk told us the direction of the relationship and that it is distinguishable from zero. What it cannot tell us is how much more likely a Trump majority was in a county where working-age adults faced higher mortality risk. Answering that means comparing two counties that differ in mortality risk and in nothing else. We will compare 2.5% against 5.0%: 2.5% is low but ordinary, with roughly three counties in ten at or below it, while 5.0% is near the top of a range that runs from 1.1% to 8.4% and is reached by only about a hundred of the 3,109 counties. That is the contrast the deaths-of-despair argument concerns.
+
+Start with the first of the two counties. It is average on wage growth (4.3%), on the college graduation rate (0.21) and on the proportion of white residents (0.86), it is Urban, and its working-age mortality risk is 2.5%. Run the code to obtain its predicted probability of a Trump majority.
 
 ```{r exercise-predict-1, exercise=TRUE, exercise.cap="Run and observe 7"}
 predict(model_trump,
         newdata = data.frame(
           wage_growth          = mean(counties$wage_growth, na.rm = TRUE),
-          prop_college_grad    = 0.35,
-          prop_white           = 0.65,
+          prop_college_grad    = mean(counties$prop_college_grad, na.rm = TRUE),
+          prop_white           = mean(counties$prop_white, na.rm = TRUE),
           mortality_risk_25_45 = 2.5,
           rural_cat            = factor("Urban",
                                         levels = levels(counties$rural_cat))),
         type = "response")
 ```
 
-**Practice 8: Interpret the predicted probability**
-
-```{r quiz-predict-1, echo=FALSE}
-question("Your output shows 0.180. What does that number tell us?",
-  correct = "Right: it is the probability the model assigns to a single county described by those predictor values.",
-  answer("That a county with this profile had about an 18% chance of giving Trump a majority of its two-party vote",
-         correct = TRUE,
-         message = "The model assigns this one hypothetical county --- urban, highly educated, moderately diverse, low distress --- an 18% chance of having given Trump a majority. It is well below 0.5, which is what you would expect for a county with those characteristics."),
-  answer("That about 18% of the counties in the data with this profile gave Trump a majority",
-         message = "A predicted probability is not a proportion of counties. The model is not counting anything --- it combines this county's predictor values into a single number and converts it to a probability. No county in the data has to look like this profile at all."),
-  answer("That Trump received about 18% of the two-party vote in a county with this profile",
-         message = "The outcome variable is **TrumpMajority**, which equals 1 if Trump won a majority and 0 if he did not. The model knows nothing about vote share. 0.180 is the estimated chance of winning the county, not the percentage of the vote won in it."),
-  answer("That the county's log-odds are 0.180, and `exp()` would be needed to turn that into a probability",
-         message = "`type = \"response\"` already did the converting. Without it `predict()` would have returned this county's log-odds, which is -1.52 --- a negative number, and plainly not a probability. 0.180 is the probability that -1.52 corresponds to."),
-  allow_retry = TRUE,
-  random_answer_order = TRUE,
-  try_again = "0.180 is a probability attached to one case. Ask which case, and whether the number counts anything that actually happened."
-)
-```
+The output is 0.909. The model already expects a Trump majority for a county average on wage growth, education and racial composition, even at a low level of working-age mortality risk.
 
 ### Change One Predictor
 
-Now consider a second county, identical to the first except that its working-age mortality risk is 5.0 rather than 2.5. It is urban, with the same college graduation rate of 0.35, the same proportion white of 0.65, and the same wage growth of 4.3%. Comparing the two isolates the estimated association of mortality risk at this specific location on the S-curve.
+One probability is not a difference, and a difference is what we are after. So we need a second county, identical to the first except that its working-age mortality risk is 5.0%. The gap between the two probabilities is what mortality risk is worth at this one point on the curve.
 
-**Practice 9: Change one predictor and compare**
+**Practice 8: Change one predictor and compare**
 
-Fill in the blank with the higher risk of dying between ages 25 and 45 described above. Everything else in the `newdata` data frame stays exactly the same as the exercise above. One hint is available. Click "Submit Answer" to check your work.
+Complete the code with the higher mortality risk described above. Everything else in the `newdata` data frame stays exactly as it was. One hint is available. Click "Submit Answer" to check your work.
 
-```{r exercise-predict-2, exercise=TRUE, exercise.cap="Practice 9"}
+```{r exercise-predict-2, exercise=TRUE, exercise.cap="Practice 8"}
 predict(model_trump,
         newdata = data.frame(
           wage_growth          = mean(counties$wage_growth, na.rm = TRUE),
-          prop_college_grad    = 0.35,
-          prop_white           = 0.65,
+          prop_college_grad    = mean(counties$prop_college_grad, na.rm = TRUE),
+          prop_white           = mean(counties$prop_white, na.rm = TRUE),
           mortality_risk_25_45 = ___,
           rural_cat            = factor("Urban",
                                         levels = levels(counties$rural_cat))),
@@ -554,8 +532,8 @@ grade_this({
   expected <- predict(model_trump,
                       newdata = data.frame(
                         wage_growth = mean(counties$wage_growth, na.rm = TRUE),
-                        prop_college_grad = 0.35,
-                        prop_white = 0.65,
+                        prop_college_grad = mean(counties$prop_college_grad, na.rm = TRUE),
+                        prop_white = mean(counties$prop_white, na.rm = TRUE),
                         mortality_risk_25_45 = 5.0,
                         rural_cat = factor("Urban",
                                            levels = levels(counties$rural_cat))),
@@ -568,40 +546,40 @@ grade_this({
 })
 ```
 
-**Practice 10: Interpret the comparison**
+**Practice 9: Explain the size of the difference**
 
 ```{r quiz-predict-2, echo=FALSE}
-question("Which sentence reports the comparison most completely --- completely enough that a reader could reproduce both predicted probabilities?",
-  correct = "Right: it compares two counties, names the values they share, and gives both predicted probabilities.",
-  answer("Comparing two urban counties with a college graduation rate of 0.35, a proportion white of 0.65 and average wage growth, the one with working-age mortality risk of 5.0% has a predicted probability of a Trump majority of 0.41, against 0.18 for the one at 2.5%",
+question("What explains the size of the difference between your two predictions?",
+  correct = "Right: the comparison was capped by where the first county already sat.",
+  answer("The first county was already at 0.909, which leaves at most 9 percentage points below 1, so the second county could not be far above it",
          correct = TRUE,
-         message = "This is the sentence. It compares two counties rather than altering one, gives both predicted probabilities, and says what the two counties have in common and at what values. A reader could reproduce these numbers from it."),
-  answer("Comparing two otherwise similar urban counties, and holding college graduation rate, proportion white and wage growth constant, the one with working-age mortality risk of 5.0% has a predicted probability of a Trump majority of 0.41, against 0.18 for the one at 2.5%",
-         message = "Nearly right, and this is the phrasing Tutorials 16 through 18 used. In a linear model it was enough: the slope was the same whatever the other predictors were held at, so naming them sufficed. Here the values are what make 0.41 and 0.18 the right numbers --- at a different college graduation rate the same 2.5-point difference in mortality risk would move the probability by something else. On the probability scale, what the others were held at has to be stated, not just named."),
-  answer("A one-unit increase in working-age mortality risk is associated with a 0.46 increase in the predicted probability of a Trump majority, for an urban county with a college graduation rate of 0.35, a proportion white of 0.65 and average wage growth",
-         message = "0.46 is the coefficient, and it is a change in the log-odds, not in the probability. Naming the profile does not make it correct --- the quantity reported is the wrong one."),
-  answer("Raising a county's working-age mortality risk from 2.5% to 5.0% would increase its predicted probability of a Trump majority from 0.18 to 0.41, with its college graduation rate at 0.35, its proportion white at 0.65 and its wage growth at 4.3%",
-         message = "Every number here is right, and the sentence is still wrong. It describes one county being altered --- what would happen if you intervened on its mortality risk. The model compares two counties that differ; nothing in it speaks to changing one."),
+         message = "A probability cannot exceed 1. Six points of the nine available is most of the room this county had."),
+  answer("The difference in mortality risk, 2.5 percentage points, is itself small",
+         message = "The same 2.5-point difference produces a much larger change for a county that does not start at 0.909."),
+  answer("Working-age mortality risk is only weakly related to whether a county gave Trump a majority",
+         message = "Six points here says nothing about the strength of the relationship. It says this county had nine points of room."),
+  answer("The two counties differ on only one predictor, so the difference has to be small",
+         message = "Moving one predictor can produce a very large difference. The next exercise moves this same one and gets 23 points."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "All four sentences use numbers from your output. Check each one for three things: whether the quantity it reports is a probability or a change in the log-odds, whether it compares two counties or describes one being altered, and whether a reader could tell which two counties produced these numbers."
+  try_again = "Look at the first prediction and ask how far above it anything could go."
 )
 ```
 
 ### Build a Prediction from Scratch
 
-Many interpretations of the 2016 election centered on race and education: that Trump's campaign appealed above all to white voters without college degrees, who had come to believe the country was no longer working for people like them. If that is right, a county should have been more likely to give Trump a majority when more of its residents were white and fewer held college degrees, whatever its economic conditions.
+Six points is small, and it is small for a reason that has nothing to do with the strength of the relationship. The county we built was average on education and racial composition, and the model already expects a Trump majority for a county like that --- 0.909 before mortality risk was raised at all. Two-thirds of the counties in the data sit above 0.90 on this model, so that is not a quirk of the profile we chose. It is where most counties are.
 
-Take education on its own. Moving race and education at the same time would leave you unable to say what either one contributed, so hold race fixed and let education vary. Build an urban county with a proportion white of 0.84 and a working-age mortality risk of 2.8%, both close to the averages for urban counties, and wage growth at its mean. Then predict for that county twice, at a college graduation rate of 0.18 and at 0.31 --- the 25th and 75th percentiles among urban counties. Half of all urban counties fall between those two values, so each prediction describes a county that exists in the data rather than an extreme chosen to make the difference look large.
+An outcome the model already treats as near-certain cannot be moved much, so asking the retrospective voting question at a county average on every predictor answers it in the least informative place available. Ask it instead where the outcome is in question. The counties the model does not already assign to Trump are the ones with many college graduates and smaller white populations, and they are mostly urban. Build one --- a college graduation rate of 0.35 and a proportion white of 0.65, Urban, with wage growth at its mean --- and make the same mortality comparison there. A profile is a case you specify; it need not match any county in the data exactly.
 
-**Practice 11: Build a prediction from scratch**
+**Practice 10: Build a prediction from scratch**
 
-Write both `predict()` calls from scratch. Each uses `type = "response"` and a `newdata` data frame carrying all five predictors. In both, set **wage_growth** to its mean with `mean(counties$wage_growth, na.rm = TRUE)`, which is 4.3%, and set `prop_white = 0.84`, `mortality_risk_25_45 = 2.8` and **rural_cat** to Urban. The first call takes `prop_college_grad = 0.18` and the second `prop_college_grad = 0.31`. Four hints are available. Click "Submit Answer" to check your work.
+Write both `predict()` calls from scratch. Each uses `type = "response"` and a `newdata` data frame carrying all five predictors. In both, set **wage_growth** to its mean with `mean(counties$wage_growth, na.rm = TRUE)`, which is 4.3%, and set `prop_college_grad = 0.35`, `prop_white = 0.65` and **rural_cat** to Urban. The first call takes `mortality_risk_25_45 = 2.5` and the second `mortality_risk_25_45 = 5.0`. Four hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-predict-3, exercise=TRUE, exercise.cap="Practice 11"}
-# 25th percentile of college graduates among urban counties
+```{r exercise-predict-3, exercise=TRUE, exercise.cap="Practice 10"}
+# The county at the lower mortality risk
 
-# The same county at the 75th percentile
+# The same county at the higher mortality risk
 
 ```
 
@@ -635,9 +613,9 @@ Write both `predict()` calls from scratch. Each uses `type = "response"` and a `
 ```{r exercise-predict-3-hint-4}
 # Hint 4 of 4
 # The second call is the first call with one number changed.
-# Copy it and replace the value of prop_college_grad. If any
+# Copy it and replace the value of mortality_risk_25_45. If any
 # other value differs between the two calls, the difference
-# between the two probabilities is no longer the education
+# between the two probabilities is no longer the mortality
 # difference alone.
 ```
 
@@ -658,17 +636,25 @@ grade_this({
   if (!grepl("wage_growth\\s*=\\s*mean\\s*\\(", code_no_comments)) {
     fail("Set **wage_growth** to its mean with `mean(counties$wage_growth, na.rm = TRUE)`, as the prose above describes. A rounded number in place of the mean gives a slightly different prediction.")
   }
-  if (!grepl("prop_college_grad\\s*=\\s*0?\\.18", code_no_comments)) {
-    fail("Set `prop_college_grad = 0.18` in the first call --- the 25th percentile of the college graduation rate among urban counties.")
+  moved <- suppressWarnings(as.numeric(unlist(strsplit(
+    gsub("[^0-9.]+", " ",
+         sub(".*=", "",
+             regmatches(code_no_comments,
+                        gregexpr("mortality_risk_25_45\\s*=\\s*(c\\s*\\([^)]*\\)|[0-9.]+)",
+                                 code_no_comments))[[1]])),
+    " +"))))
+  moved <- moved[!is.na(moved)]
+  if (!any(abs(moved - 2.5) < 1e-8)) {
+    fail("Set **mortality_risk_25_45** to 2.5 for the lower-risk county, the lower of the two mortality risks compared above.")
   }
-  if (!grepl("prop_college_grad\\s*=\\s*0?\\.31", code_no_comments)) {
-    fail("Set `prop_college_grad = 0.31` in the second call --- the 75th percentile of the college graduation rate among urban counties.")
+  if (!any(abs(moved - 5.0) < 1e-8)) {
+    fail("Set **mortality_risk_25_45** to 5.0 for the higher-risk county, the higher of the two mortality risks compared above.")
   }
-  if (!grepl("prop_white\\s*=\\s*0?\\.84", code_no_comments)) {
-    fail("Set `prop_white = 0.84` in both calls. Race is being held fixed here, so it has to carry the same value in each one.")
+  if (!grepl("prop_college_grad\\s*=\\s*0?\\.35", code_no_comments)) {
+    fail("Set `prop_college_grad = 0.35` in both calls. Education is being held fixed here, so it has to carry the same value in each one.")
   }
-  if (!grepl("mortality_risk_25_45\\s*=\\s*2\\.8", code_no_comments)) {
-    fail("Set `mortality_risk_25_45 = 2.8` in both calls, close to the average for urban counties.")
+  if (!grepl("prop_white\\s*=\\s*0?\\.65", code_no_comments)) {
+    fail("Set `prop_white = 0.65` in both calls. Racial composition is being held fixed here, so it has to carry the same value in each one.")
   }
   if (!grepl("Urban", code_no_comments)) {
     fail("Set **rural_cat** to Urban in both calls, using `factor(\"Urban\", levels = levels(counties$rural_cat))`.")
@@ -678,57 +664,70 @@ grade_this({
   if (is.null(exprs)) {
     fail("Your code could not be parsed, so R stopped before running it. Read the error message shown above your code: the usual causes are a missing comma and an unmatched parenthesis.")
   }
-  strip_assign <- function(x)
-    if (is.call(x) && identical(deparse(x[[1]]), "<-") && length(x) == 3L) x[[3]] else x
-  pcalls <- lapply(Filter(function(x) {
-    y <- strip_assign(x); is.call(y) && identical(deparse(y[[1]]), "predict")
-  }, exprs), strip_assign)
-  if (length(pcalls) != 2) {
-    fail(paste0("Write two separate `predict()` calls, one for each college graduation rate. Your code has ", length(pcalls), "."))
+  is_assign <- function(x)
+    is.call(x) && deparse(x[[1]]) %in% c("<-", "=", "<<-") && length(x) == 3L
+  has_pred <- function(x) any(grepl("\\bpredict\\s*\\(", deparse(x)))
+  env       <- new.env(parent = environment())
+  pred_objs <- character(0)
+  shown     <- numeric(0)
+  for (e in exprs) {
+    v <- tryCatch(withVisible(eval(e, env)), error = function(er) NULL)
+    if (is.null(v)) next
+    if (is_assign(e)) {
+      if (has_pred(e[[3]])) pred_objs <- union(pred_objs, deparse(e[[2]]))
+      next
+    }
+    if (isTRUE(v$visible) &&
+        (has_pred(e) || (is.name(e) && deparse(e) %in% pred_objs))) {
+      shown <- c(shown, suppressWarnings(as.numeric(v$value)))
+    }
   }
-  got <- suppressWarnings(vapply(pcalls, function(cl) {
-    v <- tryCatch(as.numeric(eval(cl))[1], error = function(e) NA_real_)
-    if (length(v) == 0L) NA_real_ else v
-  }, numeric(1)))
-  if (any(!is.na(got) & (got < 0 | got > 1))) {
-    fail("One of your calls produced a number below 0 or above 1, which is a log-odds rather than a probability. Add `type = \"response\"` to that call so the prediction comes back on the probability scale.")
+  if (length(shown) == 0L) {
+    fail("Your code computes the predictions but never displays them. Assigning a prediction to an object with `<-` stores it silently, so nothing is printed and there are no probabilities to compare. Either drop the assignments, or add the object names on their own lines so both probabilities appear in the output.")
+  }
+  if (anyNA(shown)) {
+    fail("One of your predictions came back as `NA` rather than a number. That happens when a value in `newdata =` is not one R recognizes, most often a level name for **rural_cat** spelled differently from the levels in the data. Supply it as `factor(\"Urban\", levels = levels(counties$rural_cat))`.")
+  }
+  got <- shown[shown >= 0 & shown <= 1]
+  if (length(got) != 2L) {
+    fail(paste0("Your code should display two predicted probabilities, one for each mortality risk. It displays ", length(got), ". A number below 0 or above 1 is a log-odds rather than a probability, so check that `type = \"response\"` appears in every `predict()` call."))
   }
 
   expected <- as.numeric(predict(model_trump,
                                  newdata = data.frame(
                                    wage_growth = mean(counties$wage_growth, na.rm = TRUE),
-                                   prop_college_grad = c(0.18, 0.31),
-                                   prop_white = 0.84,
-                                   mortality_risk_25_45 = 2.8,
+                                   prop_college_grad = 0.35,
+                                   prop_white = 0.65,
+                                   mortality_risk_25_45 = c(2.5, 5.0),
                                    rural_cat = factor("Urban",
                                                       levels = levels(counties$rural_cat))),
                                  type = "response"))
   for (i in 1:2) {
-    if (is.na(got[i]) || abs(got[i] - expected[i]) > 5e-4) {
-      fail(paste0("The ", c("first", "second")[i], " call does not give the expected probability. Every required value appears somewhere in your code, so check that call on its own: the fitted model is **model_trump**, `newdata` is one data frame holding all five predictors, and **rural_cat** is supplied as `factor(\"Urban\", levels = levels(counties$rural_cat))` rather than as a bare string. Only **prop_college_grad** may differ between the two calls."))
+    if (abs(got[i] - expected[i]) > 5e-4) {
+      fail(paste0("The ", c("first", "second")[i], " prediction does not give the expected probability. Every required value appears somewhere in your code, so check that prediction on its own: the fitted model is **model_trump**, `newdata` is one data frame holding all five predictors, and **rural_cat** is supplied as `factor(\"Urban\", levels = levels(counties$rural_cat))` rather than as a bare string. Only **mortality_risk_25_45** may differ between the two predictions."))
     }
   }
-  pass("Right. Both predictions computed: 0.927 for the county at a college graduation rate of 0.18 and 0.733 for the county at 0.31. The two counties differ on education and nothing else.")
+  pass("Right. Both predictions computed: 0.180 for the county at a mortality risk of 2.5 and 0.407 for the county at 5.0. The two counties differ on mortality risk and nothing else.")
 })
 ```
 
-**Practice 12: Interpret the two predictions**
+**Practice 11: Interpret the two predictions**
 
 ```{r quiz-predict-3, echo=FALSE}
-question("What do your two predictions establish?",
-  correct = "Right: a difference in probability for two counties that differ only in education, at this one location on the curve.",
-  answer("For an urban county with a proportion white of 0.84, a working-age mortality risk of 2.8% and average wage growth, a college graduation rate of 0.18 rather than 0.31 corresponds to a probability of a Trump majority about 19 points higher, 0.927 against 0.733",
+question("Both of your comparisons move working-age mortality risk from 2.5% to 5.0% and hold everything else fixed. What do the two of them establish together?",
+  correct = "Right: the same difference in mortality risk is worth different amounts at different places on the curve.",
+  answer("The same difference in mortality risk corresponds to about 6 points for the county average on the other predictors and about 23 points for the more educated, more diverse county, so how far a difference in distress moves the probability depends on the values the other predictors are held at",
          correct = TRUE,
-         message = "This is what the two numbers say and no more. The two counties differ on education and nothing else, so the 19 points belong to that difference --- for a county with this proportion white, this mortality risk and this wage growth."),
-  answer("Any two counties whose college graduation rates differ by 0.13 differ by about 19 points in their probability of a Trump majority",
-         message = "The 19 points is not a rate that holds elsewhere. Set the proportion white to 0.65 instead of 0.84 and leave everything else alone, and the same two college graduation rates give 0.654 and 0.288 --- a difference of 37 points. How far a difference in education moves the probability depends on where the county already sits on the curve."),
-  answer("The 0.13 difference in college graduation rate changes the log-odds by 1.54, which is the 19-point difference written on the model's own scale",
-         message = "The log-odds arithmetic is right: the coefficient on **prop_college_grad** is -11.86, and a 0.13 difference changes the log-odds by 1.54. But 1.54 is not 19 points in other units. The same 1.54 corresponds to a different number of percentage points at every position on the curve, which is why the probabilities had to be computed rather than converted."),
-  answer("Education is the stronger of the two predictors in the Sides et al. argument, since a 0.13 difference in college graduation rate moves the probability 19 points",
-         message = "Both predictions hold the proportion white fixed at 0.84, so neither one says anything about what race contributes. Comparing two predictors means putting their differences on a common footing --- the same number of percentiles, say --- and these two predictions do not do that."),
+         message = "One relationship, two sizes. The model has a single coefficient on mortality risk; what differs is where each county sits on the curve."),
+  answer("The coefficient on mortality risk is larger for more educated, more diverse counties, which is why that comparison gives about 23 points against about 6",
+         message = "There is one coefficient on mortality risk, 0.4570, and it applies to every county. The two comparisons differ because of where the counties sit, not because the model estimated anything twice."),
+  answer("The two comparisons disagree, about 6 points against about 23, so the model needs an interaction between mortality risk and education before the mortality hypothesis can be tested",
+         message = "Nothing here disagrees. A logistic model gives different probability differences at different places on the curve even with no interaction in it at all."),
+  answer("A 2.5-point difference in mortality risk is worth about 14 points for a typical county, the average of the 6 points and the 23 points the two comparisons produced",
+         message = "Averaging the two gives a number that describes neither county. There is no single probability difference to report --- which is why the profile has to be stated alongside it."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "The two counties differ on one predictor. Ask what the 19 points is attached to: both of these counties in particular, or any pair of counties differing by 0.13 in education."
+  try_again = "The model has one coefficient on mortality risk. Ask what else differed between your two comparisons."
 )
 ```
 
@@ -738,24 +737,24 @@ Every county in the data has a predicted probability of a Trump majority, comput
 
 The `hitmiss()` function from the [pscl]{.package-name} package answers that from the fitted model alone. It applies the 0.5 cutoff to every predicted probability, cross-tabulates the resulting predictions against the outcomes that actually occurred --- a table called a confusion matrix --- and reports three percentages from it:
 
-- **Percent correctly predicted overall** --- the proportion of all observations the model classified correctly
-- **Percent correctly predicted for $y = 0$** --- the proportion of cases where the outcome did not occur that the model correctly identified
-- **Percent correctly predicted for $y = 1$** --- the proportion of cases where the outcome did occur that the model correctly identified
+- **Percent correctly predicted overall** --- the percentage of all observations the model classified correctly
+- **Percent correctly predicted for $y = 0$** --- the percentage of cases where the outcome did not occur that the model correctly identified
+- **Percent correctly predicted for $y = 1$** --- the percentage of cases where the outcome did occur that the model correctly identified
 
-It also reports the **null model**: the percentage a model with no predictors would get right by predicting the most common outcome category for every case. A model that uses five predictors ought to do better than one that uses none, so the null model is the baseline the other three percentages are read against.
+It also reports the **null model**: the percentage a model with no predictors would get right by predicting the most common outcome category for every case. A model that uses five predictors ought to do better than one that uses none, so the null model is the baseline for the other three percentages.
 
-**Practice 13: Assess classification performance**
+**Practice 12: Assess classification performance**
 
 `hitmiss()` comes from the [pscl]{.package-name} package, which the starter below loads for you. Write the code to assess classification performance underneath that line, passing **model_trump** to `hitmiss()`. One hint is available. Click "Submit Answer" to check your work.
 
-```{r exercise-hitmiss, exercise=TRUE, exercise.cap="Practice 13"}
+```{r exercise-hitmiss, exercise=TRUE, exercise.cap="Practice 12"}
 library(pscl)  # first use in this tutorial; it stays loaded from here on
 
 ```
 
 ```{r exercise-hitmiss-hint-1}
 # Hint 1 of 1
-# The question is how often the outcome the model expects
+# The question is how often the outcome the model predicts
 # matches the outcome that actually occurred, and whether
 # that beats always guessing the commoner outcome. One
 # function answers all of it from the fitted model alone:
@@ -791,7 +790,7 @@ grade_this({
 })
 ```
 
-**Practice 14: Interpret classification performance**
+**Practice 13: Interpret classification performance**
 
 ```{r quiz-hitmiss, echo=FALSE}
 question("Which of these statements are correct? Select all that apply.",
@@ -826,21 +825,21 @@ The 0.5 cutoff is conventional rather than inherent in logistic regression. It h
 So were county-level economic conditions and demographic composition associated with Trump support in 2016? Partly. One of the two retrospective voting hypotheses survives and the other does not, while the demographic composition argument is carried by the two strongest relationships in the model.
 
 ::: {.research-example}
-The two retrospective voting hypotheses fare differently. Wage growth is not distinguishable from zero (z = -0.64, p = .52): once education, racial composition, mortality risk and urbanicity are held constant, counties where wages grew faster were no less likely to give Trump a majority. Working-age mortality risk is distinguishable from zero (z = 3.56, p < .001), in the predicted direction. Recent economic trajectory shows no association here; longer-run community distress does. The demographic composition argument fares better: higher proportions of white residents and lower proportions of college graduates are the two most sharply estimated relationships in the model, both running as Sides, Tesler and Vavreck would expect. Rurality matters only at one end of the scale --- genuinely rural counties differ from urban ones (p = .032), intermediate counties do not (p = .60). Predicted probabilities say how much mortality risk and the college graduation rate move the probability. Of two otherwise identical urban counties --- average wage growth, a college graduation rate of 0.35, a proportion white of 0.65 --- the one with a mortality risk of 5.0 has a predicted probability of 0.408 against 0.180 for the one at 2.5. Of two urban counties with a proportion white of 0.84, a mortality risk of 2.8 and average wage growth, the one at the 25th percentile of college graduates among urban counties has a predicted probability of 0.927 against 0.733 for the one at the 75th. Each pair holds for counties sitting where those profiles put them; neither difference would be the same somewhere else on the curve. The model classifies 90.5% of counties correctly against the null model's 84.3%. It identifies 272 of the 489 Clinton-majority counties, which a null model never identifies at all, and gives back 77 of the Trump-majority counties the null model gets right.
+The two retrospective voting hypotheses fare differently. Wage growth is not distinguishable from zero (z = -0.64, p = .52): once education, racial composition, mortality risk and urbanicity are held constant, counties where wages grew faster were no less likely to give Trump a majority. Working-age mortality risk is distinguishable from zero (z = 3.56, p < .001), in the predicted direction. Recent economic trajectory shows no association here; longer-run community distress does. The demographic composition argument fares better: higher proportions of white residents and lower proportions of college graduates are the two most sharply estimated relationships in the model, both running as Sides, Tesler and Vavreck would expect. Rurality matters only at one end of the scale --- genuinely rural counties differ from urban ones (p = .032), intermediate counties do not (p = .60). Predicted probabilities say how much mortality risk moves the probability, and where. Of two otherwise identical urban counties average on wage growth, the college graduation rate and the proportion of white residents, the one with a working-age mortality risk of 5.0 has a predicted probability of a Trump majority of 0.969 against 0.909 for the one at 2.5 --- six points. Of two urban counties with a college graduation rate of 0.35, a proportion white of 0.65 and average wage growth, the one at 5.0 has a predicted probability of 0.407 against 0.180 for the one at 2.5 --- twenty-three points. The same difference in distress is worth almost four times as much where the outcome is in question as where the model already expects a Trump majority. Each pair holds for counties sitting where those profiles put them; neither difference would be the same somewhere else on the curve. The model classifies 90.5% of counties correctly against the null model's 84.3%. It identifies 272 of the 489 Clinton-majority counties, which a null model never identifies at all, and gives back 77 of the Trump-majority counties the null model gets right.
 :::
 
-## Are State Ideology and Economic Conditions Associated with Greenhouse Gas Emissions Cap Adoption?
+## Are State Ideology and Economic Conditions Associated with Having a Greenhouse Gas Emissions Cap?
 
 Climate policy has become one of the most politically polarized domains in American state politics. While federal action on greenhouse gas emissions has been contested, states have taken divergent paths --- some have binding emissions caps for the utility sector while others do not. Understanding which states have emissions caps and why they differ requires attention to both the ideological character of the state's public and the economic conditions that shape the political calculus of environmental regulation.
 
 Two theoretical perspectives motivate this model. First, mass ideology shapes the political environment in which policy is made. More conservative publics are generally more skeptical of environmental regulation, viewing emissions caps as imposing costs on businesses and consumers without commensurate benefits. States where a higher percentage of residents identifies as conservative should be less likely to have a greenhouse gas cap. Second, economic conditions shape the political feasibility of regulation. States with higher poverty rates may prioritize economic development and energy affordability over environmental policy, and energy-intensive industries on which lower-income states depend are disproportionately affected by emissions restrictions. We also control for whether the state has a Republican governor, who would be expected to resist emissions regulations regardless of public ideology.
 
-One other difference matters for what the results can show. The county model used 3,109 counties; this one uses 50 states. With few cases the estimates are imprecise, so a relationship has to be stronger here to be distinguished from zero. That is not a claim that more cases would leave these estimates unchanged --- a larger or different set of cases can move an estimate, and can move it far enough to change a sign. It is a claim about how much these data can resolve, and it matters most for the coefficients below that fall short of the conventional threshold.
+One other difference matters for what the results can show. The county model used 3,109 counties; this one uses 50 states. With few cases the estimates are imprecise, so a relationship has to be stronger here to be distinguished from zero. That is not a claim that more cases would leave these estimates unchanged --- a larger or different set of cases can move an estimate, and can move it far enough to change a sign. It is a claim about how much these data can resolve, and it matters most for the coefficients below that fall short of the conventional threshold. A p-value is a continuous measure of evidence, not a verdict. A p-value of .073 is not evidence that the relationship is absent --- it is a relationship these 50 states cannot resolve, and reporting it as "not significant at the .05 level" is accurate where reporting it as "no relationship" is not.
 
 The data frame **statesPolicy** contains **policy_ghgcap2024**, which equals 1 if a state has a binding greenhouse gas emissions cap in the utility sector as of 2024 and 0 otherwise. The explanatory variables (predictors) are:
 
 - **ideology_conservative2024**: the percentage of PRRI American Values Atlas respondents in the state identifying as conservative in 2024 --- states with more conservative publics should be less likely to have emissions caps
-- **gov_f**: the party of the sitting governor in 2024, recoded as a factor with `"Democrat"` as the reference category --- Republican governors have generally opposed emissions regulations
+- **gov_f**: the party of the sitting governor in 2024, which in these data is either Democrat or Republican --- 23 Democratic and 27 Republican across the 50 states --- recoded as a factor with Democrat as the reference category; Republican governors have generally opposed emissions regulations
 - **econ_poverty2022**: the percentage of the state population below the federal poverty line in 2022 --- states with higher poverty rates face greater political pressure to prioritize economic concerns over environmental regulation
 
 These variables are not all measured in the same year: the emissions cap and the governor's party are as of 2024, conservative identification comes from the 2024 PRRI American Values Atlas, and the poverty rate is from 2022.
@@ -859,11 +858,11 @@ In a comparison of states, those with higher poverty rates will be less likely t
 
 ### Estimate the Model
 
-**Practice 15: Estimate the logistic regression model**
+**Practice 14: Estimate the logistic regression model**
 
-Fill in the blanks to estimate the logistic regression model. The outcome variable is **policy_ghgcap2024**, the three predictors are **ideology_conservative2024**, **gov_f** and **econ_poverty2022**, and the data frame is **statesPolicy**. Do not forget `family = "binomial"`. Two hints are available. Click "Submit Answer" to check your work.
+Complete the code to estimate the logistic regression model. The outcome variable is **policy_ghgcap2024**, the three predictors are **ideology_conservative2024**, **gov_f** and **econ_poverty2022**, and the data frame is **statesPolicy**. Do not forget `family = "binomial"`. Two hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-estimate-ghg, exercise=TRUE, exercise.cap="Practice 15"}
+```{r exercise-estimate-ghg, exercise=TRUE, exercise.cap="Practice 14"}
 model_ghg <- ___
 summary(model_ghg)
 ```
@@ -958,9 +957,9 @@ grade_this({
 
 ### Interpret the Coefficients
 
-The reading rules are the ones established earlier: direction from the sign, nothing about size from the magnitude. One thing about this table is worth noticing before you work through it. **gov_f** contributes a single row, because every governor in these data is a Democrat or a Republican and `"Democrat"` is the reference.
+**gov_f** contributes a single row to the table rather than two. In the first example **rural_cat** had three categories and produced two rows, one per non-reference category; a categorical predictor with two categories produces one, comparing Republican-governed states against the Democratic reference.
 
-**Practice 16: Interpret the coefficients**
+**Practice 15: Interpret the coefficients**
 
 ```{r quiz-gov-f-ghg, echo=FALSE}
 question("Which of these statements are correct? Select all that apply.",
@@ -988,7 +987,7 @@ question("Which of these statements are correct? Select all that apply.",
 
 The procedure and the decision rule are the ones you applied in the first example. Statistical significance comes from the z-value and the p-value, not from the size of a coefficient.
 
-**Practice 17: Test the hypotheses**
+**Practice 16: Test the hypotheses**
 
 ```{r quiz-hyp-test-ghg, echo=FALSE}
 question("Using the conventional .05 level, which of these statements are correct? Select all that apply.",
@@ -1016,15 +1015,15 @@ question("Using the conventional .05 level, which of these statements are correc
 
 ### Present the Results
 
-With the analysis complete, present the results in a publication-quality table. The `stargazer()` arguments are the same as in the first example. Use the title `"State-Level Predictors of Greenhouse Gas Emissions Cap Adoption"` and the outcome-variable label `"GHG Emissions Cap (1 = Yes)"`. The three covariate labels for this model are `"Poverty Rate (%)"`, `"Republican Governor"` and `"Conservative Identification (%)"`. Determine the correct order from your model output above.
+With the analysis complete, present the results in a publication-quality table. The `stargazer()` arguments are the same as in the first example.
 
-**gov_f** contributes a single row: every governor in these data is a Democrat or a Republican, so with `"Democrat"` as the reference there is one non-reference level. Check the `Coefficients` table from your `summary()` output to confirm the order the predictors appear in before writing your labels.
+**gov_f** contributes a single row: with Democrat as the reference there is one non-reference level. Check the `Coefficients` table from your `summary()` output to confirm the order the predictors appear in before writing your labels.
 
-**Practice 18: Produce a labeled stargazer table**
+**Practice 17: Produce a labeled stargazer table**
 
-Fill in the blanks to produce a table with the prescribed labels. Two hints are available. Click "Submit Answer" to check your work.
+Complete the code to produce the table. Use the title \"State-Level Predictors of Having a Greenhouse Gas Emissions Cap\" and the outcome-variable label \"GHG Emissions Cap (1 = Yes)\". The three covariate labels are \"Poverty Rate (%)\", \"Republican Governor\" and \"Conservative Identification (%)\" --- determine the correct order from your model output above. Two hints are available. Click "Submit Answer" to check your work.
 
-```{r exercise-stargazer-ghg, exercise=TRUE, exercise.cap="Practice 18"}
+```{r exercise-stargazer-ghg, exercise=TRUE, exercise.cap="Practice 17"}
 stargazer(model_ghg,
           ___ = "text",
           ___ = "___",
@@ -1066,9 +1065,9 @@ grade_this({
   if (!grepl("type\\s*=\\s*['\"]text['\"]", code_no_comments)) {
     fail("Set `type = \"text\"` to display the table as text output.")
   }
-  if (!grepl("State-Level Predictors of Greenhouse Gas Emissions Cap Adoption",
+  if (!grepl("State-Level Predictors of Having a Greenhouse Gas Emissions Cap",
              code_no_comments, fixed = TRUE)) {
-    fail("Use the prescribed title: \"State-Level Predictors of Greenhouse Gas Emissions Cap Adoption\"")
+    fail("Use the prescribed title: \"State-Level Predictors of Having a Greenhouse Gas Emissions Cap\"")
   }
   if (!grepl("GHG Emissions Cap (1 = Yes)", code_no_comments, fixed = TRUE)) {
     fail("Use the prescribed `dep.var.labels`: \"GHG Emissions Cap (1 = Yes)\"")
@@ -1090,7 +1089,7 @@ grade_this({
   }
   rendered <- paste(utils::capture.output(
     stargazer::stargazer(model_ghg, type = "text",
-                         title = "State-Level Predictors of Greenhouse Gas Emissions Cap Adoption",
+                         title = "State-Level Predictors of Having a Greenhouse Gas Emissions Cap",
                          dep.var.labels = "GHG Emissions Cap (1 = Yes)",
                          covariate.labels = labels_needed)), collapse = "\n")
   strip <- function(x) gsub("[^A-Za-z ]", "",
@@ -1106,15 +1105,17 @@ grade_this({
 
 ## What Does the Model Predict for Particular States?
 
-The mechanics are the ones you used in the first example: `predict()` with `type = "response"`, and a `newdata` data frame carrying a value for every predictor, with factors supplied as `factor("level", levels = levels(data$variable))`. What changes is the states being described. The three profiles below are deliberately far apart --- in ideology, in governor party, and in poverty rate --- and comparing the probabilities they produce is the point of the section.
+The two hypotheses in this example each name something that should make a state less likely to cap its emissions: a more conservative public, and a higher poverty rate. The coefficients gave the direction of each; what they could not give is how much either is worth on the probability scale. So each hypothesis gets its own comparison --- two states differing on that one predictor, with the other two held fixed, so that whatever difference appears belongs to the predictor that moved. And as in the first example, the values you hold are part of the finding: a comparison made where the model already puts the outcome near 0 or near 1 will be small whatever the relationship is. The `predict()` calls work exactly as they did there.
 
 ### Obtain a Predicted Probability
 
-**Run and observe 19: Obtain a predicted probability**
+**Run and observe 18: Obtain a predicted probability**
 
-Rhode Island, Delaware, Massachusetts and California are the four least conservative states in these data, between 14% and 26% of residents identifying as conservative. All four have Democratic governors, and all four have emissions caps. Start with a state like them: 20% conservative identification, a Democratic governor, and the mean poverty rate of 12.4%. Run the code to obtain the predicted probability that this state has a greenhouse gas cap.
+Take ideology first. The coefficient told us the direction of the relationship and that it is distinguishable from zero; what it cannot tell us is how far apart two states are. Answering that means picking two states that differ in conservative identification and in nothing else. Conservative identification runs from 14% to 50% across the 50 states, averaging 36%, so a twelve-point difference is large but well inside what states actually show. We will compare 20% against 32%, pairing a state among the least conservative in these data with one still below the national average, and ask how different the probability of having a cap is between them.
 
-```{r exercise-predict-ghg1, exercise=TRUE, exercise.cap="Run and observe 19"}
+Both states have a Democratic governor, the reference category, and both sit at the mean poverty rate of 12.4% --- the hypothesis is about the public, so the institutional and economic predictors are what we hold. Start with the first of the two. Run the code to obtain its predicted probability of having a greenhouse gas cap.
+
+```{r exercise-predict-ghg1, exercise=TRUE, exercise.cap="Run and observe 18"}
 predict(model_ghg,
         newdata = data.frame(
           ideology_conservative2024 = 20,
@@ -1124,7 +1125,7 @@ predict(model_ghg,
         type = "response")
 ```
 
-**Practice 20: Interpret the predicted probability**
+**Practice 19: Interpret the predicted probability**
 
 ```{r quiz-predict-ghg1, echo=FALSE}
 question("Your output shows 0.944. What does that number tell us?",
@@ -1133,7 +1134,7 @@ question("Your output shows 0.944. What does that number tell us?",
          correct = TRUE,
          message = "A predicted probability belongs to one case --- here a state with low conservative identification, a Democratic governor and an average poverty rate."),
   answer("That about 94% of the states in the data with this profile have an emissions cap",
-         message = "A predicted probability is not a count of anything that happened. It is what the fitted model expects for a state with these characteristics, whether or not any state in the data has them."),
+         message = "A predicted probability is not a count of anything that happened. It is what the fitted model predicts for a state with these characteristics, whether or not any state in the data has them."),
   answer("That the cap in a state with this profile covers about 94% of utility-sector emissions",
          message = "**policy_ghgcap2024** records whether a state has a binding cap, not how much the cap covers. The model predicts the probability of having one."),
   answer("That the state's log-odds are 0.944, and `exp()` would be needed to turn that into a probability",
@@ -1146,13 +1147,13 @@ question("Your output shows 0.944. What does that number tell us?",
 
 ### Change One Predictor
 
-At 32% conservative identification --- twelve points higher --- the Democrat-governed states are Illinois, Maryland, New York, North Carolina, Oregon and Wisconsin, and only two of the six have emissions caps. Consider a state at that level, identical to the first in every other respect: the same Democratic governor, and the same poverty rate of 12.4%, the mean. Comparing the two isolates the estimated association of ideology.
+The size we want is a gap between two probabilities, and so far there is only one. The second state carries everything the first does except a conservative identification of 32%.
 
-**Practice 21: Change one predictor and compare**
+**Practice 20: Change one predictor and compare**
 
-Fill in the blank with the higher percentage of residents identifying as conservative described above. Everything else in the `newdata` data frame stays exactly the same as the exercise above. One hint is available. Click "Submit Answer" to check your work.
+Complete the code with the higher percentage of residents identifying as conservative described above. Everything else in the `newdata` data frame stays exactly the same as the exercise above. One hint is available. Click "Submit Answer" to check your work.
 
-```{r exercise-predict-ghg2, exercise=TRUE, exercise.cap="Practice 21"}
+```{r exercise-predict-ghg2, exercise=TRUE, exercise.cap="Practice 20"}
 predict(model_ghg,
         newdata = data.frame(
           ideology_conservative2024 = ___,
@@ -1215,7 +1216,7 @@ grade_this({
 })
 ```
 
-**Practice 22: Interpret the comparison**
+**Practice 21: Interpret the comparison**
 
 ```{r quiz-predict-ghg2, echo=FALSE}
 question("Which sentence reports the comparison most completely --- completely enough that a reader could reproduce both predicted probabilities?",
@@ -1237,22 +1238,27 @@ question("Which sentence reports the comparison most completely --- completely e
 
 ### Build a Prediction from Scratch
 
-Both arguments in this example point the same way for one kind of state: a heavily conservative public, a Republican governor, and a poverty rate well above the 12.4% state average. Louisiana, West Virginia, Arkansas, Alabama and Oklahoma all look like that --- conservative identification near 40%, a Republican governor, poverty rates between 16% and 19% --- and none of them has an emissions cap. Build that state and ask what the model expects for it: `ideology_conservative2024 = 40`, a Republican governor, and `econ_poverty2022 = 17.0`.
+The poverty rate has had no comparison of its own yet. Its coefficient fell short of the .05 threshold, which limits what these 50 states can resolve but says nothing about size, and size is what a comparison gives. Moving the poverty rate while holding ideology and governor party fixed is the same move you just made for ideology, with a different predictor.
 
-**Practice 23: Build a prediction from scratch**
+Hold the state at 32% conservative identification with a Democratic governor, which is where the previous comparison ended, and move the poverty rate instead. The state poverty rate runs from 7.2% to 19.1%, averaging 12.4%. Compare 10% against 16%: each sits near one end of that range, with nine states at or below 10% and seven at or above 16%.
 
-Write the code to obtain the predicted probability for this state profile. Use `predict()` with `type = "response"` and supply a `newdata` data frame with all three predictors. Three hints are available. Click "Submit Answer" to check your work.
+**Practice 22: Build a prediction from scratch**
 
-```{r exercise-predict-ghg3, exercise=TRUE, exercise.cap="Practice 23"}
+Write both `predict()` calls from scratch. Each uses `type = "response"` and a `newdata` data frame carrying all three predictors. In both, set `ideology_conservative2024 = 32` and **gov_f** to Democrat. The first call takes `econ_poverty2022 = 10.0` and the second `econ_poverty2022 = 16.0`. Three hints are available. Click "Submit Answer" to check your work.
+
+```{r exercise-predict-ghg3, exercise=TRUE, exercise.cap="Practice 22"}
+# The state at the lower poverty rate
+
+# The same state at the higher poverty rate
 
 ```
 
 ```{r exercise-predict-ghg3-hint-1}
 # Hint 1 of 3
-# You want the probability the model assigns to one particular
-# state --- a state described by a specific value on every
-# predictor in the model. The model is already fitted; you are
-# asking what it expects for a case you have specified.
+# Each call asks the model what probability it assigns to one
+# state, described by a specific value on every predictor in the
+# model. Nothing is being estimated: the model is already fitted,
+# and you are asking what it expects for a case you specified.
 ```
 
 ```{r exercise-predict-ghg3-hint-2}
@@ -1260,7 +1266,7 @@ Write the code to obtain the predicted probability for this state profile. Use `
 # The function is the one used in the two exercises above. It
 # needs the fitted model, a data frame of new values, and the
 # argument that asks for the answer on the probability scale
-# rather than the log-odds scale. The data frame must carry all
+# rather than the log-odds scale. Each data frame must carry all
 # three predictors: ideology_conservative2024, gov_f, and
 # econ_poverty2022.
 ```
@@ -1269,10 +1275,13 @@ Write the code to obtain the predicted probability for this state profile. Use `
 # Hint 3 of 3
 # gov_f is a factor. Supply the level the course way, as a factor
 # carrying all of the original levels, so the value is explicit
-# about the levels the model was fitted on ---
-# the same construction shown in the first prediction exercise of
-# this example. The value for every predictor is given in the
-# prose above.
+# about the levels the model was fitted on --- the same
+# construction shown in the first prediction exercise of this
+# example. The second call is the first call with one number
+# changed: copy it and replace the value of econ_poverty2022. If
+# any other value differs between the two calls, the difference
+# between the two probabilities is no longer the poverty
+# difference alone.
 ```
 
 ```{r exercise-predict-ghg3-check}
@@ -1284,69 +1293,98 @@ grade_this({
   }
 
   if (!grepl("predict\\s*\\(", code_no_comments)) {
-    fail("Use `predict()` to obtain the predicted probability.")
+    fail("Use `predict()` to obtain the predicted probabilities.")
   }
   if (!grepl("type\\s*=\\s*['\"]response['\"]", code_no_comments)) {
-    fail("The call needs `type = \"response\"`, with **response** in quotation marks, so the prediction comes back on the probability scale. Left out, `predict()` reports the log-odds instead; written without the quotation marks, R looks for an object named `response`, does not find one, and stops.")
+    fail("Each call needs `type = \"response\"`, with **response** in quotation marks, so the predictions come back on the probability scale. Left out, `predict()` reports the log-odds instead; written without the quotation marks, R looks for an object named `response`, does not find one, and stops.")
   }
-  if (!grepl("ideology_conservative2024\\s*=\\s*40", code_no_comments)) {
-    fail("Set `ideology_conservative2024 = 40` as given in the prose above.")
+  moved <- suppressWarnings(as.numeric(unlist(strsplit(
+    gsub("[^0-9.]+", " ",
+         sub(".*=", "",
+             regmatches(code_no_comments,
+                        gregexpr("econ_poverty2022\\s*=\\s*(c\\s*\\([^)]*\\)|[0-9.]+)",
+                                 code_no_comments))[[1]])),
+    " +"))))
+  moved <- moved[!is.na(moved)]
+  if (!any(abs(moved - 10.0) < 1e-8)) {
+    fail("Set **econ_poverty2022** to 10.0 for the lower-poverty state, the lower of the two poverty rates compared above.")
   }
-  if (!grepl("Republican", code_no_comments)) {
-    fail("Set **gov_f** using `factor(\"Republican\", levels = levels(statesPolicy$gov_f))`.")
+  if (!any(abs(moved - 16.0) < 1e-8)) {
+    fail("Set **econ_poverty2022** to 16.0 for the higher-poverty state, the higher of the two poverty rates compared above.")
   }
-  if (!grepl("econ_poverty2022\\s*=\\s*17", code_no_comments)) {
-    fail("Set `econ_poverty2022 = 17.0` as given in the prose above.")
+  if (!grepl("ideology_conservative2024\\s*=\\s*32", code_no_comments)) {
+    fail("Set `ideology_conservative2024 = 32` in both calls. Ideology is being held fixed here, so it has to carry the same value in each one.")
   }
-  if (is.null(.result)) {
-    fail("Your code did not produce a result, so R stopped with an error. Read the error message shown above your code: it names the problem. The usual causes are a mistyped variable name, a value or argument left out of `newdata`, and unmatched parentheses.")
-  }
-  val <- suppressWarnings(tryCatch(as.numeric(unlist(.result)),
-                                   error = function(e) NA_real_))
-  one <- length(val) == 1 && !is.na(val)
-  shown <- if (one) paste0("produced ", signif(val, 4)) else paste0("produced ", length(val), " numbers")
-  if (one && (val < 0 || val > 1)) {
-    fail(paste0("Your code produced ", signif(val, 4), ", which is a log-odds rather than a probability --- a probability cannot be negative or greater than 1. Add `type = \"response\"` to the `predict()` call so the prediction comes back on the probability scale."))
+  if (!grepl("Democrat", code_no_comments)) {
+    fail("Set **gov_f** to Democrat in both calls, using `factor(\"Democrat\", levels = levels(statesPolicy$gov_f))`.")
   }
 
-  expected <- predict(model_ghg,
-                      newdata = data.frame(
-                        ideology_conservative2024 = 40,
-                        gov_f = factor("Republican",
-                                       levels = levels(statesPolicy$gov_f)),
-                        econ_poverty2022 = 17.0),
-                      type = "response")
-  if (length(val) != length(as.numeric(expected)) ||
-      !isTRUE(all.equal(val, as.numeric(expected), tolerance = 1e-4))) {
-    fail(paste0("Your code ", shown, ", which is not the predicted probability for this state. All three predictor values appear in your code, so the mismatch is elsewhere: check that the fitted model is **model_ghg**, that **gov_f** is supplied as `factor(\"Republican\", levels = levels(statesPolicy$gov_f))` rather than as a bare string, and that `newdata` is one data frame holding all three predictors."))
+  exprs <- tryCatch(as.list(parse(text = code_no_comments)), error = function(e) NULL)
+  if (is.null(exprs)) {
+    fail("Your code could not be parsed, so R stopped before running it. Read the error message shown above your code: the usual causes are a missing comma and an unmatched parenthesis.")
   }
-  pass("Right. This prediction rests on the same fitted coefficients as the earlier ones, evaluated at a different combination of predictor values.")
+  is_assign <- function(x)
+    is.call(x) && deparse(x[[1]]) %in% c("<-", "=", "<<-") && length(x) == 3L
+  has_pred <- function(x) any(grepl("\\bpredict\\s*\\(", deparse(x)))
+  env       <- new.env(parent = environment())
+  pred_objs <- character(0)
+  shown     <- numeric(0)
+  for (e in exprs) {
+    v <- tryCatch(withVisible(eval(e, env)), error = function(er) NULL)
+    if (is.null(v)) next
+    if (is_assign(e)) {
+      if (has_pred(e[[3]])) pred_objs <- union(pred_objs, deparse(e[[2]]))
+      next
+    }
+    if (isTRUE(v$visible) &&
+        (has_pred(e) || (is.name(e) && deparse(e) %in% pred_objs))) {
+      shown <- c(shown, suppressWarnings(as.numeric(v$value)))
+    }
+  }
+  if (length(shown) == 0L) {
+    fail("Your code computes the predictions but never displays them. Assigning a prediction to an object with `<-` stores it silently, so nothing is printed and there are no probabilities to compare. Either drop the assignments, or add the object names on their own lines so both probabilities appear in the output.")
+  }
+  if (anyNA(shown)) {
+    fail("One of your predictions came back as `NA` rather than a number. That happens when a value in `newdata =` is not one R recognizes, most often a level name for **gov_f** spelled differently from the levels in the data. Supply it as `factor(\"Democrat\", levels = levels(statesPolicy$gov_f))`.")
+  }
+  got <- shown[shown >= 0 & shown <= 1]
+  if (length(got) != 2L) {
+    fail(paste0("Your code should display two predicted probabilities, one for each poverty rate. It displays ", length(got), ". A number below 0 or above 1 is a log-odds rather than a probability, so check that `type = \"response\"` appears in every `predict()` call."))
+  }
+
+  expected <- as.numeric(predict(model_ghg,
+                                 newdata = data.frame(
+                                   ideology_conservative2024 = 32,
+                                   gov_f = factor("Democrat",
+                                                  levels = levels(statesPolicy$gov_f)),
+                                   econ_poverty2022 = c(10.0, 16.0)),
+                                 type = "response"))
+  for (i in 1:2) {
+    if (abs(got[i] - expected[i]) > 5e-4) {
+      fail(paste0("The ", c("first", "second")[i], " prediction does not give the expected probability. Every required value appears somewhere in your code, so check that prediction on its own: the fitted model is **model_ghg**, `newdata` is one data frame holding all three predictors, and **gov_f** is supplied as `factor(\"Democrat\", levels = levels(statesPolicy$gov_f))` rather than as a bare string. Only **econ_poverty2022** may differ between the two predictions."))
+    }
+  }
+  pass("Right. Both predictions computed: 0.631 for the state at a poverty rate of 10% and 0.065 for the state at 16%. The two states differ on the poverty rate and nothing else.")
 })
 ```
 
-You now have three predicted probabilities, one from each of the last three exercises:
-
-- a Democrat-governed state with 20% conservative identification and the mean poverty rate of 12.4%: **0.94**
-- the same state at 32% conservative identification: **0.32**
-- a Republican-governed state with 40% conservative identification and a poverty rate of 17%: **0.001**
-
-**Practice 24: Interpret the three predictions together**
+**Practice 23: Interpret the two comparisons together**
 
 ```{r quiz-predict-ghg3, echo=FALSE}
-question("The first two states differ on one predictor; the second and third differ on all three. What do the three probabilities show?",
-  correct = "Right: how far apart two predicted probabilities are depends on where on the curve they sit.",
-  answer("The pair differing on one predictor is 62 points apart and the pair differing on all three is 32 points apart, because the second pair sits in the flat lower tail where the curve has little slope left",
+question("You have made two comparisons: one moving conservative identification from 20% to 32%, and one moving the poverty rate from 10% to 16%. The coefficients table gave conservative identification p = .030 and the poverty rate p = .073. What do the two comparisons together show?",
+  correct = "Right: the size of a predicted difference and the precision of the relationship behind it are separate things.",
+  answer("The two comparisons are nearly the same size, about 62 points and about 57 points, even though one rests on a relationship distinguishable from zero at the .05 level and the other does not --- so the size of a predicted difference says nothing about how precisely it is estimated",
          correct = TRUE,
-         message = "Read the probabilities. 0.94 to 0.32 crosses the steep middle of the S-curve; 0.32 to 0.001 runs down into the flat tail."),
-  answer("The pair differing on all three predictors is further apart, because each additional difference adds to the gap",
-         message = "It is closer: 32 points against 62. More difference among the predictors produced less difference in probability."),
-  answer("The pair differing on all three predictors is 32 points apart because its three differences partly offset one another",
-         message = "Check the signs. All three coefficients are negative and the third state sits on the penalized side of all three, so the differences work together rather than offsetting."),
-  answer("The pair differing on all three predictors is 32 points apart because the poverty rate and governor party have weaker relationships than conservative identification",
-         message = "Both of those coefficients are larger, -0.5348 and -1.32 against -0.2963. The gap is smaller despite that, because of where on the curve the two states sit."),
+         message = "Two comparisons of almost identical size, one significant and one not. A predicted difference is computed from the coefficient; whether that coefficient can be distinguished from zero is a separate question the prediction cannot answer."),
+  answer("The poverty comparison is smaller, about 57 points against about 62, which is what the larger p-value on the poverty rate predicts",
+         message = "A p-value does not tell you how large a predicted difference will be. The poverty rate has the larger coefficient of the two, -0.5348 against -0.2963, and the ordering of the two comparisons comes from the values compared and where they sit on the curve."),
+  answer("The poverty comparison should be disregarded, since a predicted difference computed from a coefficient at p = .073 is not a real difference",
+         message = "0.631 and 0.065 are what the fitted model implies for those two states, and the arithmetic is sound. What p = .073 limits is the confidence you can place in the relationship, not the computation."),
+  answer("Both comparisons are large, about 62 points and about 57, so both hypotheses are supported at the .05 level",
+         message = "The size of a predicted difference is not a hypothesis test. The poverty rate's coefficient gives p = .073, which does not clear .05, however many points its comparison covers."),
   allow_retry = TRUE,
   random_answer_order = TRUE,
-  try_again = "Compare each pair's two probabilities against where they sit between 0 and 1. One pair passes through the middle of the S-curve; the other does not."
+  try_again = "Compare the two differences in size, then compare the two p-values. Ask whether the first tells you anything about the second."
 )
 ```
 
@@ -1354,18 +1392,18 @@ question("The first two states differ on one predictor; the second and third dif
 
 The `hitmiss()` function works the same way as in the first example: pass it the fitted model object to obtain the confusion matrix and classification statistics.
 
-**Practice 25: Assess classification performance**
+**Practice 24: Assess classification performance**
 
 Write the code to assess classification performance for the greenhouse gas cap model. Pass **model_ghg** to `hitmiss()`. One hint is available. Click "Submit Answer" to check your work.
 
-```{r exercise-hitmiss-ghg, exercise=TRUE, exercise.cap="Practice 25"}
+```{r exercise-hitmiss-ghg, exercise=TRUE, exercise.cap="Practice 24"}
 
 ```
 
 ```{r exercise-hitmiss-ghg-hint-1}
 # Hint 1 of 1
 # The question is the same one you asked of the county model:
-# how often does the outcome the model expects match what
+# how often does the outcome the model predicts match what
 # actually happened, and does that beat always guessing the
 # commoner outcome? The same function answers it, and it needs
 # nothing but the fitted model --- here, model_ghg.
@@ -1399,7 +1437,7 @@ grade_this({
 })
 ```
 
-**Practice 26: Interpret classification performance**
+**Practice 25: Interpret classification performance**
 
 ```{r quiz-hitmiss-ghg, echo=FALSE}
 question("Which of these statements are correct? Select all that apply.",
@@ -1429,17 +1467,17 @@ Measured against its own null model, this is the better performance of the two e
 
 So are state ideology and economic conditions associated with having a greenhouse gas cap? Ideology, yes. Economic conditions, not on this evidence --- and with 50 states, the qualifier "on this evidence" matters.
 
-The two examples together show what sets the size of a probability change. In the county model two counties 2.5 units apart in mortality risk sit at 0.180 and 0.408, a difference of 23 points. Here two states 12 points apart in conservative identification sit at 0.94 and 0.32, a difference of 62 points. Neither coefficient could have told you that. The size of a probability difference depends on how far apart the two cases are on the predictor and on where their predicted probabilities sit on the curve, and only predicted probabilities put those two things together.
-
 ::: {.research-example}
-Conservative identification is negatively associated with having an emissions cap and distinguishable from zero (z = -2.18, p = .030): the more conservative a state's public, the less likely the state is to have a cap, controlling for governor party and poverty rate. The poverty rate runs in the predicted direction but falls short of the conventional threshold (z = -1.80, p = .073), and governor party is not distinguishable from zero (p = .208). Neither result establishes that these variables are unrelated to the outcome: with 50 cases the standard errors are large, and a p-value of .073 is better read as a limit on what these data can resolve than as evidence of no relationship. On the probability scale the ideology association is substantial across the range where states actually differ --- a 12-point difference in conservative identification separates a state the model puts at 0.94 from one it puts at 0.32, both Democrat-governed and both at the mean poverty rate of 12.4%. The model classifies 88% of states correctly against the null model's 74%.
+Conservative identification is negatively associated with having an emissions cap and distinguishable from zero (z = -2.18, p = .030): the more conservative a state's public, the less likely the state is to have a cap, controlling for governor party and poverty rate. The poverty rate runs in the predicted direction but falls short of the conventional threshold (z = -1.80, p = .073), and governor party is not distinguishable from zero (p = .208). Neither result establishes that these variables are unrelated to the outcome: with 50 cases the standard errors are large, and a p-value of .073 is better read as a limit on what these data can resolve than as evidence of no relationship. On the probability scale the ideology association is substantial across the range where states actually differ --- a 12-point difference in conservative identification separates a state the model puts at 0.94 from one it puts at 0.32, both Democrat-governed and both at the mean poverty rate of 12.4%. The poverty comparison is almost as large on the probability scale --- for Democrat-governed states at 32% conservative identification, the model puts a state with a 10% poverty rate at 0.63 and one at 16% at 0.06 --- which is the clearest warning the example offers that the size of a predicted difference carries no information about whether the relationship behind it can be distinguished from zero. The model classifies 88% of states correctly against the null model's 74%.
 :::
+
+One comparison across the two examples is worth making before moving on. In the county model two counties 2.5 units apart in mortality risk sit at 0.180 and 0.407, a difference of 23 points. Here two states 12 points apart in conservative identification sit at 0.94 and 0.32, a difference of 62 points. Neither coefficient could have told you that. The size of a probability difference depends on how far apart the two cases are on the predictor and on where their predicted probabilities sit on the curve, and only predicted probabilities put those two things together.
 
 ## Check Your Understanding
 
-These last questions step back from the output and ask about the reasoning behind it. Focus on why a binary outcome needs a different model, on what a coefficient does and does not tell you, and on what classification accuracy establishes once you know how common the outcome is.
+The two examples showed that a logistic regression coefficient gives the direction of a relationship and whether it can be distinguished from zero but not its size, that the size of a probability difference depends on the values the other predictors are held at, and that classification accuracy cannot be read without comparing it with the null model. The questions below ask you to apply these ideas to new scenarios without looking back at the examples.
 
-**Apply 27: Why logistic regression?**
+**Apply 26: Why logistic regression?**
 
 ```{r quiz-cyu-why-logistic, echo=FALSE}
 question("A researcher studying whether citizens participate in protests estimates a linear regression with a binary outcome. What are reasons to prefer logistic regression for this analysis? Select all that apply.",
@@ -1460,7 +1498,7 @@ question("A researcher studying whether citizens participate in protests estimat
 )
 ```
 
-**Apply 28: What happens when the reference category changes?**
+**Apply 27: What happens when the reference category changes?**
 
 A researcher models whether legislators support a bill. Party identification has three categories: Democrat, Independent and Republican. Democrats are the reference category, and the Republican coefficient is positive. The researcher changes the reference category to Republican and refits the same model.
 
@@ -1482,7 +1520,7 @@ question("What changes?",
 )
 ```
 
-**Apply 29: What a coefficient does not tell you**
+**Apply 28: What a coefficient does not tell you**
 
 A logistic model of whether a city adopts a climate action plan reports a coefficient of 0.18 on median household income, measured in thousands of dollars. A student concludes that each additional thousand dollars raises the probability of adoption by 0.18 percentage points.
 
@@ -1494,8 +1532,8 @@ question("What is wrong with that conclusion?",
          message = "The coefficient is the same wherever the city sits. On the probability scale it produces a large difference for cities near the middle of the curve and almost none near either end, so the size has to come from predicted probabilities."),
   answer("Nothing is wrong, except that 0.18 percentage points should be written as 0.0018",
          message = "The units are the problem, not the decimal point. A log-odds coefficient does not become a probability change by rescaling it."),
-  answer("The conclusion is right in direction, but the student should have exponentiated 0.18 first to get the percentage-point change",
-         message = "Exponentiating gives an odds ratio, which describes odds rather than probability. That is a different quantity, not a conversion to percentage points."),
+  answer("The conclusion should be stated per dollar rather than per thousand dollars, since income is measured in thousands",
+         message = "The predictor's units are fine --- the coefficient is per thousand dollars, which is what the student said. What is wrong is the outcome's units: 0.18 is a change in the log-odds, not in percentage points."),
   answer("The conclusion holds only for cities whose other characteristics are at their means",
          message = "Holding the others at their means does not make it correct. Wherever they are held, the coefficient is still in log-odds and the probability change still depends on where the city sits on the curve."),
   allow_retry = TRUE,
@@ -1504,7 +1542,7 @@ question("What is wrong with that conclusion?",
 )
 ```
 
-**Apply 30: Why equal differences produce unequal probability changes**
+**Apply 29: Why equal differences produce unequal probability changes**
 
 A logistic model estimates the probability that a country experiences a mass protest. Two countries differing by 10 points on an economic dissatisfaction index have predicted probabilities 20 percentage points apart. Another two countries differing by the same 10 points are only 2 percentage points apart.
 
@@ -1526,7 +1564,7 @@ question("How is that possible?",
 )
 ```
 
-**Apply 31: Evaluating classification accuracy**
+**Apply 30: Evaluating classification accuracy**
 
 A logistic regression predicts whether incumbent legislators win reelection. The model correctly classifies 92% of elections, but incumbents win 90% of the elections in the data.
 
@@ -1550,7 +1588,7 @@ question("What is the most informative conclusion?",
 
 ## The Takeaways
 
-Linear regression requires an interval-level outcome --- a quantity that can take many values along a continuous scale. When the outcome is binary, a different model is needed. [Logistic regression]{.important-text} fits an ordinary linear equation, but not to the probability itself. It fits one to the [log-odds]{.important-text} of the outcome, $\log(p_i/(1-p_i))$, which has no upper or lower bound and so can accommodate a straight line. The [logistic function]{.important-text} converts that line back into a probability, and because it returns a value strictly between 0 and 1 for any input, predicted probabilities can never run past the bounds. The S-shaped curve you saw at the start of this tutorial is a consequence of that conversion: the same step along the log-odds scale produces a large change in probability near the middle, where the probability is far from both bounds, and a small one near the ends, where it is close to one of them.
+Linear regression requires an interval-level outcome --- a quantity that can take many values along a continuous scale. When the outcome is binary, a different model is needed. [Logistic regression]{.important-text} fits an ordinary linear equation, but not to the probability itself. It fits one to the [log-odds]{.important-text} of the outcome, $\log(p_i/(1-p_i))$, which has no upper or lower bound and so can accommodate a straight line. The [logistic function]{.important-text} converts that line back into a probability, and because it returns a value strictly between 0 and 1 for any input, predicted probabilities can never run past the bounds. The S-shaped curve is a consequence of that conversion.
 
 **Estimating the model.** Use `glm()` with `family = "binomial"` to estimate a logistic regression model, which fits a linear equation to the log-odds of a binary outcome and converts it back with the [logistic function]{.important-text}, so predicted probabilities stay between 0 and 1. The formula and `data` arguments work exactly like `lm()`: the outcome goes on the left of the tilde, the predictors go on the right separated by `+`, and bare variable names work because the `data` argument tells R where to find them. Assign the result to a named object with `<-` and pass it to `summary()` to display the coefficients table. Categorical predictors, including those with more than two categories, work the same way as in linear regression --- R omits the reference category and reports one coefficient for each remaining category.
 
@@ -1559,21 +1597,17 @@ Linear regression requires an interval-level outcome --- a quantity that can tak
 - The **sign** of a coefficient tells you the direction of the relationship: positive means higher values of the predictor are associated with a higher probability of the outcome; negative means the opposite.
 - The **magnitude** of the coefficient does not translate directly into a statement about the size of the estimated association on the probability scale. Never interpret a logistic regression coefficient as "a one-unit increase in $X$ changes the probability of the outcome by [coefficient] percentage points." That interpretation belongs to linear regression, not logistic. To communicate the size of an estimated association, you need predicted probabilities.
 - A coefficient on a **categorical predictor** is a comparison against the reference category, not a statement about the variable as a whole. A predictor with three categories contributes two coefficients, each comparing one category against the reference. Changing which category is the reference changes those comparisons, and changes nothing about what the model predicts for any particular case.
-- An **odds ratio**, which published work often reports in place of a coefficient, is `exp()` of the coefficient: the multiplicative change in the odds of the outcome for a one-unit increase in the predictor. A ratio of 1 means no relationship, above 1 means the odds go up, and below 1 means they go down. It is still not a change in probability, which is why these tutorials go from coefficients to predicted probabilities rather than through the odds scale.
+- An **odds ratio**, which published work often reports in place of a coefficient, describes odds rather than probability. The reading develops it. These tutorials go from coefficients to predicted probabilities and skip the odds scale.
 
 **Conducting hypothesis tests.** The coefficients table has the same general structure as `lm()` output: one row per non-intercept coefficient, with a categorical predictor contributing one row for each non-reference category, each showing an estimate, standard error, test statistic, and p-value. One thing differs. The test statistic column is labeled `z value` rather than `t value`, because logistic regression uses maximum likelihood estimation rather than ordinary least squares, and the resulting sampling distribution is approximately standard normal in large samples rather than t. The decision rule is the same: a z-value whose absolute value exceeds 1.96 corresponds approximately to a p-value below .05, and the five-step procedure applies without modification.
 
 **Presenting the results.** `stargazer()` works the same way for a logistic regression model as it does for a linear one. Supply a title, a label for the outcome, and one readable label per coefficient row, remembering that a categorical predictor contributes one row per non-reference category. The labels are matched to rows by position, so their order has to follow the order the rows appear in the coefficients table.
 
-**Predicted probabilities.** Because the magnitude of a logistic regression coefficient cannot be interpreted on the probability scale, communicating the substantive size of an estimated association requires [predicted probabilities]{.important-text}. Use `predict()` with `type = "response"` to obtain predicted probabilities from a fitted logistic model. Without `type = "response"`, `predict()` returns predictions on the log-odds scale, which are not directly interpretable. Supply a `newdata` data frame with a value for every predictor in the model, named and typed exactly as in the formula --- for factor variables, use `factor("level", levels = levels(data$variable))` so the level carries the same factor levels the model was fitted on.
+**Predicted probabilities.** Because the magnitude of a logistic regression coefficient cannot be interpreted on the probability scale, communicating the substantive size of an estimated association requires [predicted probabilities]{.important-text}. Use `predict()` with `type = "response"` to obtain predicted probabilities from a fitted logistic model. Without `type = "response"`, `predict()` returns predictions on the log-odds scale, which are not directly interpretable. Supply a `newdata` data frame with a value for every predictor in the model, named and typed exactly as in the formula --- for categorical predictors, use `factor("level", levels = levels(data$variable))` so the level carries the factor levels used when the model was fitted.
 
-The choice of predictor values to plug in matters more than it does in linear regression, because the size of a probability change when one predictor varies depends on where you are on the S-curve --- which depends on the values held constant. The same one-unit increase in a predictor produces a large probability change near the steep middle of the curve and a small one near the flat extremes. Always be explicit about what is held constant, and consider comparing predictions at substantively meaningful values rather than at arbitrary points.
+Which values you hold constant is part of the finding, not background to it: the same difference in a predictor produces a large probability difference near the steep middle of the curve and a small one near the flat extremes. State the held values, and choose ones your claim concerns.
 
-**Classification performance.** Logistic regression does not report the ordinary $R^2$ used in linear regression, and none of the alternatives provides a direct replacement for it. The null deviance, residual deviance and AIC at the bottom of the `summary()` output are used to build fit measures and to compare models, but none can be read on its own. What this tutorial examines instead is one particular aspect of model performance: how accurately the model classifies cases. The `hitmiss()` function from the [pscl]{.package-name} package reports it, taking the fitted model object as its argument. It converts each predicted probability to a predicted outcome using a 0.5 threshold, cross-tabulates those predictions against the actual outcomes in a [confusion matrix]{.important-text}, and reports three percentages: the overall percent correctly predicted, the percent correctly predicted for $y = 0$, and the percent correctly predicted for $y = 1$.
-
-`hitmiss()` also reports the **null model** --- the percentage a model with no predictors would get right by always predicting the most common outcome category. The model's accuracy is only readable against that baseline, never against an abstract standard, because how much room there is for improvement depends on how imbalanced the outcome is. The more dominant the modal category, the higher the null model's accuracy and the less a model can add to it. A model that classifies 95% of cases correctly has achieved nothing if 95% of cases share the same outcome.
-
-That is why the county model's 90.5% against a baseline of 84.3% is a smaller achievement than the state model's 88% against 74%: six points of improvement against fourteen. In both cases the model classified the majority outcome considerably more accurately than the minority one, which is a property of the classification rule and the outcome distribution rather than a verdict on the model.
+**Classification performance.** Logistic regression does not report the ordinary $R^2$ used in linear regression, and the null deviance, residual deviance and AIC at the bottom of the `summary()` output cannot be read on their own --- each requires a comparison with a second model. What this tutorial examines instead is how accurately the model classifies cases. The `hitmiss()` function from the [pscl]{.package-name} package reports it from the fitted model object, applying a 0.5 threshold to every predicted probability and cross-tabulating the results against the outcomes that occurred in a [confusion matrix]{.important-text}. It gives the overall percent correctly predicted, the percent for $y = 0$, the percent for $y = 1$, and the **null model** --- the percentage a model with no predictors would get right by always predicting the most common outcome. That baseline is what makes the others readable, because the more dominant the modal category, the less a model can add. A model that classifies 95% of cases correctly has achieved nothing if 95% of cases fall in one category.
 
 This tutorial has covered estimation with `glm()`, direction and significance from the coefficients table, the size of estimated associations through predicted probabilities, and classification performance, which tells you how often the model's predictions fall on the right side of a cutoff. Tutorial 21 extends logistic regression to prediction plots, tracing predicted probabilities across the range of a predictor and comparing them across categories. Those plots make the nonlinear relationships introduced here far easier to communicate.
 
